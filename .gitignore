@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-electron
+.DS_Store
+*.log
+.vscode
+.idea
+
+# IDE & Temp
+.terminal-paste/
+*.local
+.env
+package-simple.json
+AGENTS.md
+
+# External Resources (Not part of project source)
+提示词/
