@@ -99,6 +99,7 @@
       <StatusBar 
         :project-path="projectStore.projectPath"
         :is-loading="projectStore.isLoading"
+        :is-background-loading="projectStore.isBackgroundLoading"
       />
     </template>
   </div>

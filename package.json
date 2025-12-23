@@ -36,7 +36,7 @@
   },
   "build": {
     "appId": "com.openspec.visualizer",
-    "productName": "OpenSpec Visualizer",
+    "productName": "SpecWave",
     "copyright": "Copyright © 2024 OpenSpec Team",
     "directories": {
       "output": "dist-electron",
@@ -70,7 +70,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-安装包.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -78,7 +78,7 @@
       "allowElevation": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OpenSpec Visualizer",
+      "shortcutName": "SpecWave",
       "language": "2052"
     },
     "portable": {

@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 文件系统操作
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
+  readDirectoryDepth: (dirPath, maxDepth) => ipcRenderer.invoke('read-directory-depth', { dirPath, maxDepth }),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
   watchDirectory: (dirPath) => ipcRenderer.invoke('watch-directory', dirPath),
   

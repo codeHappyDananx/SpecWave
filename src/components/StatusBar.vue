@@ -9,6 +9,9 @@
       </span>
     </div>
     <div class="status-right">
+      <span v-if="isBackgroundLoading" class="status-item background-loading">
+        后台加载中...
+      </span>
       <span v-if="isLoading" class="status-item loading">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="2" x2="12" y2="6"/>
@@ -37,6 +40,7 @@
 defineProps<{
   projectPath: string
   isLoading: boolean
+  isBackgroundLoading: boolean
 }>()
 </script>
 
@@ -76,6 +80,11 @@ defineProps<{
 
 .status-item.ready svg {
   color: var(--success-color);
+}
+
+.status-item.background-loading {
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 @keyframes spin {

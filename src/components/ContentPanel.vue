@@ -21,7 +21,7 @@
         <h2>{{ file?.name }}</h2>
       </div>
       
-      <div class="content-body">
+    <div class="content-body" ref="contentBodyRef" @scroll="handleContentScroll">
         <div v-if="file?.type === 'image'" class="image-preview">
           <img :src="file.content" :alt="file.name" />
         </div>
@@ -162,64 +162,171 @@ const editingValue = ref('')
 const editInput = ref<HTMLTextAreaElement | null>(null)
 const saveStatus = ref<'saving' | 'saved' | 'error' | null>(null)
 const originalContent = ref('')
+const taskScrollTop = ref(0)
+const lastTaskPath = ref<string | null>(null)
+const contentBodyRef = ref<HTMLElement | null>(null)
 const collapsedGroups = ref(new Set<string>())
+const renderedContent = ref('')
+const highlightedCode = ref('')
+const LARGE_FILE_THRESHOLD = 200_000
+let markdownRenderToken = 0
+let codeRenderToken = 0
+const requestIdle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
 
-watch(() => props.file, (newFile) => {
-  taskFilter.value = 'all'
-  editingTaskId.value = null
-  saveStatus.value = null
-  collapsedGroups.value.clear()
-  if (newFile) originalContent.value = newFile.content
+watch(() => props.file, (newFile, oldFile) => {
+  const nextPath = newFile?.path || null
+  const prevPath = oldFile?.path || lastTaskPath.value
+  const isTask = newFile?.type === 'task'
+  const isSameFile = !!nextPath && !!prevPath && nextPath === prevPath
+  if (!isTask || !isSameFile) {
+    taskFilter.value = 'all'
+    editingTaskId.value = null
+    saveStatus.value = null
+    collapsedGroups.value.clear()
+    if (isTask) {
+      taskScrollTop.value = 0
+    }
+  }
+  if (newFile) {
+    originalContent.value = newFile.content
+  }
+  scheduleRender(newFile)
+  if (isTask) {
+    lastTaskPath.value = nextPath
+    nextTick(() => restoreTaskScroll())
+  }
 })
+
+function restoreTaskScroll() {
+  const container = contentBodyRef.value
+  if (!container) return
+  container.scrollTop = taskScrollTop.value
+}
+
+function captureTaskScroll() {
+  const container = contentBodyRef.value
+  if (!container) return
+  taskScrollTop.value = container.scrollTop
+}
+
+function handleContentScroll() {
+  if (props.file?.type !== 'task') return
+  captureTaskScroll()
+}
 
 marked.setOptions({ breaks: true, gfm: true })
 
-const renderedContent = computed(() => {
-  if (!props.file || props.file.type !== 'markdown') return ''
-  if (!isPerfEnabled()) return marked(props.file.content)
-  const start = perfNow()
-  const result = marked(props.file.content)
-  const durationMs = perfNow() - start
-  perfLog('markdown.render', {
-    path: props.file.path,
-    bytes: props.file.content.length,
-    durationMs: Math.round(durationMs * 1000) / 1000
-  })
-  return result
-})
+function scheduleRender(file: FileContent | null) {
+  if (!file) {
+    renderedContent.value = ''
+    highlightedCode.value = ''
+    return
+  }
+  if (file.type === 'markdown') {
+    scheduleMarkdownRender(file)
+    highlightedCode.value = ''
+    return
+  }
+  if (file.type === 'code') {
+    scheduleCodeHighlight(file)
+    renderedContent.value = ''
+    return
+  }
+  renderedContent.value = ''
+  highlightedCode.value = ''
+}
 
-const highlightedCode = computed(() => {
-  if (!props.file || props.file.type !== 'code') return ''
-  const lang = props.file.fileType || 'text'
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function scheduleMarkdownRender(file: FileContent) {
+  const token = ++markdownRenderToken
+  renderedContent.value = ''
   const perfEnabled = isPerfEnabled()
-  const start = perfEnabled ? perfNow() : 0
-  if (hljs.getLanguage(lang)) {
-    try {
-      const result = hljs.highlight(props.file.content, { language: lang }).value
+  const run = () => {
+    if (token !== markdownRenderToken) return
+    const start = perfEnabled ? perfNow() : 0
+    const result = marked(file.content)
+    renderedContent.value = result
+    if (perfEnabled) {
+      const durationMs = perfNow() - start
+      perfLog('markdown.render', {
+        path: file.path,
+        bytes: file.content.length,
+        durationMs: Math.round(durationMs * 1000) / 1000,
+        deferred: true
+      })
+    }
+  }
+  if (typeof requestIdle === 'function') {
+    requestIdle(run, { timeout: 400 })
+  } else {
+    window.setTimeout(run, file.content.length > LARGE_FILE_THRESHOLD ? 60 : 0)
+  }
+}
+
+function scheduleCodeHighlight(file: FileContent) {
+  const token = ++codeRenderToken
+  highlightedCode.value = ''
+  const lang = file.fileType || 'text'
+  const perfEnabled = isPerfEnabled()
+  const run = () => {
+    if (token !== codeRenderToken) return
+    const start = perfEnabled ? perfNow() : 0
+    if (file.content.length > LARGE_FILE_THRESHOLD) {
+      highlightedCode.value = escapeHtml(file.content)
       if (perfEnabled) {
         const durationMs = perfNow() - start
         perfLog('code.highlight', {
-          path: props.file.path,
+          path: file.path,
           language: lang,
-          bytes: props.file.content.length,
-          durationMs: Math.round(durationMs * 1000) / 1000
+          bytes: file.content.length,
+          durationMs: Math.round(durationMs * 1000) / 1000,
+          skipped: 'large-file'
         })
       }
-      return result
-    } catch {}
+      return
+    }
+    if (hljs.getLanguage(lang)) {
+      try {
+        const result = hljs.highlight(file.content, { language: lang }).value
+        highlightedCode.value = result
+        if (perfEnabled) {
+          const durationMs = perfNow() - start
+          perfLog('code.highlight', {
+            path: file.path,
+            language: lang,
+            bytes: file.content.length,
+            durationMs: Math.round(durationMs * 1000) / 1000
+          })
+        }
+        return
+      } catch {}
+    }
+    highlightedCode.value = escapeHtml(file.content)
+    if (perfEnabled) {
+      const durationMs = perfNow() - start
+      perfLog('code.highlight', {
+        path: file.path,
+        language: lang,
+        bytes: file.content.length,
+        durationMs: Math.round(durationMs * 1000) / 1000,
+        fallback: true
+      })
+    }
   }
-  if (perfEnabled) {
-    const durationMs = perfNow() - start
-    perfLog('code.highlight', {
-      path: props.file.path,
-      language: lang,
-      bytes: props.file.content.length,
-      durationMs: Math.round(durationMs * 1000) / 1000,
-      fallback: true
-    })
+  if (typeof requestIdle === 'function') {
+    requestIdle(run, { timeout: 400 })
+  } else {
+    window.setTimeout(run, 0)
   }
-  return props.file.content
-})
+}
 
 const taskList = computed<TaskItem[]>(() => {
   if (!props.file || props.file.type !== 'task') return []

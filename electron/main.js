@@ -571,7 +571,7 @@ function getFileType(fileName) {
 }
 
 // 读取目录结构 - 支持所有文件
-function readDirectoryTree(dirPath, basePath = '') {
+function readDirectoryTree(dirPath, basePath = '', maxDepth = null, currentDepth = 0) {
   const items = []
   
   // 先检查目录是否存在
@@ -589,12 +589,18 @@ function readDirectoryTree(dirPath, basePath = '') {
       const relativePath = basePath ? path.join(basePath, entry.name) : entry.name
       
       if (entry.isDirectory()) {
+        const nextDepth = currentDepth + 1
+        const canDescend = maxDepth === null || nextDepth <= maxDepth
+        const children = canDescend
+          ? readDirectoryTree(fullPath, relativePath, maxDepth, nextDepth)
+          : []
         items.push({
           id: relativePath,
           name: entry.name,
           type: 'folder',
           path: relativePath,
-          children: readDirectoryTree(fullPath, relativePath),
+          children,
+          childrenLoaded: canDescend,
           isExpanded: false
         })
       } else {
@@ -651,6 +657,38 @@ ipcMain.handle('perf-log', async (event, payload) => {
   const { event: name, ...data } = payload
   logPerf(name, { source: 'renderer', ...data })
   return { success: true }
+})
+
+// 读取目录（限制深度）
+ipcMain.handle('read-directory-depth', async (event, payload) => {
+  const perfStart = perfLogEnabled ? Date.now() : 0
+  const dirPath = payload?.dirPath
+  const rawDepth = payload?.maxDepth
+  const maxDepth = Number.isFinite(rawDepth) ? Math.max(0, Math.floor(rawDepth)) : null
+  try {
+    if (!dirPath || typeof dirPath !== 'string') {
+      if (perfLogEnabled) {
+        logPerf('read-directory-depth', { dirPath, durationMs: Date.now() - perfStart, itemCount: 0, invalid: true })
+      }
+      return { success: true, items: [] }
+    }
+    if (!fs.existsSync(dirPath)) {
+      if (perfLogEnabled) {
+        logPerf('read-directory-depth', { dirPath, maxDepth, durationMs: Date.now() - perfStart, itemCount: 0, missing: true })
+      }
+      return { success: true, items: [] }
+    }
+    const items = readDirectoryTree(dirPath, '', maxDepth, 0)
+    if (perfLogEnabled) {
+      logPerf('read-directory-depth', { dirPath, maxDepth, durationMs: Date.now() - perfStart, itemCount: items.length })
+    }
+    return { success: true, items }
+  } catch (err) {
+    if (perfLogEnabled) {
+      logPerf('read-directory-depth', { dirPath, maxDepth, durationMs: Date.now() - perfStart, error: err.message })
+    }
+    return { success: false, error: err.message }
+  }
 })
 
 // 读取目录
@@ -746,6 +784,7 @@ ipcMain.handle('watch-directory', async (event, dirPath) => {
 // 终端相关 IPC - 主进程直接使用 node-pty
 const DEFAULT_SHELL = 'powershell.exe'
 const CMD_SHELL = process.env.ComSpec || 'cmd.exe'
+const USE_CONPTY = true
 const PASTE_IMAGE_PREFIX = 'img-'
 const PASTE_IMAGE_EXT = '.png'
 const PASTE_IMAGE_DIR = '.terminal-paste'
@@ -844,8 +883,11 @@ function normalizeShell(shell) {
 
 function resolveShellArgs(shell) {
   const value = String(shell || '').toLowerCase()
-  if (value === 'cmd' || value === 'cmd.exe') return ['/D', '/K']
-  if (value === 'powershell' || value === 'powershell.exe') return ['-NoLogo', '-NoExit']
+  if (value === 'cmd' || value === 'cmd.exe') return ['/D', '/K', 'chcp 65001 >nul']
+  if (value === 'powershell' || value === 'powershell.exe') {
+    const init = '$OutputEncoding=[Text.UTF8Encoding]::UTF8; [Console]::InputEncoding=[Text.UTF8Encoding]::UTF8; [Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8; chcp 65001 > $null'
+    return ['-NoLogo', '-NoExit', '-Command', init]
+  }
   return []
 }
 
@@ -911,7 +953,7 @@ function startTerminal(options = {}) {
       resolvedShell,
       shellArgs,
       cwd: resolvedCwd,
-      useConpty: false,
+      useConpty: USE_CONPTY,
       sessionId
     })
     const spawned = pty.spawn(resolvedShell, shellArgs, {
@@ -920,7 +962,7 @@ function startTerminal(options = {}) {
       rows: 24,
       cwd: resolvedCwd,
       env: process.env,
-      useConpty: false
+      useConpty: USE_CONPTY
     })
     ptySessions.set(sessionId, {
       id: sessionId,
