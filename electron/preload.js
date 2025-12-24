@@ -8,11 +8,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
   readDirectoryDepth: (dirPath, maxDepth) => ipcRenderer.invoke('read-directory-depth', { dirPath, maxDepth }),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
-  watchDirectory: (dirPath) => ipcRenderer.invoke('watch-directory', dirPath),
+  watchDirectory: (payload) => ipcRenderer.invoke('watch-directory', payload),
+  unwatchDirectory: (key) => ipcRenderer.invoke('unwatch-directory', key),
   
   // 文件变化监听
   onFileChanged: (callback) => {
-    ipcRenderer.on('file-changed', (event, data) => callback(data))
+    const listener = (event, data) => callback(data)
+    ipcRenderer.on('file-changed', listener)
+    return () => ipcRenderer.removeListener('file-changed', listener)
+  },
+
+  // 菜单事件
+  onMenuNewTab: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('menu-new-tab', listener)
+    return () => ipcRenderer.removeListener('menu-new-tab', listener)
+  },
+  onMenuCloseTab: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('menu-close-tab', listener)
+    return () => ipcRenderer.removeListener('menu-close-tab', listener)
+  },
+  onMenuOpenRecent: (callback) => {
+    const listener = (event, projectPath) => callback(projectPath)
+    ipcRenderer.on('menu-open-recent', listener)
+    return () => ipcRenderer.removeListener('menu-open-recent', listener)
   },
   
   // 终端操作

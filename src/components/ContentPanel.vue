@@ -63,6 +63,13 @@
               <button class="filter-chip" :class="{ active: taskFilter === 'completed' }" @click="taskFilter = 'completed'">
                 已完成
               </button>
+              <div class="filter-divider"></div>
+              <button class="filter-chip filter-action" type="button" @click="expandAllGroups">
+                展开全部
+              </button>
+              <button class="filter-chip filter-action" type="button" @click="collapseAllGroups">
+                收起全部
+              </button>
             </div>
           </div>
           
@@ -151,10 +158,14 @@ import { useProjectStore } from '../stores/project'
 import { isPerfEnabled, perfLog, perfNow } from '../utils/perf'
 
 const props = defineProps<{
+  storeKey: string
   file: FileContent | null
   isLoading: boolean
 }>()
-const projectStore = useProjectStore()
+let projectStore = useProjectStore(props.storeKey)
+watch(() => props.storeKey, (next) => {
+  projectStore = useProjectStore(next)
+})
 
 const taskFilter = ref<'all' | 'pending' | 'completed'>('all')
 const editingTaskId = ref<string | null>(null)
@@ -182,7 +193,7 @@ watch(() => props.file, (newFile, oldFile) => {
     taskFilter.value = 'all'
     editingTaskId.value = null
     saveStatus.value = null
-    collapsedGroups.value.clear()
+    collapsedGroups.value = new Set()
     if (isTask) {
       taskScrollTop.value = 0
     }
@@ -381,6 +392,18 @@ const groupedTasks = computed(() => {
   return groups
 })
 
+const collapsibleGroupIds = computed(() => {
+  return groupedTasks.value.filter(g => g.tasks.length > 0).map(g => g.id)
+})
+
+function expandAllGroups() {
+  collapsedGroups.value = new Set()
+}
+
+function collapseAllGroups() {
+  collapsedGroups.value = new Set(collapsibleGroupIds.value)
+}
+
 const taskProgress = computed(() => {
   const tasks = taskList.value.filter(t => !t.isSection)
   const completed = tasks.filter(t => t.checked).length
@@ -507,9 +530,11 @@ async function saveTaskEdit(task: TaskItem) {
   border-radius: 16px; 
   box-shadow: 0 2px 12px rgba(0,0,0,0.03); 
   border: 1px solid rgba(0,0,0,0.04);
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.progress-overview { display: flex; align-items: center; gap: 24px; }
+.progress-overview { display: flex; align-items: center; gap: 24px; flex: 1 1 auto; min-width: 260px; }
 .progress-ring-wrapper { position: relative; width: 60px; height: 60px; }
 .progress-ring { transform: rotate(-90deg); }
 .progress-text-center { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
@@ -522,7 +547,24 @@ async function saveTaskEdit(task: TaskItem) {
 .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .stat-divider { font-size: 20px; color: var(--border-color); font-weight: 300; }
 
-.task-filters { display: flex; gap: 8px; }
+.task-filters { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.filter-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  opacity: 0.6;
+  align-self: center;
+  margin: 0 4px;
+}
+.filter-chip.filter-action {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+.filter-chip.filter-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
 .filter-chip { 
   padding: 8px 16px; 
   border-radius: 20px; 

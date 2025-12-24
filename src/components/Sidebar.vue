@@ -154,6 +154,7 @@ import { isPerfEnabled, perfLog, perfNow } from '../utils/perf'
 import { useProjectStore } from '../stores/project'
 
 const props = defineProps<{
+  storeKey: string
   width: number
   searchQuery: string
   changesTree: TreeNodeType[]
@@ -166,7 +167,10 @@ const emit = defineEmits<{
   'select-file': [path: string]
 }>()
 
-const projectStore = useProjectStore()
+let projectStore = useProjectStore(props.storeKey)
+watch(() => props.storeKey, (next) => {
+  projectStore = useProjectStore(next)
+})
 const selectedPath = ref('')
 const showAllFiles = ref(false)
 const sectionsExpanded = reactive({

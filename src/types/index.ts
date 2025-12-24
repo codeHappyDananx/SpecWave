@@ -98,10 +98,15 @@ declare global {
       readDirectoryDepth: (dirPath: string, maxDepth: number) => Promise<{ success: boolean; items?: TreeNode[]; error?: string }>
       readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string; fileType?: string; isImage?: boolean }>
       saveFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
-      watchDirectory: (dirPath: string) => Promise<{ success: boolean; error?: string }>
+      watchDirectory: (payload: { key: string; dirPath: string } | string) => Promise<{ success: boolean; error?: string }>
+      unwatchDirectory: (key: string) => Promise<{ success: boolean; error?: string }>
       
       // 事件监听
-      onFileChanged: (callback: (data: { type: string; path: string }) => void) => void
+      onFileChanged: (callback: (data: { key?: string; type: string; path: string }) => void) => () => void
+
+      onMenuNewTab: (callback: () => void) => () => void
+      onMenuCloseTab: (callback: () => void) => () => void
+      onMenuOpenRecent: (callback: (projectPath: string) => void) => () => void
       
       // 终端
       terminalStart: (options: { cwd?: string; shell?: string } | string) => Promise<{ success: boolean; sessionId?: number; error?: string }>

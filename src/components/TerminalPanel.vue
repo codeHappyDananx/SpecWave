@@ -81,6 +81,15 @@ type TerminalSession = {
   appearance?: TerminalAppearance
 }
 
+type HotDataShape = {
+  terminalByProjectPath?: Record<string, {
+    sessions: Array<{ id: number; shell: 'powershell' | 'cmd'; title: string }>
+    activeSessionId: number | null
+    powershellCount: number
+    cmdCount: number
+  }>
+}
+
 const terminalContainer = ref<HTMLElement | null>(null)
 const sessions = ref<TerminalSession[]>([])
 const activeSessionId = ref<number | null>(null)
@@ -96,6 +105,7 @@ let contextMenuTarget: HTMLElement | null = null
 let initialFitFrame: number | null = null
 let initialFitTimer: number | null = null
 let pasteInFlight = false
+let skipStopOnCleanup = false
 
 const defaultTheme = {
   background: '#1e1e1e',
@@ -132,7 +142,7 @@ const activeAppearance = computed(() => {
 
 const panelStyle = computed(() => {
   const baseStyle = props.isMain
-    ? { flex: '1 1 auto', width: 'auto', minWidth: '0px' }
+    ? { flex: '1 1 auto', width: 'auto', minWidth: '160px' }
     : { width: `${props.width}px` }
   const theme = activeAppearance.value?.theme
   if (!theme) return baseStyle
@@ -182,8 +192,10 @@ function cleanup() {
     removeTerminalExitListener()
     removeTerminalExitListener = null
   }
-  if (window.electronAPI) {
-    window.electronAPI.terminalStop()
+  if (window.electronAPI && !skipStopOnCleanup) {
+    for (const session of sessions.value) {
+      void window.electronAPI.terminalStop(session.id)
+    }
   }
   if (initialFitFrame !== null) {
     cancelAnimationFrame(initialFitFrame)
@@ -205,6 +217,27 @@ function cleanup() {
 async function initSessions() {
   if (!terminalContainer.value) return
 
+  if (import.meta.hot) {
+    const hot = import.meta.hot
+    const data = hot.data as HotDataShape
+    if (!data.terminalByProjectPath) {
+      data.terminalByProjectPath = {}
+    }
+    hot.dispose(() => {
+      skipStopOnCleanup = true
+      data.terminalByProjectPath![props.projectPath] = {
+        sessions: sessions.value.map((session) => ({
+          id: session.id,
+          shell: session.shell,
+          title: session.title
+        })),
+        activeSessionId: activeSessionId.value,
+        powershellCount,
+        cmdCount
+      }
+    })
+  }
+
   contextMenuTarget = terminalContainer.value
   contextMenuTarget.addEventListener('contextmenu', handleContextMenu)
 
@@ -214,6 +247,26 @@ async function initSessions() {
   resizeObserver.observe(terminalContainer.value)
 
   attachTerminalListeners()
+
+  const hotData = (import.meta.hot?.data as HotDataShape | undefined)?.terminalByProjectPath?.[props.projectPath]
+  if (hotData && hotData.sessions.length > 0) {
+    powershellCount = hotData.powershellCount || 0
+    cmdCount = hotData.cmdCount || 0
+    sessions.value = hotData.sessions.map((session) => ({
+      id: session.id,
+      shell: session.shell,
+      title: session.title,
+      connected: true
+    }))
+    activeSessionId.value = hotData.activeSessionId || hotData.sessions[0].id
+    await nextTick()
+    for (const session of sessions.value) {
+      await createTerminalInstance(session.id, session.shell)
+    }
+    scheduleInitialFit()
+    return
+  }
+
   await createSession('powershell')
 }
 
@@ -486,7 +539,7 @@ async function closeSession(sessionId: number) {
 
 async function resetSessions(newPath: string) {
   if (window.electronAPI) {
-    await window.electronAPI.terminalStop()
+    await Promise.all(sessions.value.map((session) => window.electronAPI!.terminalStop(session.id)))
   }
   sessions.value.forEach((session) => disposeSession(session.id))
   sessions.value = []
@@ -500,6 +553,10 @@ async function resetSessions(newPath: string) {
 
 function fitActiveSession() {
   if (props.collapsed) return
+  const container = terminalContainer.value
+  if (!container) return
+  const rect = container.getBoundingClientRect()
+  if (rect.width < 60 || rect.height < 60) return
   const fitAddon = getActiveFitAddon()
   if (!fitAddon) return
   try {

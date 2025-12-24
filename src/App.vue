@@ -1,65 +1,71 @@
 <template>
   <div class="app-container" :class="{ 'no-project': !projectStore.hasProject }">
-    <!-- 项目选择界面 -->
-    <div v-if="!projectStore.hasProject" class="welcome-screen">
-      <div class="welcome-content">
-        <div class="logo">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
+    <AppHeader 
+      @toggle-theme="uiStore.toggleTheme"
+      @toggle-terminal="toggleTerminalVisibility"
+      @toggle-sidebar="toggleSidebarPanel"
+      @toggle-content="toggleContentPanel"
+      @search="handleSearch"
+      @select-project="selectProject"
+      @switch-tab="tabsStore.setActiveTab"
+      @close-tab="tabsStore.closeTab"
+      :project-name="projectStore.projectName"
+      :theme="uiStore.theme"
+      :terminal-open="uiStore.terminalOpen && !uiStore.terminalCollapsed"
+      :sidebar-visible="!uiStore.sidebarCollapsed"
+      :content-visible="!uiStore.contentCollapsed"
+      :search-query="uiStore.searchQuery"
+      :tabs="tabsStore.safeTabs"
+      :active-tab-id="tabsStore.activeTabId"
+    />
+    <div class="main-content" ref="mainContentRef">
+      <!-- 项目选择界面 -->
+      <div v-if="!projectStore.hasProject" class="welcome-screen">
+        <div class="welcome-content">
+          <div class="logo">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          </div>
+          <h1>OpenSpec Visualizer</h1>
+          <p class="subtitle">浏览和管理项目文件</p>
+          
+          <button class="btn-primary" @click="selectProject" :disabled="projectStore.isLoading">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            {{ projectStore.isLoading ? '加载中...' : '选择项目目录' }}
+          </button>
+          
+          <div v-if="recentProjects.length > 0" class="recent-projects">
+            <h3>最近打开的项目</h3>
+            <ul>
+              <li v-for="project in recentProjects" :key="project" @click="openRecentProject(project)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>{{ getProjectName(project) }}</span>
+              </li>
+            </ul>
+          </div>
+          
+          <p v-if="projectStore.error" class="error-message">{{ projectStore.error }}</p>
+          
+          <p v-if="!isElectron" class="web-notice">
+            提示：此功能需要在桌面应用中使用
+          </p>
         </div>
-        <h1>OpenSpec Visualizer</h1>
-        <p class="subtitle">浏览和管理项目文件</p>
-        
-        <button class="btn-primary" @click="selectProject" :disabled="projectStore.isLoading">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
-          {{ projectStore.isLoading ? '加载中...' : '选择项目目录' }}
-        </button>
-        
-        <div v-if="recentProjects.length > 0" class="recent-projects">
-          <h3>最近打开的项目</h3>
-          <ul>
-            <li v-for="project in recentProjects" :key="project" @click="openRecentProject(project)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-              </svg>
-              <span>{{ getProjectName(project) }}</span>
-            </li>
-          </ul>
-        </div>
-        
-        <p v-if="projectStore.error" class="error-message">{{ projectStore.error }}</p>
-        
-        <p v-if="!isElectron" class="web-notice">
-          提示：此功能需要在桌面应用中使用
-        </p>
       </div>
-    </div>
 
-    <!-- 主界面 -->
-    <template v-else>
-      <AppHeader 
-        @toggle-theme="uiStore.toggleTheme"
-        @toggle-terminal="toggleTerminalVisibility"
-        @toggle-sidebar="toggleSidebarPanel"
-        @toggle-content="toggleContentPanel"
-        @search="uiStore.setSearchQuery"
-        @select-project="selectProject"
-        :project-name="projectStore.projectName"
-        :theme="uiStore.theme"
-        :terminal-open="uiStore.terminalOpen && !uiStore.terminalCollapsed"
-        :sidebar-visible="!uiStore.sidebarCollapsed"
-        :content-visible="!uiStore.contentCollapsed"
-      />
-      <div class="main-content" ref="mainContentRef">
+      <!-- 主界面 -->
+      <template v-else>
         <Sidebar 
           v-show="!uiStore.sidebarCollapsed"
+          :store-key="tabsStore.activeStoreKey"
           :width="uiStore.sidebarWidth"
           :search-query="uiStore.searchQuery"
           :changes-tree="projectStore.changesTree"
@@ -70,57 +76,69 @@
         />
         <ContentPanel 
           v-show="!uiStore.contentCollapsed"
+          :store-key="tabsStore.activeStoreKey"
           :file="projectStore.currentFile"
           :is-loading="projectStore.isLoading"
           @navigate-to-spec="navigateToSpec"
         />
-        <TerminalPanel 
-          v-if="uiStore.terminalOpen"
-          v-show="!uiStore.terminalCollapsed"
+      </template>
+
+      <template v-for="tab in tabsStore.safeTabs" :key="tab.id">
+        <TerminalPanel
+          v-if="useProjectStore(tab.storeKey).hasProject"
+          v-show="tab.id === tabsStore.activeTabId && projectStore.hasProject && uiStore.terminalOpen && !uiStore.terminalCollapsed"
           :width="uiStore.terminalWidth"
-          :project-path="projectStore.projectPath"
+          :project-path="useProjectStore(tab.storeKey).projectPath"
           :is-main="uiStore.contentCollapsed"
           :collapsed="uiStore.terminalCollapsed"
           @close="toggleTerminal"
         />
-        <div
-          v-if="!uiStore.sidebarCollapsed"
-          class="split-handle split-handle-left"
-          :style="leftHandleStyle"
-          @mousedown="startResize('sidebar', $event)"
-        ></div>
-        <div
-          v-if="uiStore.terminalOpen && !uiStore.terminalCollapsed && !uiStore.contentCollapsed"
-          class="split-handle split-handle-right"
-          :style="rightHandleStyle"
-          @mousedown="startResize('terminal', $event)"
-        ></div>
-      </div>
-      <StatusBar 
-        :project-path="projectStore.projectPath"
-        :is-loading="projectStore.isLoading"
-        :is-background-loading="projectStore.isBackgroundLoading"
-      />
-    </template>
+      </template>
+
+      <div
+        v-if="projectStore.hasProject && !uiStore.sidebarCollapsed"
+        class="split-handle split-handle-left"
+        :style="leftHandleStyle"
+        @mousedown="startResize('sidebar', $event)"
+      ></div>
+      <div
+        v-if="projectStore.hasProject && uiStore.terminalOpen && !uiStore.terminalCollapsed && !uiStore.contentCollapsed"
+        class="split-handle split-handle-right"
+        :style="rightHandleStyle"
+        @mousedown="startResize('terminal', $event)"
+      ></div>
+    </div>
+
+    <StatusBar 
+      v-if="projectStore.hasProject"
+      :project-path="projectStore.projectPath"
+      :is-loading="projectStore.isLoading"
+      :is-background-loading="projectStore.isBackgroundLoading"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, onBeforeUnmount } from 'vue'
+import { ref, onMounted, computed, onBeforeUnmount, watch } from 'vue'
 import { useProjectStore } from './stores/project'
 import { useUIStore } from './stores/ui'
+import { useTabsStore } from './stores/tabs'
 import AppHeader from './components/AppHeader.vue'
 import Sidebar from './components/Sidebar.vue'
 import ContentPanel from './components/ContentPanel.vue'
 import StatusBar from './components/StatusBar.vue'
 import TerminalPanel from './components/TerminalPanel.vue'
 
-const projectStore = useProjectStore()
+const tabsStore = useTabsStore()
+const projectStore = computed(() => useProjectStore(tabsStore.activeStoreKey))
 const uiStore = useUIStore()
 
 const recentProjects = ref<string[]>([])
-const isElectron = computed(() => projectStore.isElectron())
+const isElectron = computed(() => projectStore.value.isElectron())
 const mainContentRef = ref<HTMLElement | null>(null)
+let removeNewTab: (() => void) | null = null
+let removeCloseTab: (() => void) | null = null
+let removeOpenRecent: (() => void) | null = null
 
 const leftHandleStyle = computed(() => ({ left: `${uiStore.sidebarWidth}px` }))
 const rightHandleStyle = computed(() => ({ left: `calc(100% - ${uiStore.terminalWidth}px)` }))
@@ -162,7 +180,8 @@ function doResize(event: MouseEvent) {
   }
   const diff = resizingStartX - event.clientX
   const sidebarReserve = uiStore.sidebarCollapsed ? 0 : uiStore.sidebarWidth
-  const maxWidth = Math.max(0, containerWidth - sidebarReserve - MIN_CENTER_WIDTH)
+  const centerMin = contentVisible ? MIN_CENTER_WIDTH : MIN_PANEL_WIDTH
+  const maxWidth = Math.max(0, containerWidth - sidebarReserve - centerMin)
   const minWidth = Math.min(MIN_PANEL_WIDTH, maxWidth)
   const nextWidth = Math.max(minWidth, Math.min(resizingStartWidth + diff, maxWidth))
   if (!uiStore.terminalOpen) uiStore.toggleTerminal()
@@ -202,16 +221,35 @@ onMounted(async () => {
   if (window.electronAPI) {
     recentProjects.value = await window.electronAPI.getRecentProjects()
   }
+
+  if (window.electronAPI?.onMenuNewTab) {
+    removeNewTab = window.electronAPI.onMenuNewTab(() => {
+      tabsStore.newTab()
+    })
+  }
+  if (window.electronAPI?.onMenuCloseTab) {
+    removeCloseTab = window.electronAPI.onMenuCloseTab(() => {
+      tabsStore.closeActiveTab()
+    })
+  }
+  if (window.electronAPI?.onMenuOpenRecent) {
+    removeOpenRecent = window.electronAPI.onMenuOpenRecent((projectPath) => {
+      void tabsStore.openRecent(projectPath)
+    })
+  }
+})
+
+watch(() => tabsStore.activeTabId, () => {
+  uiStore.setSearchQuery(tabsStore.activeTab?.searchQuery || '')
 })
 
 async function selectProject() {
-  await projectStore.selectProject()
+  await projectStore.value.selectProject()
+  tabsStore.syncActiveTabTitleFromProject()
 }
 
 async function openRecentProject(path: string) {
-  projectStore.projectPath = path
-  projectStore.projectName = getProjectName(path)
-  await projectStore.loadProject()
+  await tabsStore.openRecent(path)
 }
 
 function getProjectName(path: string): string {
@@ -219,7 +257,12 @@ function getProjectName(path: string): string {
 }
 
 function handleFileSelect(filePath: string) {
-  projectStore.loadFile(filePath)
+  projectStore.value.loadFile(filePath)
+}
+
+function handleSearch(query: string) {
+  uiStore.setSearchQuery(query)
+  tabsStore.setActiveSearchQuery(query)
 }
 
 function toggleTerminal() {
@@ -240,11 +283,14 @@ function toggleTerminalVisibility() {
 
 function navigateToSpec(specPath: string) {
   // 导航到规范文件
-  projectStore.loadFile(specPath)
+  projectStore.value.loadFile(specPath)
 }
 
 onBeforeUnmount(() => {
   stopResize()
+  if (removeNewTab) removeNewTab()
+  if (removeCloseTab) removeCloseTab()
+  if (removeOpenRecent) removeOpenRecent()
 })
 </script>
 
@@ -294,7 +340,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  flex: 1;
   background: var(--bg-primary);
 }
 

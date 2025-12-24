@@ -1,9 +1,13 @@
-import { defineStore } from 'pinia'
+import { defineStore, type StoreDefinition } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TreeNode, FileContent, TaskItem } from '../types'
 import { isPerfEnabled, perfLog, perfNow } from '../utils/perf'
 
-export const useProjectStore = defineStore('project', () => {
+type AnyStoreDefinition = StoreDefinition<string, any, any, any>
+const projectStoreDefinitions = new Map<string, AnyStoreDefinition>()
+
+function createProjectStore(storeKey: string) {
+  return defineStore(`project:${storeKey}`, () => {
   // 状态
   const projectPath = ref<string>('')
   const projectName = ref<string>('')
@@ -29,6 +33,7 @@ export const useProjectStore = defineStore('project', () => {
   let reloadTimer: number | null = null
   let currentFileReloadTimer: number | null = null
   let fileChangeListenerBound = false
+  let removeFileChangeListener: (() => void) | null = null
   let watchedPath = ''
   const taskProgressCache = new Map<string, { completed: number; total: number }>()
   const taskProgressPending = new Set<string>()
@@ -131,6 +136,13 @@ export const useProjectStore = defineStore('project', () => {
       return window.electronAPI.readDirectory(dirPath)
     }
     return window.electronAPI.readDirectoryDepth(dirPath, maxDepth)
+  }
+
+  async function openProject(dirPath: string): Promise<void> {
+    projectPath.value = dirPath
+    projectName.value = dirPath.split(/[/\\]/).pop() || 'Project'
+    isOpenSpec.value = false
+    await loadProject({ reason: 'open-project' })
   }
 
   async function resolveOpenSpecBase(): Promise<string> {
@@ -352,13 +364,15 @@ export const useProjectStore = defineStore('project', () => {
   async function ensureWatchDirectory() {
     if (!projectPath.value || !isElectron()) return
     if (watchedPath === projectPath.value) return
-    await window.electronAPI!.watchDirectory(projectPath.value)
+    await window.electronAPI!.watchDirectory({ key: storeKey, dirPath: projectPath.value })
     watchedPath = projectPath.value
   }
 
   function ensureFileChangeListener() {
     if (fileChangeListenerBound || !isElectron()) return
-    window.electronAPI!.onFileChanged((payload) => {
+    removeFileChangeListener = window.electronAPI!.onFileChanged((payload) => {
+      const payloadKey = payload?.key || 'default'
+      if (payloadKey !== storeKey) return
       scheduleProjectReload('file-change')
       const relativePath = toProjectRelativePath(payload?.path || '')
       if (!relativePath) return
@@ -635,6 +649,34 @@ export const useProjectStore = defineStore('project', () => {
     let currentId = 0
     let currentTask: TaskItem | null = null
     let currentSection = ''
+    let currentSectionNumberParts: number[] | null = null
+
+    function parseNumberParts(token: string): number[] | null {
+      if (!token) return null
+      const parts = token.split('.').filter(Boolean)
+      if (parts.length === 0) return null
+      const numbers: number[] = []
+      for (const part of parts) {
+        const n = Number(part)
+        if (!Number.isInteger(n) || n < 0) return null
+        numbers.push(n)
+      }
+      return numbers
+    }
+
+    function extractLeadingNumberParts(text: string): number[] | null {
+      const match = text.match(/^(\d+(?:\.\d+)*)(?=\s|$)/)
+      if (!match) return null
+      return parseNumberParts(match[1])
+    }
+
+    function startsWithParts(parts: number[], prefix: number[]): boolean {
+      if (prefix.length > parts.length) return false
+      for (let i = 0; i < prefix.length; i++) {
+        if (parts[i] !== prefix[i]) return false
+      }
+      return true
+    }
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
@@ -643,6 +685,7 @@ export const useProjectStore = defineStore('project', () => {
       const sectionMatch = line.match(/^#{2,3}\s+(.+)$/)
       if (sectionMatch) {
         currentSection = sectionMatch[1].trim()
+        currentSectionNumberParts = extractLeadingNumberParts(currentSection)
         // 添加章节标题作为特殊项
         tasks.push({
           id: `section-${currentId++}`,
@@ -660,7 +703,17 @@ export const useProjectStore = defineStore('project', () => {
         const indent = taskMatch[1].length
         const checked = taskMatch[2].toLowerCase() === 'x'
         const label = taskMatch[3].trim()
-        const level = Math.floor(indent / 2)
+        const indentLevel = Math.floor(indent / 2)
+
+        // 兼容“无缩进但有编号”的子任务（例如 1.0 章节下的 1.0.1）
+        let level = indentLevel
+        const leadingNumberParts = extractLeadingNumberParts(label)
+        if (leadingNumberParts && currentSectionNumberParts) {
+          if (startsWithParts(leadingNumberParts, currentSectionNumberParts)) {
+            const diff = leadingNumberParts.length - currentSectionNumberParts.length
+            if (diff > level) level = diff
+          }
+        }
         
         // 解析需求引用 (如 _Requirements: 1.1, 2.3_)
         const reqMatch = label.match(/_Requirements?:\s*([^_]+)_/i)
@@ -709,6 +762,14 @@ export const useProjectStore = defineStore('project', () => {
 
   // 重置项目
   function resetProject(): void {
+    if (removeFileChangeListener) {
+      removeFileChangeListener()
+      removeFileChangeListener = null
+      fileChangeListenerBound = false
+    }
+    if (window.electronAPI?.unwatchDirectory) {
+      void window.electronAPI.unwatchDirectory(storeKey)
+    }
     projectPath.value = ''
     projectName.value = ''
     isOpenSpec.value = false
@@ -757,6 +818,7 @@ export const useProjectStore = defineStore('project', () => {
     // 方法
     isElectron,
     selectProject,
+    openProject,
     loadProject,
     ensureFullTreeLoaded,
     loadNodeChildren,
@@ -767,4 +829,14 @@ export const useProjectStore = defineStore('project', () => {
     clearCurrentFile,
     resetProject
   }
-})
+  })
+}
+
+export function useProjectStore(storeKey = 'default') {
+  let useStore = projectStoreDefinitions.get(storeKey)
+  if (!useStore) {
+    useStore = createProjectStore(storeKey)
+    projectStoreDefinitions.set(storeKey, useStore)
+  }
+  return useStore()
+}

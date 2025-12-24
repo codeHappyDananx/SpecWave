@@ -6,7 +6,31 @@
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
       </button>
-      <span class="project-name">{{ projectName }}</span>
+      <div class="project-tabs" role="tablist" aria-label="项目页签">
+        <div
+          v-for="tab in tabs"
+          :key="tab.id"
+          class="project-tab"
+          :class="{ active: tab.id === activeTabId }"
+          role="tab"
+          tabindex="0"
+          @click="$emit('switch-tab', tab.id)"
+          @keydown.enter="$emit('switch-tab', tab.id)"
+        >
+          <span class="tab-title">{{ tab.title }}</span>
+          <button
+            class="tab-close"
+            type="button"
+            title="关闭页签"
+            @click.stop="$emit('close-tab', tab.id)"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
     
     <div class="header-center">
@@ -91,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps<{
   projectName: string
@@ -99,6 +123,9 @@ const props = defineProps<{
   terminalOpen: boolean
   sidebarVisible: boolean
   contentVisible: boolean
+  searchQuery: string
+  tabs: Array<{ id: number; title: string }>
+  activeTabId: number
 }>()
 
 const emit = defineEmits<{
@@ -108,9 +135,11 @@ const emit = defineEmits<{
   'toggle-content': []
   'search': [query: string]
   'select-project': []
+  'switch-tab': [tabId: number]
+  'close-tab': [tabId: number]
 }>()
 
-const searchValue = ref('')
+const searchValue = computed(() => props.searchQuery || '')
 
 const themeTitle = computed(() => {
   switch (props.theme) {
@@ -122,12 +151,10 @@ const themeTitle = computed(() => {
 
 function handleSearch(event: Event) {
   const value = (event.target as HTMLInputElement).value
-  searchValue.value = value
   emit('search', value)
 }
 
 function clearSearch() {
-  searchValue.value = ''
   emit('search', '')
 }
 </script>
@@ -163,6 +190,75 @@ function clearSearch() {
   font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
+}
+
+.project-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.project-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.project-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  flex: 0 0 auto;
+}
+
+.project-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.project-tab.active {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.tab-title {
+  max-width: 160px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.tab-close:hover {
+  background: rgba(0, 0, 0, 0.12);
+  opacity: 1;
+}
+
+.project-tab.active .tab-close:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .search-box {

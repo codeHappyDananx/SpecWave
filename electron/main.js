@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, screen, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const chokidar = require('chokidar')
@@ -12,7 +12,7 @@ try {
 }
 
 let mainWindow = null
-let fileWatcher = null
+let fileWatchers = new Map()
 let ptySessions = new Map()
 let ptySessionId = 0
 let userPreferences = {
@@ -489,6 +489,61 @@ function savePreferences() {
   }
 }
 
+function getRecentProjectsForMenu() {
+  try {
+    return userPreferences.recentProjects.filter(p => fs.existsSync(p)).slice(0, 10)
+  } catch {
+    return []
+  }
+}
+
+function sendMenuEvent(channel, payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  try {
+    if (payload === undefined) {
+      mainWindow.webContents.send(channel)
+      return
+    }
+    mainWindow.webContents.send(channel, payload)
+  } catch (err) {
+    console.warn('[Menu] send failed:', err.message)
+  }
+}
+
+function buildApplicationMenuTemplate() {
+  const recentProjects = getRecentProjectsForMenu()
+  const recentItems = recentProjects.length > 0
+    ? recentProjects.map((projectPath) => ({
+      label: path.basename(projectPath) || projectPath,
+      click: () => sendMenuEvent('menu-open-recent', projectPath)
+    }))
+    : [{ label: '（暂无最近项目）', enabled: false }]
+
+  return [
+    {
+      label: '项目',
+      submenu: [
+        { label: '新建页签', accelerator: 'Ctrl+T', click: () => sendMenuEvent('menu-new-tab') },
+        { label: '关闭页签', accelerator: 'Ctrl+W', click: () => sendMenuEvent('menu-close-tab') },
+        { type: 'separator' },
+        { label: '打开最近', submenu: recentItems },
+        { type: 'separator' },
+        { role: 'quit', label: '退出' }
+      ]
+    }
+  ]
+}
+
+function refreshApplicationMenu() {
+  try {
+    const template = buildApplicationMenuTemplate()
+    const menu = Menu.buildFromTemplate(template)
+    Menu.setApplicationMenu(menu)
+  } catch (err) {
+    console.warn('[Menu] build failed:', err.message)
+  }
+}
+
 function createWindow() {
   loadPreferences()
   
@@ -528,6 +583,8 @@ function createWindow() {
     userPreferences.windowBounds = bounds
     savePreferences()
   })
+
+  refreshApplicationMenu()
 }
 
 // 验证是否为有效的 OpenSpec 项目
@@ -645,6 +702,7 @@ ipcMain.handle('select-directory', async () => {
     ...userPreferences.recentProjects.filter(p => p !== selectedPath)
   ].slice(0, 10)
   savePreferences()
+  refreshApplicationMenu()
   
   return { success: true, path: selectedPath, isOpenSpec: isValidOpenSpecProject(selectedPath) }
 })
@@ -753,28 +811,52 @@ ipcMain.handle('read-file', async (event, filePath) => {
 })
 
 // 监听目录变化
-ipcMain.handle('watch-directory', async (event, dirPath) => {
+ipcMain.handle('watch-directory', async (event, payload) => {
   try {
-    if (fileWatcher) {
-      await fileWatcher.close()
+    const key = typeof payload === 'string' ? 'default' : (payload?.key || 'default')
+    const dirPath = typeof payload === 'string' ? payload : payload?.dirPath
+    if (!dirPath || typeof dirPath !== 'string') {
+      return { success: false, error: '目录参数无效' }
     }
-    
-    fileWatcher = chokidar.watch(dirPath, {
+
+    const previous = fileWatchers.get(key)
+    if (previous) {
+      await previous.close()
+    }
+
+    const watcher = chokidar.watch(dirPath, {
       ignored: /(^|[\/\\])\.|node_modules/,
       persistent: true,
       ignoreInitial: true,
       depth: 10
     })
     
-    fileWatcher.on('all', (eventType, filePath) => {
+    watcher.on('all', (eventType, filePath) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('file-changed', {
+          key,
           type: eventType,
           path: filePath
         })
       }
     })
+
+    fileWatchers.set(key, watcher)
     
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+ipcMain.handle('unwatch-directory', async (event, key) => {
+  const watcherKey = key || 'default'
+  try {
+    const watcher = fileWatchers.get(watcherKey)
+    if (watcher) {
+      await watcher.close()
+      fileWatchers.delete(watcherKey)
+    }
     return { success: true }
   } catch (err) {
     return { success: false, error: err.message }
@@ -1064,9 +1146,14 @@ ipcMain.handle('get-recent-projects', async () => {
 app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
-  if (fileWatcher) {
-    fileWatcher.close()
+  for (const watcher of fileWatchers.values()) {
+    try {
+      watcher.close()
+    } catch {
+      // ignore watcher close errors
+    }
   }
+  fileWatchers.clear()
   stopTerminal()
   if (process.platform !== 'darwin') {
     app.quit()
