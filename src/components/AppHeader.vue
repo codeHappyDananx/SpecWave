@@ -40,6 +40,7 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input 
+          ref="searchInputRef"
           type="text" 
           placeholder="搜索文件..." 
           :value="searchValue"
@@ -115,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps<{
   projectName: string
@@ -140,12 +141,22 @@ const emit = defineEmits<{
 }>()
 
 const searchValue = computed(() => props.searchQuery || '')
+const searchInputRef = ref<HTMLInputElement | null>(null)
 
 const themeTitle = computed(() => {
   switch (props.theme) {
     case 'light': return '当前：亮色主题（点击切换）'
     case 'dark': return '当前：暗色主题（点击切换）'
     default: return '当前：跟随系统（点击切换）'
+  }
+})
+
+defineExpose({
+  focusSearch: () => {
+    const input = searchInputRef.value
+    if (!input) return
+    input.focus()
+    input.select()
   }
 })
 

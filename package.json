@@ -8,15 +8,21 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder --win --config",
+    "electron:build": "vite build && electron-builder --config",
+    "electron:build:win": "vite build && electron-builder --win --config",
+    "electron:build:mac": "vite build && electron-builder --mac --config",
+    "postinstall": "electron-builder install-app-deps",
     "electron:preview": "vite build && electron ."
   },
   "dependencies": {
     "chokidar": "^3.5.3",
     "highlight.js": "^11.9.0",
     "marked": "^11.0.0",
+    "monaco-editor": "^0.53.0",
+    "naive-ui": "^2.43.2",
     "node-pty": "^1.0.0",
     "pinia": "^2.1.0",
     "vue": "^3.4.0",
@@ -83,6 +89,25 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     }
   }
 }

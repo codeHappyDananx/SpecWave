@@ -48,12 +48,12 @@ OpenSpec Visualizer 是桌面应用，用于浏览和管理 OpenSpec 规范项�
 - 需要支持 openspec-cn 相关命令的执行与输出展示
 
 ## 重要约束
-- 仅支持 Windows
+- 支持 Windows 与 macOS（基础能力）
 - 渲染进程禁用 nodeIntegration，启用 contextIsolation
-- 终端体验需接近 Windows Terminal，优先 PowerShell，支持 CMD
+- 终端体验在 Windows 需接近 Windows Terminal；macOS 使用内置主题并提供 zsh/bash
 - 统一 Node.js 18 LTS 与随附 npm 9.x，不引入多版本 npm 要求
 
 ## 外部依赖
 - Node.js 18+（开发）
 - openspec-cn CLI
-- Windows 构建工具（node-pty 编译或预编译依赖）
+- 构建工具（node-pty 需要原生编译或预编译依赖）

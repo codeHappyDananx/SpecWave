@@ -1,32 +1,53 @@
 <template>
   <main class="content-panel">
-    <div v-if="!file && !isLoading" class="empty-state">
+    <div v-if="!file" class="empty-state">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
         <polyline points="14 2 14 8 20 8"/>
       </svg>
-      <p>选择一个文件查看内容</p>
+      <p>{{ isLoading ? '加载中...' : '选择一个文件查看内容' }}</p>
     </div>
     
-    <div v-else-if="isLoading" class="loading-state">
-      <div class="loading-spinner"></div>
-      <span>加载中...</span>
-    </div>
-    
-    <div v-if="file && !isLoading" class="content-wrapper">
+    <div v-else class="content-wrapper">
+      <div v-if="isLoading" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <span>加载中...</span>
+      </div>
+      <div v-if="findVisible && !isEditorActive && file?.type !== 'image'" class="find-bar" @keydown.stop>
+        <input
+          ref="findInputRef"
+          v-model="findQuery"
+          class="find-input"
+          type="text"
+          placeholder="在文件中查找"
+          @keydown.enter.prevent="handleFindEnter"
+          @keydown.esc.prevent="closeFind"
+        />
+        <span class="find-count">{{ matchCountLabel }}</span>
+        <button class="find-btn" type="button" title="上一个 (Shift+Enter)" @click="findPrev">↑</button>
+        <button class="find-btn" type="button" title="下一个 (Enter)" @click="findNext">↓</button>
+        <button class="find-btn" type="button" title="关闭 (Esc)" @click="closeFind">✕</button>
+      </div>
       <div class="content-header">
         <div class="file-info">
           <span class="file-path">{{ normalizedPath }}</span>
+          <h2>{{ file?.name }}</h2>
         </div>
-        <h2>{{ file?.name }}</h2>
+        <button
+          v-if="canToggleView"
+          class="view-btn"
+          type="button"
+          :title="viewButtonTitle"
+          @click="toggleViewMode"
+        >{{ viewButtonLabel }}</button>
       </div>
       
-    <div class="content-body" ref="contentBodyRef" @scroll="handleContentScroll">
+    <div class="content-body" :class="{ 'is-editor': isEditorActive }" ref="contentBodyRef" @scroll="handleContentScroll">
         <div v-if="file?.type === 'image'" class="image-preview">
           <img :src="file.content" :alt="file.name" />
         </div>
         
-        <div v-else-if="file?.type === 'task'" class="task-content">
+        <div v-else-if="file?.type === 'task' && currentContentMode === 'task'" class="task-content">
           <!-- 顶部统计栏 -->
           <div class="task-dashboard-header">
             <div class="progress-overview">
@@ -131,19 +152,35 @@
               <p>没有符合条件的任务</p>
             </div>
           </div>
-          
-          <div v-if="saveStatus" class="save-toast" :class="saveStatus">
-            <svg v-if="saveStatus === 'saved'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            <svg v-else-if="saveStatus === 'saving'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-            <span>{{ saveStatus === 'saving' ? '正在保存...' : saveStatus === 'saved' ? '保存成功' : '保存失败' }}</span>
+        </div>
+        
+        <div v-else-if="currentContentMode === 'view'" class="view-content">
+          <div v-if="file?.type === 'code'" class="code-content">
+            <pre><code :class="'language-' + (file.fileType || 'text')" v-html="highlightedCode"></code></pre>
           </div>
+
+          <div v-else-if="file?.type === 'text'" class="text-content">
+            <pre><code class="language-text" v-html="highlightedCode"></code></pre>
+          </div>
+
+          <div v-else class="markdown-content" v-html="renderedContent"></div>
         </div>
-        
-        <div v-else-if="file?.type === 'code'" class="code-content">
-          <pre><code :class="'language-' + (file.fileType || 'text')" v-html="highlightedCode"></code></pre>
+
+        <div v-else class="editor-content">
+          <FileEditor
+            ref="fileEditorRef"
+            :file="file!"
+            :project-path="projectStore.projectPath"
+            @save-status="saveStatus = $event"
+            @saved="handleFileSaved"
+          />
         </div>
-        
-        <div v-else class="markdown-content" v-html="renderedContent"></div>
+
+        <div v-if="saveStatus" class="save-toast" :class="saveStatus">
+          <svg v-if="saveStatus === 'saved'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg v-else-if="saveStatus === 'saving'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <span>{{ saveStatus === 'saving' ? '正在保存...' : saveStatus === 'saved' ? '保存成功' : '保存失败' }}</span>
+        </div>
       </div>
     </div>
   </main>
@@ -156,6 +193,7 @@ import hljs from 'highlight.js'
 import type { FileContent, TaskItem } from '../types'
 import { useProjectStore } from '../stores/project'
 import { isPerfEnabled, perfLog, perfNow } from '../utils/perf'
+import FileEditor from './FileEditor.vue'
 
 const props = defineProps<{
   storeKey: string
@@ -179,10 +217,97 @@ const contentBodyRef = ref<HTMLElement | null>(null)
 const collapsedGroups = ref(new Set<string>())
 const renderedContent = ref('')
 const highlightedCode = ref('')
+const fileEditorRef = ref<{ openFind?: () => void } | null>(null)
 const LARGE_FILE_THRESHOLD = 200_000
 let markdownRenderToken = 0
 let codeRenderToken = 0
 const requestIdle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
+
+const findVisible = ref(false)
+const findQuery = ref('')
+const matchPositions = ref<number[]>([])
+const activeMatchIndex = ref(0)
+const findInputRef = ref<HTMLInputElement | null>(null)
+let findIndexToken = 0
+const MAX_HIGHLIGHTS = 2000
+
+const matchCountLabel = computed(() => {
+  const total = matchPositions.value.length
+  if (total === 0) return '0/0'
+  if (total > MAX_HIGHLIGHTS) return `${activeMatchIndex.value + 1}/${total} (前${MAX_HIGHLIGHTS})`
+  return `${activeMatchIndex.value + 1}/${total}`
+})
+
+type ContentMode = 'editor' | 'view' | 'task'
+const viewModeOverrides = ref<Record<string, ContentMode>>({})
+
+function getDefaultContentMode(file: FileContent): ContentMode {
+  if (file.type === 'task') return 'task'
+  return 'editor'
+}
+
+function getContentModeForFile(file: FileContent): ContentMode {
+  const override = viewModeOverrides.value[file.path]
+  if (override) return override
+  return getDefaultContentMode(file)
+}
+
+const currentContentMode = computed<ContentMode>(() => {
+  const f = props.file
+  if (!f) return 'view'
+  if (f.type === 'image') return 'view'
+  return getContentModeForFile(f)
+})
+
+const isEditorActive = computed(() => currentContentMode.value === 'editor')
+
+const canToggleView = computed(() => {
+  const f = props.file
+  if (!f) return false
+  if (f.type === 'image') return false
+  return true
+})
+
+const viewButtonLabel = computed(() => {
+  const f = props.file
+  if (!f) return 'View'
+  if (f.type === 'task') return currentContentMode.value === 'task' ? 'View' : 'Task'
+  return currentContentMode.value === 'view' ? 'Edit' : 'View'
+})
+
+const viewButtonTitle = computed(() => {
+  const f = props.file
+  if (!f) return '切换视图'
+  if (f.type === 'task') {
+    return currentContentMode.value === 'task' ? '切到编辑器（原文）' : '切回任务看板'
+  }
+  return currentContentMode.value === 'view' ? '切到编辑器' : '切到渲染视图'
+})
+
+function toggleViewMode() {
+  const f = props.file
+  if (!f || f.type === 'image') return
+  const next: ContentMode =
+    f.type === 'task'
+      ? (currentContentMode.value === 'task' ? 'editor' : 'task')
+      : (currentContentMode.value === 'view' ? 'editor' : 'view')
+
+  viewModeOverrides.value = { ...viewModeOverrides.value, [f.path]: next }
+}
+
+watch(currentContentMode, (mode) => {
+  if (!props.file) return
+  if (props.file.type === 'image') return
+  if (mode === 'editor') {
+    findVisible.value = false
+    clearHighlights()
+    renderedContent.value = ''
+    highlightedCode.value = ''
+    return
+  }
+  scheduleRender(props.file)
+  scheduleFindIndex()
+})
 
 watch(() => props.file, (newFile, oldFile) => {
   const nextPath = newFile?.path || null
@@ -198,10 +323,14 @@ watch(() => props.file, (newFile, oldFile) => {
       taskScrollTop.value = 0
     }
   }
+  if (newFile && getContentModeForFile(newFile) === 'editor') {
+    findVisible.value = false
+  }
   if (newFile) {
     originalContent.value = newFile.content
   }
   scheduleRender(newFile)
+  scheduleFindIndex()
   if (isTask) {
     lastTaskPath.value = nextPath
     nextTick(() => restoreTaskScroll())
@@ -225,10 +354,27 @@ function handleContentScroll() {
   captureTaskScroll()
 }
 
+function handleFileSaved(content: string) {
+  if (!props.file) return
+  projectStore.currentFile = { ...props.file, content }
+}
+
 marked.setOptions({ breaks: true, gfm: true })
 
 function scheduleRender(file: FileContent | null) {
+  clearHighlights()
   if (!file) {
+    renderedContent.value = ''
+    highlightedCode.value = ''
+    return
+  }
+  const mode = file.type === 'image' ? 'view' : getContentModeForFile(file)
+  if (mode === 'editor') {
+    renderedContent.value = ''
+    highlightedCode.value = ''
+    return
+  }
+  if (file.type === 'task') {
     renderedContent.value = ''
     highlightedCode.value = ''
     return
@@ -243,9 +389,262 @@ function scheduleRender(file: FileContent | null) {
     renderedContent.value = ''
     return
   }
+  if (file.type === 'text') {
+    renderedContent.value = ''
+    highlightedCode.value = escapeHtml(file.content)
+    return
+  }
   renderedContent.value = ''
   highlightedCode.value = ''
 }
+
+function openLegacyFind() {
+  findVisible.value = true
+  const selected = window.getSelection?.()?.toString() || ''
+  if (selected && selected.length <= 80 && !selected.includes('\n') && !selected.includes('\r')) {
+    findQuery.value = selected
+  }
+  nextTick(() => {
+    findInputRef.value?.focus()
+    findInputRef.value?.select()
+    scheduleFindIndex()
+  })
+}
+
+function openFind() {
+  if (props.file?.type === 'image') return
+  if (isEditorActive.value) {
+    fileEditorRef.value?.openFind?.()
+    return
+  }
+  openLegacyFind()
+}
+
+function closeFind() {
+  findVisible.value = false
+  matchPositions.value = []
+  activeMatchIndex.value = 0
+  clearHighlights()
+}
+
+function handleFindEnter(event: KeyboardEvent) {
+  if (event.shiftKey) {
+    findPrev()
+    return
+  }
+  findNext()
+}
+
+function getContentText(): string {
+  return contentBodyRef.value?.textContent || ''
+}
+
+function scheduleFindIndex() {
+  if (!findVisible.value) return
+  const token = ++findIndexToken
+  const run = () => {
+    if (token !== findIndexToken) return
+    const shouldKeepFocus = document.activeElement === findInputRef.value
+    const q = findQuery.value
+    if (!q) {
+      matchPositions.value = []
+      activeMatchIndex.value = 0
+      clearHighlights()
+      return
+    }
+    const text = getContentText()
+    const queryLower = q.toLowerCase()
+    const textLower = text.toLowerCase()
+    const positions: number[] = []
+    let idx = 0
+    while (positions.length < 10_000) {
+      idx = textLower.indexOf(queryLower, idx)
+      if (idx === -1) break
+      positions.push(idx)
+      idx += Math.max(1, queryLower.length)
+    }
+    matchPositions.value = positions
+    if (positions.length === 0) {
+      activeMatchIndex.value = 0
+      return
+    }
+    if (activeMatchIndex.value >= positions.length) {
+      activeMatchIndex.value = 0
+    }
+    // 输入过程中只更新高亮，不强制滚动
+    applyHighlights(activeMatchIndex.value)
+    if (shouldKeepFocus) focusFindInput()
+  }
+  if (typeof requestIdle === 'function') {
+    requestIdle(run, { timeout: 120 })
+  } else {
+    window.setTimeout(run, 0)
+  }
+}
+
+watch(findQuery, () => {
+  activeMatchIndex.value = 0
+  scheduleFindIndex()
+})
+
+watch([renderedContent, highlightedCode], () => {
+  scheduleFindIndex()
+})
+
+function selectMatch(index: number) {
+  const root = contentBodyRef.value
+  if (!root) return
+  const positions = matchPositions.value
+  if (positions.length === 0) return
+  applyHighlights(index)
+  const start = positions[index]
+  const end = start + findQuery.value.length
+  const range = createRangeFromOffsets(root, start, end)
+  const highlightRect = range ? getRangePrimaryRect(range) : null
+
+  // 只在“看不见”时才调整横向滚动条（对齐 IDE 体验）
+  const prevScrollLeft = root.scrollLeft
+  const rangeRect = highlightRect
+  const containerRect = root.getBoundingClientRect()
+  if (rangeRect) {
+    // 纵向：居中显示，避免 scrollIntoView 影响横向滚动条
+    const targetTop = root.scrollTop + (rangeRect.top - containerRect.top) - (containerRect.height / 2 - rangeRect.height / 2)
+    root.scrollTop = clamp(targetTop, 0, root.scrollHeight - root.clientHeight)
+
+    // 横向：只有超出当前可视宽度才滚动
+    const padding = 24
+    if (rangeRect.left < containerRect.left) {
+      const delta = (containerRect.left - rangeRect.left) + padding
+      root.scrollLeft = Math.max(0, prevScrollLeft - delta)
+    } else if (rangeRect.right > containerRect.right) {
+      const delta = (rangeRect.right - containerRect.right) + padding
+      root.scrollLeft = Math.min(root.scrollWidth - root.clientWidth, prevScrollLeft + delta)
+    } else {
+      root.scrollLeft = prevScrollLeft
+    }
+  }
+}
+
+function canUseCssHighlights(): boolean {
+  const cssAny = (window as any).CSS
+  const HighlightCtor = (window as any).Highlight
+  return !!cssAny?.highlights && typeof HighlightCtor === 'function'
+}
+
+function clearHighlights() {
+  const cssAny = (window as any).CSS
+  if (!cssAny?.highlights) return
+  cssAny.highlights.delete('find-candidate')
+  cssAny.highlights.delete('find-active')
+}
+
+function applyHighlights(activeIndex: number) {
+  const root = contentBodyRef.value
+  if (!root) return
+  clearHighlights()
+  if (!findVisible.value) return
+  const q = findQuery.value
+  const positions = matchPositions.value
+  if (!q || positions.length === 0) return
+  if (!canUseCssHighlights()) return
+
+  const cssAny = (window as any).CSS
+  const HighlightCtor = (window as any).Highlight
+  const candidateHighlight = new HighlightCtor()
+  const limit = Math.min(positions.length, MAX_HIGHLIGHTS)
+  for (let i = 0; i < limit; i++) {
+    const start = positions[i]
+    const end = start + q.length
+    const range = createRangeFromOffsets(root, start, end)
+    if (range) candidateHighlight.add(range)
+  }
+  cssAny.highlights.set('find-candidate', candidateHighlight)
+
+  const activeStart = positions[activeIndex]
+  const activeRange = createRangeFromOffsets(root, activeStart, activeStart + q.length)
+  if (activeRange) {
+    const activeHighlight = new HighlightCtor()
+    activeHighlight.add(activeRange)
+    cssAny.highlights.set('find-active', activeHighlight)
+  }
+}
+
+function focusFindInput() {
+  if (!findVisible.value) return
+  const input = findInputRef.value
+  if (!input) return
+  input.focus()
+  // 让用户能继续输入（IDE 通常把光标放在末尾）
+  const len = input.value.length
+  input.setSelectionRange(len, len)
+}
+
+function createRangeFromOffsets(root: HTMLElement, start: number, end: number): Range | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let currentOffset = 0
+  let startNode: Text | null = null
+  let endNode: Text | null = null
+  let startOffset = 0
+  let endOffset = 0
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text
+    const len = node.data.length
+    if (!startNode && currentOffset + len >= start) {
+      startNode = node
+      startOffset = Math.max(0, start - currentOffset)
+    }
+    if (currentOffset + len >= end) {
+      endNode = node
+      endOffset = Math.max(0, end - currentOffset)
+      break
+    }
+    currentOffset += len
+  }
+  if (!startNode || !endNode) return null
+  const range = document.createRange()
+  range.setStart(startNode, startOffset)
+  range.setEnd(endNode, endOffset)
+  return range
+}
+
+function getRangePrimaryRect(range: Range): DOMRect | null {
+  const rects = range.getClientRects()
+  if (rects && rects.length > 0) return rects[0]
+  const rect = range.getBoundingClientRect()
+  if (!rect || (!rect.width && !rect.height)) return null
+  return rect
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
+function findNext() {
+  if (!findVisible.value) openFind()
+  if (matchPositions.value.length === 0) {
+    scheduleFindIndex()
+    return
+  }
+  activeMatchIndex.value = (activeMatchIndex.value + 1) % matchPositions.value.length
+  selectMatch(activeMatchIndex.value)
+  focusFindInput()
+}
+
+function findPrev() {
+  if (!findVisible.value) openFind()
+  if (matchPositions.value.length === 0) {
+    scheduleFindIndex()
+    return
+  }
+  activeMatchIndex.value = (activeMatchIndex.value - 1 + matchPositions.value.length) % matchPositions.value.length
+  selectMatch(activeMatchIndex.value)
+  focusFindInput()
+}
+
+defineExpose({ openFind })
 
 function escapeHtml(value: string): string {
   return value
@@ -501,24 +900,156 @@ async function saveTaskEdit(task: TaskItem) {
 </script>
 
 <style scoped>
-.content-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-app); position: relative; }
+.content-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-app); position: relative; min-width: 0; }
 .empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); gap: 12px; }
 .empty-state svg { margin-bottom: 16px; opacity: 0.5; }
 .empty-state p { margin: 0; font-size: 14px; }
 .loading-spinner { width: 32px; height: 32px; border: 3px solid var(--border-color); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.content-wrapper { display: flex; flex-direction: column; height: 100%; }
-.content-header { padding: 16px 32px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+.content-wrapper { display: flex; flex-direction: column; height: 100%; position: relative; }
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(1px);
+  color: var(--text-secondary);
+  font-size: 13px;
+  z-index: 10;
+}
+
+.find-bar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 20;
+}
+
+.find-input {
+  width: 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  font-size: 13px;
+}
+
+.find-input:focus {
+  border-color: var(--accent-color);
+}
+
+.find-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 52px;
+  text-align: right;
+}
+
+.find-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.find-btn:hover {
+  background: var(--bg-hover);
+}
+
+:global(::highlight(find-candidate)) {
+  background: rgba(255, 214, 10, 0.45);
+}
+
+:global(::highlight(find-active)) {
+  background: rgba(33, 150, 243, 0.35);
+}
+
+:global(.dark-theme ::highlight(find-candidate)) {
+  background: rgba(255, 214, 10, 0.25);
+}
+
+:global(.dark-theme ::highlight(find-active)) {
+  background: rgba(79, 195, 247, 0.28);
+}
+
+.dark-theme .loading-overlay {
+  background: rgba(18, 18, 18, 0.55);
+}
+.content-header { padding: 16px 32px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); flex-shrink: 0; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.file-info { display: flex; flex-direction: column; gap: 4px; }
 .file-path { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
 .content-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text-primary); }
 
-.content-body { flex: 1; overflow-y: auto; padding: 32px; }
+.view-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.view-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.view-btn:active { background: var(--bg-tertiary); }
+
+.content-body { flex: 1; overflow: auto; padding: 32px; }
+.content-body.is-editor { padding: 0; overflow: hidden; }
+
+.editor-content { height: 100%; }
+
+.code-content {
+  width: max-content;
+  min-width: 100%;
+}
+
+.text-content {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* 横向滚动条放在 content-body（视口底部），不要挂在 <pre> 上 */
+.code-content pre {
+  overflow-x: visible;
+}
+
+.text-content pre {
+  overflow-x: visible;
+}
+
+.code-content code,
+.markdown-content code {
+  white-space: pre;
+}
+
+.markdown-content pre {
+  overflow-x: auto;
+}
 .image-preview { display: flex; align-items: center; justify-content: center; min-height: 200px; }
 .image-preview img { max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
 /* Task Dashboard Styles */
-.task-content { max-width: 1000px; margin: 0 auto; position: relative; }
+/* 对齐 IDE：任务清单区域不随面板变窄而缩小，改用横向滚动条 */
+.task-content { width: 1000px; min-width: 1000px; margin: 0 auto; position: relative; }
 
 .task-dashboard-header { 
   display: flex; 
@@ -692,7 +1223,28 @@ async function saveTaskEdit(task: TaskItem) {
 .code-content { background: var(--bg-secondary); border-radius: 8px; overflow: hidden; }
 .code-content pre { margin: 0; padding: 16px; overflow-x: auto; }
 .code-content code { font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; line-height: 1.5; }
-.markdown-content { max-width: 800px; font-size: 15px; line-height: 1.7; color: var(--text-primary); margin: 0 auto; }
+.markdown-content {
+  width: max-content;
+  min-width: 100%;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* 对齐 IDE：内容区不因面板变窄而重排，改为横向滚动 */
+.markdown-content,
+.markdown-content :deep(p),
+.markdown-content :deep(li),
+.markdown-content :deep(h1),
+.markdown-content :deep(h2),
+.markdown-content :deep(h3),
+.markdown-content :deep(blockquote),
+.markdown-content :deep(td),
+.markdown-content :deep(th) {
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
 .markdown-content :deep(h1), .markdown-content :deep(h2), .markdown-content :deep(h3) { margin-top: 24px; margin-bottom: 16px; font-weight: 600; }
 .markdown-content :deep(h1) { font-size: 28px; }
 .markdown-content :deep(h2) { font-size: 24px; }
@@ -703,7 +1255,7 @@ async function saveTaskEdit(task: TaskItem) {
 .markdown-content :deep(code) { padding: 2px 6px; background: var(--bg-secondary); border-radius: 4px; font-family: 'Consolas', monospace; font-size: 14px; }
 .markdown-content :deep(pre) { margin: 0 0 16px 0; padding: 16px; background: var(--bg-secondary); border-radius: 8px; overflow-x: auto; }
 .markdown-content :deep(pre code) { padding: 0; background: transparent; }
-.markdown-content :deep(table) { width: 100%; margin: 0 0 16px 0; border-collapse: collapse; }
+.markdown-content :deep(table) { width: max-content; min-width: 100%; margin: 0 0 16px 0; border-collapse: collapse; }
 .markdown-content :deep(th), .markdown-content :deep(td) { padding: 10px 12px; border: 1px solid var(--border-color); text-align: left; }
 .markdown-content :deep(th) { background: var(--bg-secondary); font-weight: 600; }
 .markdown-content :deep(blockquote) { margin: 0 0 16px 0; padding: 12px 16px; border-left: 4px solid var(--accent-color); background: var(--bg-secondary); }

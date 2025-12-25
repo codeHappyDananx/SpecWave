@@ -4,6 +4,9 @@ const fs = require('fs')
 const chokidar = require('chokidar')
 const { spawnSync } = require('child_process')
 
+const fileNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+const IS_WINDOWS = process.platform === 'win32'
+
 let pty = null
 try {
   pty = require('node-pty')
@@ -627,6 +630,71 @@ function getFileType(fileName) {
   return typeMap[ext] || 'text'
 }
 
+function detectTextMeta(buffer) {
+  if (!buffer || buffer.length === 0) {
+    return { encoding: 'utf8', bom: 'none', bomLength: 0 }
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+    return { encoding: 'utf8', bom: 'utf8', bomLength: 3 }
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    return { encoding: 'utf16le', bom: 'utf16le', bomLength: 2 }
+  }
+  if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+    return { encoding: 'utf16be', bom: 'utf16be', bomLength: 2 }
+  }
+  return { encoding: 'utf8', bom: 'none', bomLength: 0 }
+}
+
+function decodeTextBuffer(buffer) {
+  const meta = detectTextMeta(buffer)
+  const body = buffer.slice(meta.bomLength)
+  if (meta.encoding === 'utf16le') {
+    return { text: body.toString('utf16le'), meta }
+  }
+  if (meta.encoding === 'utf16be') {
+    const swapped = Buffer.from(body)
+    if (swapped.length >= 2) swapped.swap16()
+    return { text: swapped.toString('utf16le'), meta }
+  }
+  return { text: body.toString('utf8'), meta }
+}
+
+function detectEol(text) {
+  if (typeof text !== 'string' || text.length === 0) return '\n'
+  return text.indexOf('\r\n') >= 0 ? '\r\n' : '\n'
+}
+
+function normalizeEol(text, eol) {
+  const normalized = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  if (eol === '\r\n') return normalized.replace(/\n/g, '\r\n')
+  return normalized
+}
+
+function encodeTextBuffer(text, options) {
+  const encoding = options?.encoding || 'utf8'
+  const bom = options?.bom || 'none'
+  const eol = options?.eol || '\n'
+  const normalizedText = normalizeEol(text, eol)
+
+  if (encoding === 'utf16le') {
+    const body = Buffer.from(normalizedText, 'utf16le')
+    if (bom === 'utf16le') return Buffer.concat([Buffer.from([0xff, 0xfe]), body])
+    return body
+  }
+
+  if (encoding === 'utf16be') {
+    const body = Buffer.from(normalizedText, 'utf16le')
+    if (body.length >= 2) body.swap16()
+    if (bom === 'utf16be') return Buffer.concat([Buffer.from([0xfe, 0xff]), body])
+    return body
+  }
+
+  const body = Buffer.from(normalizedText, 'utf8')
+  if (bom === 'utf8') return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), body])
+  return body
+}
+
 // 读取目录结构 - 支持所有文件
 function readDirectoryTree(dirPath, basePath = '', maxDepth = null, currentDepth = 0) {
   const items = []
@@ -638,9 +706,18 @@ function readDirectoryTree(dirPath, basePath = '', maxDepth = null, currentDepth
   
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+      .filter((entry) => {
+        if (entry.isDirectory() && (entry.name === 'node_modules' || entry.name === '.git')) return false
+        return true
+      })
+      .sort((a, b) => {
+        const aIsDir = a.isDirectory()
+        const bIsDir = b.isDirectory()
+        if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
+        return fileNameCollator.compare(a.name, b.name)
+      })
+
     for (const entry of entries) {
-      // 跳过隐藏文件和 node_modules
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
       
       const fullPath = path.join(dirPath, entry.name)
       const relativePath = basePath ? path.join(basePath, entry.name) : entry.name
@@ -715,6 +792,24 @@ ipcMain.handle('perf-log', async (event, payload) => {
   const { event: name, ...data } = payload
   logPerf(name, { source: 'renderer', ...data })
   return { success: true }
+})
+
+// 剪贴板（通过主进程读写，避免 preload 中 clipboard 不可用）
+ipcMain.on('clipboard-write-text', (event, text) => {
+  try {
+    clipboard.writeText(String(text || ''))
+  } catch (err) {
+    console.error('写入剪贴板失败:', err.message)
+  }
+})
+
+ipcMain.on('clipboard-read-text', (event) => {
+  try {
+    event.returnValue = clipboard.readText()
+  } catch (err) {
+    console.error('读取剪贴板失败:', err.message)
+    event.returnValue = ''
+  }
 })
 
 // 读取目录（限制深度）
@@ -798,14 +893,85 @@ ipcMain.handle('read-file', async (event, filePath) => {
       }
     }
     
-    const content = fs.readFileSync(filePath, 'utf-8')
-    return { success: true, content, fileType }
+    const raw = fs.readFileSync(filePath)
+    const decoded = decodeTextBuffer(raw)
+    const content = decoded.text
+    const eol = detectEol(content)
+    return {
+      success: true,
+      content,
+      fileType,
+      encoding: decoded.meta.encoding,
+      bom: decoded.meta.bom,
+      eol
+    }
   } catch (err) {
     // 静默处理文件不存在错误
     if (err.code === 'ENOENT') {
       return { success: false, error: '文件不存在' }
     }
     console.error('读取文件失败:', err.message)
+    return { success: false, error: err.message }
+  }
+})
+
+// 保存文件（尽量保留原始编码 / BOM / 换行风格）
+ipcMain.handle('save-file', async (event, payload) => {
+  const filePath = payload?.filePath
+  const content = payload?.content
+  const options = payload?.options
+
+  try {
+    if (!filePath || typeof filePath !== 'string') {
+      return { success: false, error: '路径参数无效' }
+    }
+    if (typeof content !== 'string') {
+      return { success: false, error: '内容参数无效' }
+    }
+
+    let effectiveOptions = options
+    if (!effectiveOptions || !effectiveOptions.encoding || !effectiveOptions.eol || !effectiveOptions.bom) {
+      try {
+        if (fs.existsSync(filePath)) {
+          const raw = fs.readFileSync(filePath)
+          const decoded = decodeTextBuffer(raw)
+          effectiveOptions = {
+            encoding: decoded.meta.encoding,
+            bom: decoded.meta.bom,
+            eol: detectEol(decoded.text),
+            ...(effectiveOptions || {})
+          }
+        }
+      } catch {
+        // ignore probe failures
+      }
+    }
+
+    const buffer = encodeTextBuffer(content, effectiveOptions || {})
+    fs.writeFileSync(filePath, buffer)
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+})
+
+// 在系统资源管理器中打开/定位
+ipcMain.handle('reveal-in-explorer', async (event, payload) => {
+  const targetPath = payload?.path
+  const isDirectory = !!payload?.isDirectory
+  if (!targetPath || typeof targetPath !== 'string') {
+    return { success: false, error: '路径参数无效' }
+  }
+
+  try {
+    const normalized = path.normalize(targetPath)
+    if (isDirectory) {
+      await shell.openPath(normalized)
+    } else {
+      shell.showItemInFolder(normalized)
+    }
+    return { success: true }
+  } catch (err) {
     return { success: false, error: err.message }
   }
 })
@@ -864,9 +1030,17 @@ ipcMain.handle('unwatch-directory', async (event, key) => {
 })
 
 // 终端相关 IPC - 主进程直接使用 node-pty
-const DEFAULT_SHELL = 'powershell.exe'
-const CMD_SHELL = process.env.ComSpec || 'cmd.exe'
-const USE_CONPTY = true
+function resolveDefaultUnixShell() {
+  const fromEnv = typeof process.env.SHELL === 'string' ? process.env.SHELL.trim() : ''
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv
+  if (fs.existsSync('/bin/zsh')) return '/bin/zsh'
+  if (fs.existsSync('/bin/bash')) return '/bin/bash'
+  return '/bin/sh'
+}
+
+const DEFAULT_SHELL = IS_WINDOWS ? 'powershell.exe' : resolveDefaultUnixShell()
+const CMD_SHELL = IS_WINDOWS ? (process.env.ComSpec || 'cmd.exe') : null
+const USE_CONPTY = IS_WINDOWS
 const PASTE_IMAGE_PREFIX = 'img-'
 const PASTE_IMAGE_EXT = '.png'
 const PASTE_IMAGE_DIR = '.terminal-paste'
@@ -948,6 +1122,7 @@ function ensurePasteDirectory(cwd) {
 }
 
 function hideFile(filePath) {
+  if (!IS_WINDOWS) return
   try {
     spawnSync('attrib', ['+h', filePath], { windowsHide: true })
   } catch {
@@ -958,18 +1133,33 @@ function hideFile(filePath) {
 function normalizeShell(shell) {
   if (!shell) return DEFAULT_SHELL
   const value = String(shell).toLowerCase()
-  if (value === 'cmd' || value === 'cmd.exe') return CMD_SHELL
-  if (value === 'powershell' || value === 'powershell.exe') return DEFAULT_SHELL
-  return DEFAULT_SHELL
+
+  if (IS_WINDOWS) {
+    if (value === 'cmd' || value === 'cmd.exe') return CMD_SHELL
+    if (value === 'powershell' || value === 'powershell.exe') return DEFAULT_SHELL
+    return DEFAULT_SHELL
+  }
+
+  if (value === 'zsh') return '/bin/zsh'
+  if (value === 'bash') return '/bin/bash'
+  if (value === 'sh') return '/bin/sh'
+
+  return shell
 }
 
 function resolveShellArgs(shell) {
   const value = String(shell || '').toLowerCase()
-  if (value === 'cmd' || value === 'cmd.exe') return ['/D', '/K', 'chcp 65001 >nul']
-  if (value === 'powershell' || value === 'powershell.exe') {
-    const init = '$OutputEncoding=[Text.UTF8Encoding]::UTF8; [Console]::InputEncoding=[Text.UTF8Encoding]::UTF8; [Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8; chcp 65001 > $null'
-    return ['-NoLogo', '-NoExit', '-Command', init]
+  if (IS_WINDOWS) {
+    if (value === 'cmd' || value === 'cmd.exe') return ['/D', '/K', 'chcp 65001 >nul']
+    if (value === 'powershell' || value === 'powershell.exe') {
+      const init = '$OutputEncoding=[Text.UTF8Encoding]::UTF8; [Console]::InputEncoding=[Text.UTF8Encoding]::UTF8; [Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8; chcp 65001 > $null'
+      return ['-NoLogo', '-NoExit', '-Command', init]
+    }
+    return []
   }
+
+  if (value.endsWith('zsh')) return ['-l']
+  if (value.endsWith('bash')) return ['--login']
   return []
 }
 
@@ -1038,14 +1228,17 @@ function startTerminal(options = {}) {
       useConpty: USE_CONPTY,
       sessionId
     })
-    const spawned = pty.spawn(resolvedShell, shellArgs, {
+    const ptyOptions = {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
       cwd: resolvedCwd,
-      env: process.env,
-      useConpty: USE_CONPTY
-    })
+      env: process.env
+    }
+    if (IS_WINDOWS) {
+      ptyOptions.useConpty = USE_CONPTY
+    }
+    const spawned = pty.spawn(resolvedShell, shellArgs, ptyOptions)
     ptySessions.set(sessionId, {
       id: sessionId,
       pty: spawned,

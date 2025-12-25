@@ -1,6 +1,7 @@
 <template>
   <div class="app-container" :class="{ 'no-project': !projectStore.hasProject }">
-    <AppHeader 
+    <AppHeader
+      ref="appHeaderRef"
       @toggle-theme="uiStore.toggleTheme"
       @toggle-terminal="toggleTerminalVisibility"
       @toggle-sidebar="toggleSidebarPanel"
@@ -75,10 +76,11 @@
           @select-file="handleFileSelect"
         />
         <ContentPanel 
+          ref="contentPanelRef"
           v-show="!uiStore.contentCollapsed"
           :store-key="tabsStore.activeStoreKey"
           :file="projectStore.currentFile"
-          :is-loading="projectStore.isLoading"
+          :is-loading="projectStore.isFileLoading"
           @navigate-to-spec="navigateToSpec"
         />
       </template>
@@ -132,6 +134,22 @@ import TerminalPanel from './components/TerminalPanel.vue'
 const tabsStore = useTabsStore()
 const projectStore = computed(() => useProjectStore(tabsStore.activeStoreKey))
 const uiStore = useUIStore()
+const appHeaderRef = ref<{ focusSearch?: () => void } | null>(null)
+const contentPanelRef = ref<{ openFind?: () => void } | null>(null)
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (!event.ctrlKey) return
+  const key = event.key.toLowerCase()
+  if (key !== 'f') return
+  const target = event.target as HTMLElement | null
+  if (target?.closest?.('.terminal-panel')) return
+  event.preventDefault()
+  if (!uiStore.contentCollapsed && projectStore.value.currentFile && contentPanelRef.value?.openFind) {
+    contentPanelRef.value.openFind()
+    return
+  }
+  appHeaderRef.value?.focusSearch?.()
+}
 
 const recentProjects = ref<string[]>([])
 const isElectron = computed(() => projectStore.value.isElectron())
@@ -216,6 +234,7 @@ function toggleContentPanel() {
 
 onMounted(async () => {
   uiStore.initTheme()
+  window.addEventListener('keydown', handleGlobalKeydown, { capture: true })
   
   // 获取最近项目
   if (window.electronAPI) {
@@ -288,6 +307,7 @@ function navigateToSpec(specPath: string) {
 
 onBeforeUnmount(() => {
   stopResize()
+  window.removeEventListener('keydown', handleGlobalKeydown, { capture: true } as any)
   if (removeNewTab) removeNewTab()
   if (removeCloseTab) removeCloseTab()
   if (removeOpenRecent) removeOpenRecent()

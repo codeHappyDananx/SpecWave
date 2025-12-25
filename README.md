@@ -55,6 +55,16 @@ npm run electron:dev
 npm run electron:build
 ```
 
+### 构建 macOS 版本
+
+- macOS 的产物建议通过 GitHub Actions 构建（本仓库已提供 workflow），并输出 dmg/zip（x64/arm64）。
+- 推送 tag（例如 v1.0.0）会触发自动构建，产物在 Actions 的 Artifacts 下载。
+- 也可以在 macOS 本机执行：
+
+```bash
+npm run electron:build:mac
+```
+
 ## 项目结构
 
 ```

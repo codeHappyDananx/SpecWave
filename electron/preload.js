@@ -1,13 +1,17 @@
-const { contextBridge, ipcRenderer, clipboard } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
 const perfEnabled = process.env.OPENSPEC_PERF_LOG === '1'
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  platform: process.platform,
+  arch: process.arch,
+
   // 文件系统操作
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   readDirectory: (dirPath) => ipcRenderer.invoke('read-directory', dirPath),
   readDirectoryDepth: (dirPath, maxDepth) => ipcRenderer.invoke('read-directory-depth', { dirPath, maxDepth }),
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  saveFile: (filePath, content, options) => ipcRenderer.invoke('save-file', { filePath, content, options }),
   watchDirectory: (payload) => ipcRenderer.invoke('watch-directory', payload),
   unwatchDirectory: (key) => ipcRenderer.invoke('unwatch-directory', key),
   
@@ -57,9 +61,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   perfLog: (payload) => ipcRenderer.invoke('perf-log', payload),
 
   // 剪贴板
-  clipboardReadText: () => clipboard.readText(),
-  clipboardWriteText: (text) => clipboard.writeText(text || ''),
-  
+  clipboardReadText: () => ipcRenderer.sendSync('clipboard-read-text'),
+  clipboardWriteText: (text) => ipcRenderer.send('clipboard-write-text', text || ''),
+
+  // 系统资源管理器
+  revealInExplorer: (payload) => ipcRenderer.invoke('reveal-in-explorer', payload),
+   
   // 偏好设置
   getPreferences: () => ipcRenderer.invoke('get-preferences'),
   setPreferences: (prefs) => ipcRenderer.invoke('set-preferences', prefs),

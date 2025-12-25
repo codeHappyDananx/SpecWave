@@ -6,6 +6,8 @@ import { isPerfEnabled, perfLog, perfNow } from '../utils/perf'
 type AnyStoreDefinition = StoreDefinition<string, any, any, any>
 const projectStoreDefinitions = new Map<string, AnyStoreDefinition>()
 
+const fileNameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
 function createProjectStore(storeKey: string) {
   return defineStore(`project:${storeKey}`, () => {
   // 状态
@@ -17,6 +19,7 @@ function createProjectStore(storeKey: string) {
   const otherTree = ref<TreeNode[]>([])
   const currentFile = ref<FileContent | null>(null)
   const isLoading = ref(false)
+  const isFileLoading = ref(false)
   const isBackgroundLoading = ref(false)
   const error = ref<string>('')
   const openspecBasePath = ref('')
@@ -122,6 +125,20 @@ function createProjectStore(storeKey: string) {
     return value.replace(/\\/g, '/')
   }
 
+  function sortTreeNodesInPlace(nodes: TreeNode[]): void {
+    nodes.sort((a, b) => {
+      const aIsDir = a.type === 'folder'
+      const bIsDir = b.type === 'folder'
+      if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
+      return fileNameCollator.compare(a.name, b.name)
+    })
+    for (const node of nodes) {
+      if (node.children && node.children.length > 0) {
+        sortTreeNodesInPlace(node.children)
+      }
+    }
+  }
+
   function scheduleIdle(task: () => void) {
     if (typeof requestIdle === 'function') {
       requestIdle(task, { timeout: 200 })
@@ -185,6 +202,10 @@ function createProjectStore(storeKey: string) {
         id: item.name
       }))
       : []
+
+    sortTreeNodesInPlace(nextChanges)
+    sortTreeNodesInPlace(nextSpecs)
+    sortTreeNodesInPlace(nextOther)
 
     return { nextChanges, nextSpecs, nextOther }
   }
@@ -315,7 +336,7 @@ function createProjectStore(storeKey: string) {
     }
     reloadTimer = window.setTimeout(() => {
       reloadTimer = null
-      void loadProject({ reason })
+      void loadProject({ reason, silent: true })
     }, FILE_CHANGE_DEBOUNCE_MS)
   }
 
@@ -325,7 +346,7 @@ function createProjectStore(storeKey: string) {
     }
     currentFileReloadTimer = window.setTimeout(() => {
       currentFileReloadTimer = null
-      void loadFile(filePath)
+      void loadFile(filePath, { silent: true })
     }, 160)
   }
 
@@ -459,7 +480,7 @@ function createProjectStore(storeKey: string) {
   }
 
   // 加载项目
-  async function loadProject(options: { reason?: string; depth?: number | null } = {}): Promise<void> {
+  async function loadProject(options: { reason?: string; depth?: number | null; silent?: boolean } = {}): Promise<void> {
     if (!projectPath.value || !isElectron()) return
 
     const perfEnabled = isPerfEnabled()
@@ -468,10 +489,13 @@ function createProjectStore(storeKey: string) {
     const token = ++loadToken
     const maxDepth = options.depth === undefined ? INITIAL_TREE_DEPTH : options.depth
     const phase = maxDepth === null ? 'full' : 'initial'
+    const silent = options.silent === true
 
     try {
-      isLoading.value = true
-      error.value = ''
+      if (!silent) {
+        isLoading.value = true
+        error.value = ''
+      }
 
       // 检测 OpenSpec 目录位置：可能在根目录或 openspec/ 子目录
       const openspecBase = await resolveOpenSpecBase()
@@ -498,10 +522,16 @@ function createProjectStore(storeKey: string) {
       }
 
     } catch (err: any) {
-      error.value = err.message || '加载项目失败'
-      perfError = error.value
+      perfError = err.message || '加载项目失败'
+      if (!silent) {
+        error.value = perfError
+      } else {
+        console.warn('[Project] background reload failed:', perfError)
+      }
     } finally {
-      isLoading.value = false
+      if (!silent) {
+        isLoading.value = false
+      }
       if (perfEnabled) {
         const durationMs = perfNow() - perfStart
         const payload: Record<string, unknown> = {
@@ -555,6 +585,7 @@ function createProjectStore(storeKey: string) {
       const result = await readDirectoryWithDepth(fullPath, 0)
       if (result.success && result.items) {
         node.children = addPathPrefix(result.items, node.path)
+        sortTreeNodesInPlace(node.children)
         node.childrenLoaded = true
       }
     } catch {
@@ -563,12 +594,15 @@ function createProjectStore(storeKey: string) {
   }
 
   // 读取文件内容
-  async function loadFile(filePath: string): Promise<void> {
+  async function loadFile(filePath: string, options: { silent?: boolean } = {}): Promise<void> {
     if (!projectPath.value || !isElectron()) return
+    const silent = options.silent === true
 
     try {
-      isLoading.value = true
-      error.value = ''
+      if (!silent) {
+        isFileLoading.value = true
+        error.value = ''
+      }
       
       const fullPath = `${projectPath.value}/${filePath}`
       const result = await window.electronAPI!.readFile(fullPath)
@@ -578,14 +612,14 @@ function createProjectStore(storeKey: string) {
         const isTask = fileName === 'tasks.md'
         const isImage = result.isImage || false
         
-        let fileType: 'markdown' | 'task' | 'code' | 'image' | 'other' = 'other'
+        let fileType: 'markdown' | 'task' | 'code' | 'text' | 'image' | 'other' = 'text'
         if (isImage) {
           fileType = 'image'
         } else if (isTask) {
           fileType = 'task'
         } else if (fileName.endsWith('.md')) {
           fileType = 'markdown'
-        } else if (result.fileType && ['javascript', 'typescript', 'vue', 'json', 'yaml', 'css', 'html', 'python', 'java', 'sql'].includes(result.fileType)) {
+        } else if (result.fileType && ['javascript', 'typescript', 'vue', 'json', 'yaml', 'css', 'html', 'python', 'java', 'sql', 'text', 'bash', 'batch', 'powershell'].includes(result.fileType)) {
           fileType = 'code'
         }
         
@@ -595,7 +629,10 @@ function createProjectStore(storeKey: string) {
           content: result.content,
           type: fileType,
           fileType: result.fileType,
-          isImage
+          isImage,
+          encoding: result.encoding,
+          bom: result.bom,
+          eol: result.eol
         }
         
         // 如果是任务文件，解析进度
@@ -604,12 +641,18 @@ function createProjectStore(storeKey: string) {
           updateNodeProgress(filePath, progress)
         }
       } else {
-        error.value = result.error || '读取文件失败'
+        if (!silent) {
+          error.value = result.error || '读取文件失败'
+        }
       }
     } catch (err: any) {
-      error.value = err.message || '读取文件失败'
+      if (!silent) {
+        error.value = err.message || '读取文件失败'
+      }
     } finally {
-      isLoading.value = false
+      if (!silent) {
+        isFileLoading.value = false
+      }
     }
   }
 
@@ -808,6 +851,7 @@ function createProjectStore(storeKey: string) {
     otherTree,
     currentFile,
     isLoading,
+    isFileLoading,
     isBackgroundLoading,
     error,
     

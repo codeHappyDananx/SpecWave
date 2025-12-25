@@ -25,8 +25,14 @@
       </div>
       <div class="terminal-actions">
         <select v-model="newSessionShell" class="terminal-shell" title="新建会话类型">
-          <option value="powershell">PowerShell</option>
-          <option value="cmd">CMD</option>
+          <template v-if="isWindows">
+            <option value="powershell">PowerShell</option>
+            <option value="cmd">CMD</option>
+          </template>
+          <template v-else>
+            <option value="zsh">zsh</option>
+            <option value="bash">bash</option>
+          </template>
         </select>
         <button class="btn-icon" @click="createSession()" title="新建会话">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -57,7 +63,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
-import type { TerminalAppearance } from '../types'
+import type { TerminalAppearance, TerminalShell } from '../types'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
@@ -75,7 +81,7 @@ const emit = defineEmits<{
 
 type TerminalSession = {
   id: number
-  shell: 'powershell' | 'cmd'
+  shell: TerminalShell
   title: string
   connected: boolean
   appearance?: TerminalAppearance
@@ -83,17 +89,17 @@ type TerminalSession = {
 
 type HotDataShape = {
   terminalByProjectPath?: Record<string, {
-    sessions: Array<{ id: number; shell: 'powershell' | 'cmd'; title: string }>
+    sessions: Array<{ id: number; shell: TerminalShell; title: string }>
     activeSessionId: number | null
-    powershellCount: number
-    cmdCount: number
+    shellCounts: Record<string, number>
   }>
 }
 
 const terminalContainer = ref<HTMLElement | null>(null)
 const sessions = ref<TerminalSession[]>([])
 const activeSessionId = ref<number | null>(null)
-const newSessionShell = ref<'powershell' | 'cmd'>('powershell')
+const isWindows = window.electronAPI?.platform === 'win32'
+const newSessionShell = ref<TerminalShell>(isWindows ? 'powershell' : 'zsh')
 
 const terminalInstances = new Map<number, Terminal>()
 const fitAddons = new Map<number, FitAddon>()
@@ -206,7 +212,7 @@ function cleanup() {
     initialFitTimer = null
   }
   if (contextMenuTarget) {
-    contextMenuTarget.removeEventListener('contextmenu', handleContextMenu)
+    contextMenuTarget.removeEventListener('contextmenu', handleContextMenu, true)
     contextMenuTarget = null
   }
   sessions.value.forEach((session) => disposeSession(session.id))
@@ -232,14 +238,14 @@ async function initSessions() {
           title: session.title
         })),
         activeSessionId: activeSessionId.value,
-        powershellCount,
-        cmdCount
+        shellCounts: { ...shellCounts }
       }
     })
   }
 
   contextMenuTarget = terminalContainer.value
-  contextMenuTarget.addEventListener('contextmenu', handleContextMenu)
+  // xterm 内部可能会 stopPropagation，使用 capture 确保能收到右键事件
+  contextMenuTarget.addEventListener('contextmenu', handleContextMenu, true)
 
   resizeObserver = new ResizeObserver(() => {
     if (!props.collapsed) fitActiveSession()
@@ -250,8 +256,13 @@ async function initSessions() {
 
   const hotData = (import.meta.hot?.data as HotDataShape | undefined)?.terminalByProjectPath?.[props.projectPath]
   if (hotData && hotData.sessions.length > 0) {
-    powershellCount = hotData.powershellCount || 0
-    cmdCount = hotData.cmdCount || 0
+    if (hotData.shellCounts) {
+      for (const [key, value] of Object.entries(hotData.shellCounts)) {
+        if (key in shellCounts) {
+          shellCounts[key as TerminalShell] = Number(value) || 0
+        }
+      }
+    }
     sessions.value = hotData.sessions.map((session) => ({
       id: session.id,
       shell: session.shell,
@@ -267,7 +278,7 @@ async function initSessions() {
     return
   }
 
-  await createSession('powershell')
+  await createSession(isWindows ? 'powershell' : 'zsh')
 }
 
 function attachTerminalListeners() {
@@ -321,11 +332,11 @@ function copySelection(target?: Terminal) {
 async function pasteFromClipboard() {
   if (!window.electronAPI) return
   const sessionId = activeSessionId.value
-  if (!sessionId) return
+  if (sessionId === null) return
   if (pasteInFlight) return
   pasteInFlight = true
-  if (window.electronAPI.terminalPasteImage) {
-    try {
+  try {
+    if (window.electronAPI.terminalPasteImage) {
       const result = await window.electronAPI.terminalPasteImage({
         cwd: props.projectPath,
         prefix: pasteImagePrefix
@@ -336,17 +347,15 @@ async function pasteFromClipboard() {
         await window.electronAPI.terminalWrite({ sessionId, data: outputPath })
         return
       }
-    } finally {
-      window.setTimeout(() => { pasteInFlight = false }, 120)
     }
-  } else {
-    pasteInFlight = false
+
+    const text = window.electronAPI.clipboardReadText()
+    if (!text) return
+    const content = normalizePaste(text)
+    await window.electronAPI.terminalWrite({ sessionId, data: content })
+  } finally {
+    window.setTimeout(() => { pasteInFlight = false }, 120)
   }
-  const text = window.electronAPI.clipboardReadText()
-  if (!text) return
-  const content = normalizePaste(text)
-  await window.electronAPI.terminalWrite({ sessionId, data: content })
-  window.setTimeout(() => { pasteInFlight = false }, 120)
 }
 
 function handleContextMenu(event: MouseEvent) {
@@ -360,7 +369,7 @@ function handleContextMenu(event: MouseEvent) {
   }
 }
 
-async function resolveTerminalAppearance(shellName: 'powershell' | 'cmd'): Promise<TerminalAppearance | null> {
+async function resolveTerminalAppearance(shellName: TerminalShell): Promise<TerminalAppearance | null> {
   if (!window.electronAPI?.getTerminalAppearance) return null
   try {
     const appearance = await window.electronAPI.getTerminalAppearance(shellName)
@@ -386,23 +395,26 @@ function setActiveSession(sessionId: number) {
   nextTick(() => scheduleInitialFit())
 }
 
-function getSessionLabel(shellName: 'powershell' | 'cmd') {
-  return shellName === 'cmd' ? 'CMD' : 'PowerShell'
+function getSessionLabel(shellName: TerminalShell) {
+  if (shellName === 'cmd') return 'CMD'
+  if (shellName === 'zsh') return 'zsh'
+  if (shellName === 'bash') return 'bash'
+  return 'PowerShell'
 }
 
-let powershellCount = 0
-let cmdCount = 0
-
-function createSessionTitle(shellName: 'powershell' | 'cmd') {
-  if (shellName === 'cmd') {
-    cmdCount += 1
-    return `${getSessionLabel(shellName)} ${cmdCount}`
-  }
-  powershellCount += 1
-  return `${getSessionLabel(shellName)} ${powershellCount}`
+const shellCounts: Record<TerminalShell, number> = {
+  powershell: 0,
+  cmd: 0,
+  zsh: 0,
+  bash: 0
 }
 
-async function createTerminalInstance(sessionId: number, shellName: 'powershell' | 'cmd') {
+function createSessionTitle(shellName: TerminalShell) {
+  shellCounts[shellName] += 1
+  return `${getSessionLabel(shellName)} ${shellCounts[shellName]}`
+}
+
+async function createTerminalInstance(sessionId: number, shellName: TerminalShell) {
   const appearance = await resolveTerminalAppearance(shellName)
   const theme = appearance?.theme || defaultTheme
   const fontFamily = appearance?.fontFamily || defaultFontFamily
@@ -445,7 +457,14 @@ async function createTerminalInstance(sessionId: number, shellName: 'powershell'
       return true
     }
 
-    if ((event.ctrlKey && key === 'v') || (event.shiftKey && key === 'insert')) {
+    if (
+      (event.ctrlKey && !event.shiftKey && key === 'v') ||
+      (event.ctrlKey && event.shiftKey && key === 'v') ||
+      (event.shiftKey && key === 'insert')
+    ) {
+      if (event.type !== 'keydown' || event.repeat) return false
+      event.preventDefault()
+      event.stopPropagation()
       void pasteFromClipboard()
       return false
     }
@@ -483,7 +502,7 @@ async function createTerminalInstance(sessionId: number, shellName: 'powershell'
   }
 }
 
-async function createSession(shellName?: 'powershell' | 'cmd') {
+async function createSession(shellName?: TerminalShell) {
   if (!window.electronAPI) return
   const resolvedShell = shellName || newSessionShell.value
   const result = await window.electronAPI.terminalStart({
@@ -527,7 +546,7 @@ async function closeSession(sessionId: number) {
 
   if (nextSessions.length === 0) {
     activeSessionId.value = null
-    await createSession('powershell')
+    await createSession(isWindows ? 'powershell' : 'zsh')
     return
   }
 
@@ -544,10 +563,11 @@ async function resetSessions(newPath: string) {
   sessions.value.forEach((session) => disposeSession(session.id))
   sessions.value = []
   activeSessionId.value = null
-  powershellCount = 0
-  cmdCount = 0
+  for (const key of Object.keys(shellCounts) as TerminalShell[]) {
+    shellCounts[key] = 0
+  }
   if (newPath) {
-    await createSession('powershell')
+    await createSession(isWindows ? 'powershell' : 'zsh')
   }
 }
 

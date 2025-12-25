@@ -18,9 +18,12 @@ export interface FileContent {
   path: string
   name: string
   content: string
-  type: 'markdown' | 'task' | 'code' | 'image' | 'other'
+  type: 'markdown' | 'task' | 'code' | 'text' | 'image' | 'other'
   fileType?: string
   isImage?: boolean
+  encoding?: 'utf8' | 'utf16le' | 'utf16be'
+  bom?: 'none' | 'utf8' | 'utf16le' | 'utf16be'
+  eol?: '\n' | '\r\n'
 }
 
 // 任务项
@@ -88,16 +91,21 @@ export interface PerfLogPayload {
   [key: string]: unknown
 }
 
+export type TerminalShell = 'powershell' | 'cmd' | 'zsh' | 'bash'
+
 // Electron API 类型
 declare global {
   interface Window {
     electronAPI?: {
+      platform: string
+      arch: string
+
       // 文件系统
       selectDirectory: () => Promise<{ success: boolean; path?: string; error?: string; isOpenSpec?: boolean }>
       readDirectory: (dirPath: string) => Promise<{ success: boolean; items?: TreeNode[]; error?: string }>
       readDirectoryDepth: (dirPath: string, maxDepth: number) => Promise<{ success: boolean; items?: TreeNode[]; error?: string }>
-      readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string; fileType?: string; isImage?: boolean }>
-      saveFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
+      readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string; fileType?: string; isImage?: boolean; encoding?: 'utf8' | 'utf16le' | 'utf16be'; bom?: 'none' | 'utf8' | 'utf16le' | 'utf16be'; eol?: '\n' | '\r\n' }>
+      saveFile: (filePath: string, content: string, options?: { encoding?: 'utf8' | 'utf16le' | 'utf16be'; bom?: 'none' | 'utf8' | 'utf16le' | 'utf16be'; eol?: '\n' | '\r\n' }) => Promise<{ success: boolean; error?: string }>
       watchDirectory: (payload: { key: string; dirPath: string } | string) => Promise<{ success: boolean; error?: string }>
       unwatchDirectory: (key: string) => Promise<{ success: boolean; error?: string }>
       
@@ -114,7 +122,7 @@ declare global {
       terminalResize: (payload: { sessionId: number; cols: number; rows: number }) => Promise<{ success: boolean; error?: string }>
       terminalStop: (sessionId?: number) => Promise<{ success: boolean; error?: string }>
       terminalPasteImage: (options: { cwd?: string; prefix?: string }) => Promise<{ success: boolean; fileName?: string; filePath?: string; error?: string }>
-      getTerminalAppearance: (shell?: 'powershell' | 'cmd') => Promise<TerminalAppearance | null>
+      getTerminalAppearance: (shell?: TerminalShell) => Promise<TerminalAppearance | null>
       onTerminalData: (callback: (payload: { sessionId: number; data: string }) => void) => () => void
       onTerminalExit: (callback: (payload: { sessionId: number; exitCode: number }) => void) => () => void
       perfEnabled: boolean
@@ -123,6 +131,9 @@ declare global {
       // 剪贴板
       clipboardReadText: () => string
       clipboardWriteText: (text: string) => void
+
+      // 系统资源管理器
+      revealInExplorer: (payload: { path: string; isDirectory?: boolean }) => Promise<{ success: boolean; error?: string }>
 
       // 偏好设置
       getPreferences: () => Promise<UserPreferences>
