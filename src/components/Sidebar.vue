@@ -55,10 +55,11 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="changesExpandedKeys"
-                :indent="24"
+                :indent="20"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
+                :ellipsis="true"
                 :render-prefix="renderPrefix"
                 :render-label="renderLabel"
                 :render-suffix="renderSuffix"
@@ -100,6 +101,7 @@
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
+                :ellipsis="true"
                 :render-prefix="renderPrefix"
                 :render-label="renderLabel"
                 :render-suffix="renderSuffix"
@@ -137,10 +139,11 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="archiveExpandedKeys"
-                :indent="24"
+                :indent="20"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
+                :ellipsis="true"
                 :render-prefix="renderPrefix"
                 :render-label="renderLabel"
                 :render-suffix="renderSuffix"
@@ -178,10 +181,11 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="otherExpandedKeys"
-                :indent="24"
+                :indent="20"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
+                :ellipsis="true"
                 :render-prefix="renderPrefix"
                 :render-label="renderOtherLabel"
                 :render-suffix="renderSuffix"
@@ -650,22 +654,15 @@ function renderPrefix({ option }: { option: TreeOption }) {
   const node = option as unknown as TreeNodeType
   const iconClass = getIconClass(node)
   
-  // VS Code 风格的图标
-  const folderSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.25 4L6.75 3H2V13H14V4H7.25Z" fill="#C49A50" stroke="#9A7736" stroke-linejoin="round"/></svg>'
-  
-  const folderOpenSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.25 4L6.75 3H2V13H14V4H7.25Z" fill="#C49A50" stroke="#9A7736" stroke-linejoin="round"/><path d="M14 5H2L1 13H15L14 5Z" fill="#EAD49B" stroke="#C49A50" stroke-linejoin="round"/></svg>'
-  
-  const taskSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#E8F5E9" stroke="#4CAF50"/><path d="M5 7L7 9L11 5" stroke="#2E7D32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-  
-  const mdSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#E1F5FE" stroke="#039BE5"/><path d="M5 5V9L7 7L9 9V5" stroke="#0277BD" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 11H5" stroke="#0277BD" stroke-width="1.5" stroke-linecap="round"/></svg>'
-  
-  const codeSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#F3E5F5" stroke="#9C27B0"/><path d="M10 6L12 8L10 10" stroke="#7B1FA2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 6L4 8L6 10" stroke="#7B1FA2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-  
-  const imageSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#FFF3E0" stroke="#FF9800"/><circle cx="6" cy="6" r="1.5" fill="#EF6C00"/><path d="M13 11L10 8L6 12L5 11L3 13H13V11Z" fill="#FFB74D"/></svg>'
-  
-  const configSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#ECEFF1" stroke="#607D8B"/><path d="M8 5V11" stroke="#455A64" stroke-width="1.5" stroke-linecap="round"/><path d="M5 8H11" stroke="#455A64" stroke-width="1.5" stroke-linecap="round"/></svg>'
-  
-  const fileSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#FAFAFA" stroke="#9E9E9E"/></svg>'
+  // VS Code 风格：图标跟随 currentColor，颜色交给 CSS 控制
+  const folderSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6.5C3 5.67157 3.67157 5 4.5 5H9L11 7H19.5C20.3284 7 21 7.67157 21 8.5V18.5C21 19.3284 20.3284 20 19.5 20H4.5C3.67157 20 3 19.3284 3 18.5V6.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+  const folderOpenSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7.5C3 6.67157 3.67157 6 4.5 6H9L11 8H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.2 19.5H19.8C20.543 19.5 21.1096 18.83 20.9858 18.0972L19.65 10.5H6.2L3.2 18.6C2.93333 19.2667 3.43333 19.5 4.2 19.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+  const taskSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 4.5H17C18.3807 4.5 19.5 5.61929 19.5 7V17C19.5 18.3807 18.3807 19.5 17 19.5H7C5.61929 19.5 4.5 18.3807 4.5 17V7C4.5 5.61929 5.61929 4.5 7 4.5Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 12.1L10.2 14.3L16 8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  const mdSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 4.5H14.5L19.5 9.5V19.5H7C5.61929 19.5 4.5 18.3807 4.5 17V7C4.5 5.61929 5.61929 4.5 7 4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M14.5 4.5V9.5H19.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.8 15V11.2L9.4 13.1L11 11.2V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.2 15H16.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+  const codeSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 9L6 12L9 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 9L18 12L15 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 8L11 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  const imageSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 5.5H17C18.3807 5.5 19.5 6.61929 19.5 8V16C19.5 17.3807 18.3807 18.5 17 18.5H7C5.61929 18.5 4.5 17.3807 4.5 16V8C4.5 6.61929 5.61929 5.5 7 5.5Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 14.8L11 11.8L13.2 14L15.2 12L18 14.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9.2 9.2H9.21" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>'
+  const configSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4.5V6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 17.5V19.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4.5 12H6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17.5 12H19.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7.4 7.4L8.8 8.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15.2 15.2L16.6 16.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16.6 7.4L15.2 8.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8.8 15.2L7.4 16.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 9.2C13.5464 9.2 14.8 10.4536 14.8 12C14.8 13.5464 13.5464 14.8 12 14.8C10.4536 14.8 9.2 13.5464 9.2 12C9.2 10.4536 10.4536 9.2 12 9.2Z" stroke="currentColor" stroke-width="1.5"/></svg>'
+  const fileSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 4.5H14.5L19.5 9.5V19.5H7C5.61929 19.5 4.5 18.3807 4.5 17V7C4.5 5.61929 5.61929 4.5 7 4.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M14.5 4.5V9.5H19.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
   
   const svg = node.type === 'folder'
     ? (node.isExpanded ? folderOpenSvg : folderSvg)
@@ -863,8 +860,8 @@ async function handleLazyLoad(option: TreeOption) {
 }
 
 .sidebar-tree :deep(.n-tree) {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  min-width: 0;
 }
 
 .loading-overlay {
@@ -904,8 +901,8 @@ async function handleLazyLoad(option: TreeOption) {
 }
 
 .show-more {
-  margin: 6px 0 8px 20px;
-  padding: 2px 4px;
+  margin: 4px 0 8px 6px;
+  padding: 2px 6px;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -946,13 +943,14 @@ async function handleLazyLoad(option: TreeOption) {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
+  padding: 0 6px;
+  min-height: 22px;
   cursor: pointer;
   border-radius: 0;
   user-select: none;
   background: transparent;
   margin-bottom: 0;
-  margin-top: 4px;
+  margin-top: 6px;
   transition: background-color 0.2s;
 }
 
@@ -978,17 +976,18 @@ async function handleLazyLoad(option: TreeOption) {
 
 .section-title {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-secondary);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .section-count {
   margin-left: auto;
   font-size: 10px;
   padding: 1px 6px;
-  background: var(--bg-tertiary);
+  background: transparent;
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   color: var(--text-secondary);
   min-width: 16px;
@@ -996,21 +995,25 @@ async function handleLazyLoad(option: TreeOption) {
 }
 
 .dark-theme .section-count {
-  background: rgba(255,255,255,0.1);
+  background: transparent;
 }
 
 .section-content {
-  padding: 0 8px;
+  padding: 0;
 }
 
 .sidebar-tree {
   /* padding: 0 10px; removed to avoid double padding or overflow */
 }
 
+.sidebar-tree :deep(.n-tree-node) {
+  width: 100%;
+}
+
 /* 强制给树节点内容添加右内边距，确保 Badge 不贴边 */
 .sidebar-tree :deep(.n-tree-node-content) {
-  padding: 1px 0;
-  padding-right: 8px !important;
+  width: 100%;
+  padding: 0 6px;
   border-radius: 0;
   min-height: 22px;
   background: transparent;
@@ -1019,7 +1022,7 @@ async function handleLazyLoad(option: TreeOption) {
 }
 
 /* 选中状态左侧高亮条 */
-.sidebar-tree :deep(.n-tree-node--selected)::before {
+.sidebar-tree :deep(.n-tree-node--selected .n-tree-node-content)::before {
   content: '';
   position: absolute;
   left: 0;
@@ -1030,31 +1033,31 @@ async function handleLazyLoad(option: TreeOption) {
   z-index: 1;
 }
 
-.dark-theme .sidebar-tree :deep(.n-tree-node--selected)::before {
+.dark-theme .sidebar-tree :deep(.n-tree-node--selected .n-tree-node-content)::before {
   background: var(--accent-color);
 }
 
-.sidebar-tree :deep(.n-tree-node:hover) {
+.sidebar-tree :deep(.n-tree-node-content:hover) {
   background: var(--bg-hover);
 }
 
-.sidebar-tree :deep(.n-tree-node--selected) {
+.sidebar-tree :deep(.n-tree-node--selected .n-tree-node-content) {
   background: var(--bg-selected);
 }
 
-.light-theme .sidebar-tree :deep(.n-tree-node:hover) {
+.light-theme .sidebar-tree :deep(.n-tree-node-content:hover) {
   background: rgba(0,0,0,0.04);
 }
 
-.light-theme .sidebar-tree :deep(.n-tree-node--selected) {
+.light-theme .sidebar-tree :deep(.n-tree-node--selected .n-tree-node-content) {
   background: rgba(33, 150, 243, 0.1);
 }
 
-.dark-theme .sidebar-tree :deep(.n-tree-node:hover) {
+.dark-theme .sidebar-tree :deep(.n-tree-node-content:hover) {
   background: rgba(255,255,255,0.06);
 }
 
-.dark-theme .sidebar-tree :deep(.n-tree-node--selected) {
+.dark-theme .sidebar-tree :deep(.n-tree-node--selected .n-tree-node-content) {
   background: rgba(79, 195, 247, 0.12);
 }
 
@@ -1067,14 +1070,26 @@ async function handleLazyLoad(option: TreeOption) {
   align-items: center;
   flex-shrink: 0;
   color: var(--text-secondary);
-  margin-right: 4px;
+  margin-right: 6px;
 }
 
-/* SVGs are now colored inline */
+.node-icon.folder,
+.node-icon.task {
+  color: var(--accent-color);
+}
+
+.sidebar-tree :deep(.n-tree-node-content__text) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .node-name {
+  display: block;
   font-size: 13px;
   color: var(--text-primary);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   line-height: 1.5;
 }
 
