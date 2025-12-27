@@ -32,7 +32,9 @@ jobs:
           PYTHON: ${{ env.pythonLocation }}/bin/python
           npm_config_python: ${{ env.pythonLocation }}/bin/python
 
-      - run: npm run electron:build:mac -- --${{ matrix.arch }}
+      - run: npm run electron:build:mac -- --${{ matrix.arch }} --publish=never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/upload-artifact@v4
         with:
