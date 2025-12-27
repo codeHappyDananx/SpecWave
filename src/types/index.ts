@@ -37,6 +37,19 @@ export interface TaskItem {
   description?: string // 任务描述
   section?: string // 所属章节标题
   isSection?: boolean // 是否为章节标题
+  source?: {
+    lineNumber: number
+    lineFrom: number
+    lineTo: number
+    indent: number
+    statusPos?: number
+    labelFrom?: number
+    labelTo?: number
+    descriptionFrom?: number
+    descriptionTo?: number
+    descriptionIndent?: number
+    insertAfterLinePos?: number
+  }
 }
 
 // 用户偏好
@@ -45,6 +58,7 @@ export interface UserPreferences {
   sidebarWidth: number
   terminalWidth: number
   terminalOpen: boolean
+  markdownLineNumbers?: boolean
   sidebarCollapsed?: boolean
   contentCollapsed?: boolean
   terminalCollapsed?: boolean

@@ -64,6 +64,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import type { TerminalAppearance, TerminalShell } from '../types'
+import { useUIStore } from '../stores/ui'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
@@ -78,6 +79,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'close': []
 }>()
+
+const uiStore = useUIStore()
 
 type TerminalSession = {
   id: number
@@ -112,6 +115,17 @@ let initialFitFrame: number | null = null
 let initialFitTimer: number | null = null
 let pasteInFlight = false
 let skipStopOnCleanup = false
+let fitDebounceTimer: number | null = null
+
+const scheduleFit = () => {
+  if (fitDebounceTimer !== null) {
+    window.clearTimeout(fitDebounceTimer)
+  }
+  fitDebounceTimer = window.setTimeout(() => {
+    fitDebounceTimer = null
+    fitActiveSession()
+  }, 60)
+}
 
 const defaultTheme = {
   background: '#1e1e1e',
@@ -137,9 +151,93 @@ const defaultTheme = {
   brightWhite: '#ffffff'
 }
 
-const defaultFontFamily = 'Consolas, \"Courier New\", monospace'
+const solarizedLightTheme = {
+  background: '#fdf6e3',
+  foreground: '#657b83',
+  cursor: '#657b83',
+  cursorAccent: '#fdf6e3',
+  selectionBackground: '#eee8d5',
+  black: '#073642',
+  red: '#dc322f',
+  green: '#859900',
+  yellow: '#b58900',
+  blue: '#268bd2',
+  magenta: '#d33682',
+  cyan: '#2aa198',
+  white: '#eee8d5',
+  brightBlack: '#002b36',
+  brightRed: '#cb4b16',
+  brightGreen: '#586e75',
+  brightYellow: '#657b83',
+  brightBlue: '#839496',
+  brightMagenta: '#6c71c4',
+  brightCyan: '#93a1a1',
+  brightWhite: '#fdf6e3'
+}
+
+const defaultFontFamily = '"Consolas", "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif'
 const defaultFontSize = 14
 const pasteImagePrefix = 'img-'
+
+const isSystemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+const updateSystemTheme = (e: MediaQueryListEvent) => {
+  isSystemDark.value = e.matches
+}
+
+const effectiveTheme = computed(() => {
+  // If user selects "Light", use Solarized Light
+  if (uiStore.theme === 'light') {
+    return solarizedLightTheme
+  }
+  // If user selects "Dark", use Default (Dark)
+  if (uiStore.theme === 'dark') {
+    return defaultTheme
+  }
+  // If user selects "System", return null to indicate "Use Session Appearance"
+  return null
+})
+
+const resolvedTheme = computed(() => {
+  if (effectiveTheme.value) return effectiveTheme.value
+  // In System mode, use the active session's appearance theme, or fallback to default
+  return activeAppearance.value?.theme || defaultTheme
+})
+
+const uiThemeVariables = computed(() => {
+  const t = resolvedTheme.value
+  
+  // Specific override for Solarized Light to ensure perfect visibility
+  if (t === solarizedLightTheme) {
+    return {
+      '--term-bg': '#fdf6e3',
+      '--term-header-bg': '#eee8d5',
+      '--term-border': '#d6d0c0',
+      '--term-text': '#657b83',
+      '--term-text-active': '#073642', // Dark text for active tab
+      '--term-tab-active-bg': '#fdf6e3',
+      '--term-hover-bg': '#e0dad0',
+      '--term-input-bg': '#fdf6e3',
+      '--term-scroll-thumb': '#93a1a1',
+      '--term-text-dim': '#93a1a1'
+    }
+  }
+
+  // Dynamic mapping for System/Dark themes
+  return {
+    '--term-bg': t.background || '#1e1e1e',
+    '--term-header-bg': t.background || '#252526',
+    '--term-border': t.brightBlack || t.cursor || '#3c3c3c',
+    '--term-text': t.foreground || '#cccccc',
+    // Avoid brightWhite in dynamic themes as it might be background color in light themes. 
+    // Prefer cursor color which is usually high contrast.
+    '--term-text-active': t.cursor || t.brightWhite || '#ffffff',
+    '--term-tab-active-bg': t.background || '#1e1e1e',
+    '--term-hover-bg': t.selectionBackground || t.brightBlack || '#3c3c3c',
+    '--term-input-bg': t.background || '#1e1e1e',
+    '--term-scroll-thumb': t.brightBlack || '#4a4a4a',
+    '--term-text-dim': t.brightBlack || '#9e9e9e'
+  }
+})
 
 const activeAppearance = computed(() => {
   if (!activeSessionId.value) return null
@@ -147,23 +245,44 @@ const activeAppearance = computed(() => {
 })
 
 const panelStyle = computed(() => {
-  const baseStyle = props.isMain
+  const baseStyle: Record<string, string> = props.isMain
     ? { flex: '1 1 auto', width: 'auto', minWidth: '160px' }
     : { width: `${props.width}px` }
-  const theme = activeAppearance.value?.theme
-  if (!theme) return baseStyle
-  const style = { ...baseStyle }
-  if (theme.background) style.background = theme.background
-  if (theme.foreground) style.color = theme.foreground
-  return style
+  
+  // Apply theme variables
+  return {
+    ...baseStyle,
+    ...uiThemeVariables.value
+  }
 })
 
 onMounted(async () => {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  mediaQuery.addEventListener('change', updateSystemTheme)
   await initSessions()
 })
 
 onUnmounted(() => {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  mediaQuery.removeEventListener('change', updateSystemTheme)
   cleanup()
+})
+
+watch(effectiveTheme, (newTheme) => {
+  if (newTheme) {
+    // Enforce specific theme (Light/Dark mode)
+    for (const terminal of terminalInstances.values()) {
+      terminal.options.theme = newTheme
+    }
+  } else {
+    // Revert to System/Session theme
+    for (const [id, terminal] of terminalInstances) {
+      const session = sessions.value.find((s) => s.id === id)
+      // Use session's own resolved theme, or fallback
+      const theme = session?.appearance?.theme || defaultTheme
+      terminal.options.theme = theme
+    }
+  }
 })
 
 watch(() => props.projectPath, async (newPath) => {
@@ -174,7 +293,7 @@ watch(() => props.projectPath, async (newPath) => {
 
 watch(() => props.width, () => {
   if (!props.collapsed) {
-    nextTick(() => fitActiveSession())
+    scheduleFit()
   }
 })
 
@@ -210,6 +329,10 @@ function cleanup() {
   if (initialFitTimer !== null) {
     clearTimeout(initialFitTimer)
     initialFitTimer = null
+  }
+  if (fitDebounceTimer !== null) {
+    clearTimeout(fitDebounceTimer)
+    fitDebounceTimer = null
   }
   if (contextMenuTarget) {
     contextMenuTarget.removeEventListener('contextmenu', handleContextMenu, true)
@@ -248,7 +371,9 @@ async function initSessions() {
   contextMenuTarget.addEventListener('contextmenu', handleContextMenu, true)
 
   resizeObserver = new ResizeObserver(() => {
-    if (!props.collapsed) fitActiveSession()
+    if (!props.collapsed) {
+      scheduleFit()
+    }
   })
   resizeObserver.observe(terminalContainer.value)
 
@@ -416,7 +541,9 @@ function createSessionTitle(shellName: TerminalShell) {
 
 async function createTerminalInstance(sessionId: number, shellName: TerminalShell) {
   const appearance = await resolveTerminalAppearance(shellName)
-  const theme = appearance?.theme || defaultTheme
+  // If effectiveTheme is set (Light/Dark mode), use it.
+  // Otherwise (System mode), use the resolved appearance theme.
+  const theme = effectiveTheme.value || appearance?.theme || defaultTheme
   const fontFamily = appearance?.fontFamily || defaultFontFamily
   const fontSize = appearance?.fontSize ? Math.max(17, appearance.fontSize) : defaultFontSize
   const cursorBlink = typeof appearance?.cursorBlink === 'boolean' ? appearance.cursorBlink : true
@@ -439,7 +566,10 @@ async function createTerminalInstance(sessionId: number, shellName: TerminalShel
     convertEol: true,
     allowTransparency,
     drawBoldTextInBrightColors,
-    theme
+    theme,
+    scrollback: 10000, // Increase scrollback buffer for long conversations
+    fastScrollModifier: 'ctrl',
+    overviewRulerWidth: 10
   })
 
   const fitAddon = new FitAddon()
@@ -612,7 +742,7 @@ function scheduleInitialFit() {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  background: #1e1e1e;
+  background: var(--term-bg);
   position: relative;
 }
 
@@ -621,8 +751,8 @@ function scheduleInitialFit() {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #252526;
-  border-bottom: 1px solid #3c3c3c;
+  background: var(--term-header-bg);
+  border-bottom: 1px solid var(--term-border);
   flex-shrink: 0;
 }
 
@@ -647,7 +777,7 @@ function scheduleInitialFit() {
   padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
-  color: #cccccc;
+  color: var(--term-text);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -656,9 +786,9 @@ function scheduleInitialFit() {
 }
 
 .terminal-tab.active {
-  color: #ffffff;
-  background: #1e1e1e;
-  border-color: #3c3c3c;
+  color: var(--term-text-active);
+  background: var(--term-tab-active-bg);
+  border-color: var(--term-border);
 }
 
 .tab-title {
@@ -679,7 +809,7 @@ function scheduleInitialFit() {
 }
 
 .tab-close:hover {
-  background: #3c3c3c;
+  background: var(--term-hover-bg);
 }
 
 .status-dot {
@@ -702,9 +832,9 @@ function scheduleInitialFit() {
   height: 24px;
   padding: 0 6px;
   font-size: 12px;
-  color: #cccccc;
-  background: #1e1e1e;
-  border: 1px solid #3c3c3c;
+  color: var(--term-text);
+  background: var(--term-input-bg);
+  border: 1px solid var(--term-border);
   border-radius: 4px;
 }
 
@@ -723,13 +853,13 @@ function scheduleInitialFit() {
   background: transparent;
   border-radius: 4px;
   cursor: pointer;
-  color: #9e9e9e;
+  color: var(--term-text-dim);
   transition: all 0.2s;
 }
 
 .btn-icon:hover {
-  background: #3c3c3c;
-  color: #ffffff;
+  background: var(--term-hover-bg);
+  color: var(--term-text-active);
 }
 
 .terminal-container {
@@ -766,7 +896,7 @@ function scheduleInitialFit() {
 }
 
 .terminal-container :deep(.xterm-viewport::-webkit-scrollbar-thumb) {
-  background: #4a4a4a;
+  background: var(--term-scroll-thumb);
   border-radius: 4px;
 }
 </style>

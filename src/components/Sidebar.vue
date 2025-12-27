@@ -1,6 +1,19 @@
 <template>
   <aside class="sidebar" :style="{ width: width + 'px' }">
     <div class="sidebar-content">
+      <div class="sidebar-header">
+        <span class="header-title">资源管理器</span>
+        <div class="header-actions">
+          <button class="action-btn" title="全部折叠" @click="collapseAll">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 14h6v6"/>
+              <path d="M20 10h-6V4"/>
+              <path d="M14 4h6v6"/>
+              <path d="M10 20H4v-6"/>
+            </svg>
+          </button>
+        </div>
+      </div>
       <div v-if="displayTree.length === 0 && !isLoading" class="empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -42,7 +55,7 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="changesExpandedKeys"
-                :indent="16"
+                :indent="24"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
@@ -52,7 +65,7 @@
                 :node-props="treeNodeProps"
                 :on-load="handleLazyLoad"
                 @update:selected-keys="handleUpdateSelectedKeys"
-                @update:expanded-keys="(keys, meta) => handleUpdateExpandedKeys('changes', keys, meta)"
+                @update:expanded-keys="(keys, _options, meta) => handleUpdateExpandedKeys('changes', keys, meta)"
               />
               <button
                 v-if="hasMoreChanges"
@@ -83,7 +96,7 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="specsExpandedKeys"
-                :indent="16"
+                :indent="20"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
@@ -93,7 +106,7 @@
                 :node-props="treeNodeProps"
                 :on-load="handleLazyLoad"
                 @update:selected-keys="handleUpdateSelectedKeys"
-                @update:expanded-keys="(keys, meta) => handleUpdateExpandedKeys('specs', keys, meta)"
+                @update:expanded-keys="(keys, _options, meta) => handleUpdateExpandedKeys('specs', keys, meta)"
               />
               <button
                 v-if="hasMoreSpecs"
@@ -124,7 +137,7 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="archiveExpandedKeys"
-                :indent="16"
+                :indent="24"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
@@ -134,7 +147,7 @@
                 :node-props="treeNodeProps"
                 :on-load="handleLazyLoad"
                 @update:selected-keys="handleUpdateSelectedKeys"
-                @update:expanded-keys="(keys, meta) => handleUpdateExpandedKeys('archive', keys, meta)"
+                @update:expanded-keys="(keys, _options, meta) => handleUpdateExpandedKeys('archive', keys, meta)"
               />
               <button
                 v-if="hasMoreArchive"
@@ -165,7 +178,7 @@
                 children-field="children"
                 :selected-keys="selectedKeys"
                 :expanded-keys="otherExpandedKeys"
-                :indent="16"
+                :indent="24"
                 :block-line="true"
                 :block-node="true"
                 :expand-on-click="true"
@@ -175,7 +188,7 @@
                 :node-props="treeNodeProps"
                 :on-load="handleOtherLoad"
                 @update:selected-keys="handleUpdateSelectedKeys"
-                @update:expanded-keys="(keys, meta) => handleUpdateExpandedKeys('other', keys, meta)"
+                @update:expanded-keys="(keys, _options, meta) => handleUpdateExpandedKeys('other', keys, meta)"
               />
               <button
                 v-if="hasMoreOther"
@@ -298,7 +311,7 @@ const hasOpenSpecSubdir = computed(() => {
     props.changesTree.some((node) => node.path.startsWith('openspec/'))
 })
 
-const baseSpecsTree = computed(() => {
+const baseSpecsTree = computed<TreeNodeType[]>(() => {
   const children: TreeNodeType[] = []
   const hasRootAgents = props.otherTree.some((node) => node.name === 'AGENTS.md')
   if (hasRootAgents) {
@@ -337,7 +350,7 @@ const baseSpecsTree = computed(() => {
   }]
 })
 
-const mergedSpecsTree = computed(() => {
+const mergedSpecsTree = computed<TreeNodeType[]>(() => {
   return [...baseSpecsTree.value, ...props.specsTree]
 })
 
@@ -532,34 +545,34 @@ function collectExpandedKeys(nodes: TreeNodeType[]): string[] {
   return keys
 }
 
-const changesTreeData = computed(() => {
+const changesTreeData = computed<TreeOption[]>(() => {
   const nodes = pagedChangesTree.value
   ensureTreeNodeFlags(nodes)
-  return nodes
+  return nodes as unknown as TreeOption[]
 })
 
-const specsTreeData = computed(() => {
+const specsTreeData = computed<TreeOption[]>(() => {
   const nodes = pagedSpecsTree.value
   ensureTreeNodeFlags(nodes)
-  return nodes
+  return nodes as unknown as TreeOption[]
 })
 
-const archiveTreeData = computed(() => {
+const archiveTreeData = computed<TreeOption[]>(() => {
   const nodes = pagedArchiveTree.value
   ensureTreeNodeFlags(nodes)
-  return nodes
+  return nodes as unknown as TreeOption[]
 })
 
-const otherTreeData = computed(() => {
+const otherTreeData = computed<TreeOption[]>(() => {
   const nodes = pagedOtherTree.value
   ensureTreeNodeFlags(nodes)
-  return nodes
+  return nodes as unknown as TreeOption[]
 })
 
-const changesExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(changesTreeData.value) : expandedKeys.changes))
-const specsExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(specsTreeData.value) : expandedKeys.specs))
-const archiveExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(archiveTreeData.value) : expandedKeys.archive))
-const otherExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(otherTreeData.value) : expandedKeys.other))
+const changesExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(pagedChangesTree.value) : expandedKeys.changes))
+const specsExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(pagedSpecsTree.value) : expandedKeys.specs))
+const archiveExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(pagedArchiveTree.value) : expandedKeys.archive))
+const otherExpandedKeys = computed(() => (debouncedQuery.value ? collectExpandedKeys(pagedOtherTree.value) : expandedKeys.other))
 
 const nameMap: Record<string, string> = {
   // 文件
@@ -621,18 +634,41 @@ function getIconClass(node: TreeNodeType): string {
   return 'file'
 }
 
+function collapseAll() {
+  sectionsExpanded.changes = true // 保持默认展开状态，或者全部折叠？用户通常希望折叠的是树节点
+  sectionsExpanded.specs = true
+  sectionsExpanded.archive = false
+  sectionsExpanded.other = false
+  
+  expandedKeys.changes = []
+  expandedKeys.specs = []
+  expandedKeys.archive = []
+  expandedKeys.other = []
+}
+
 function renderPrefix({ option }: { option: TreeOption }) {
   const node = option as unknown as TreeNodeType
   const iconClass = getIconClass(node)
-  const folderSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>'
-  const taskSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
-  const mdSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
-  const codeSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>'
-  const imageSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>'
-  const configSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>'
-  const fileSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+  
+  // VS Code 风格的图标
+  const folderSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.25 4L6.75 3H2V13H14V4H7.25Z" fill="#C49A50" stroke="#9A7736" stroke-linejoin="round"/></svg>'
+  
+  const folderOpenSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.25 4L6.75 3H2V13H14V4H7.25Z" fill="#C49A50" stroke="#9A7736" stroke-linejoin="round"/><path d="M14 5H2L1 13H15L14 5Z" fill="#EAD49B" stroke="#C49A50" stroke-linejoin="round"/></svg>'
+  
+  const taskSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#E8F5E9" stroke="#4CAF50"/><path d="M5 7L7 9L11 5" stroke="#2E7D32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  
+  const mdSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#E1F5FE" stroke="#039BE5"/><path d="M5 5V9L7 7L9 9V5" stroke="#0277BD" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 11H5" stroke="#0277BD" stroke-width="1.5" stroke-linecap="round"/></svg>'
+  
+  const codeSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#F3E5F5" stroke="#9C27B0"/><path d="M10 6L12 8L10 10" stroke="#7B1FA2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 6L4 8L6 10" stroke="#7B1FA2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  
+  const imageSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#FFF3E0" stroke="#FF9800"/><circle cx="6" cy="6" r="1.5" fill="#EF6C00"/><path d="M13 11L10 8L6 12L5 11L3 13H13V11Z" fill="#FFB74D"/></svg>'
+  
+  const configSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#ECEFF1" stroke="#607D8B"/><path d="M8 5V11" stroke="#455A64" stroke-width="1.5" stroke-linecap="round"/><path d="M5 8H11" stroke="#455A64" stroke-width="1.5" stroke-linecap="round"/></svg>'
+  
+  const fileSvg = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 2H13V14H3V2Z" fill="#FAFAFA" stroke="#9E9E9E"/></svg>'
+  
   const svg = node.type === 'folder'
-    ? folderSvg
+    ? (node.isExpanded ? folderOpenSvg : folderSvg)
     : isTaskFile(node)
       ? taskSvg
       : isMarkdownFile(node)
@@ -723,11 +759,11 @@ function handleUpdateSelectedKeys(keys: Array<string | number>, _options: Array<
   }
 }
 
-function handleUpdateExpandedKeys(section: 'changes' | 'specs' | 'archive' | 'other', keys: Array<string | number>, meta: { node: TreeOption | null; action: 'expand' | 'collapse' } | null) {
+function handleUpdateExpandedKeys(section: 'changes' | 'specs' | 'archive' | 'other', keys: Array<string | number>, meta: { node: TreeOption | null; action: 'expand' | 'collapse' | 'filter' } | null) {
   expandedKeys[section] = keys.map(String)
   const node = meta?.node as unknown as TreeNodeType | null
-  if (node && typeof node.isExpanded === 'boolean') {
-    node.isExpanded = meta?.action === 'expand'
+  if (node && typeof node.isExpanded === 'boolean' && (meta?.action === 'expand' || meta?.action === 'collapse')) {
+    node.isExpanded = meta.action === 'expand'
   }
 }
 
@@ -771,7 +807,54 @@ async function handleLazyLoad(option: TreeOption) {
 .sidebar-content {
   flex: 1;
   overflow: auto;
-  padding: 6px 0;
+  padding: 0;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  height: 35px;
+  min-height: 35px;
+  flex-shrink: 0;
+  border-bottom: 1px solid transparent;
+}
+
+.header-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.sidebar-header:hover .header-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .tree-container {
@@ -856,17 +939,25 @@ async function handleLazyLoad(option: TreeOption) {
 
 /* 区块样式 */
 .tree-section {
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .section-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 2px 8px;
   cursor: pointer;
   border-radius: 0;
   user-select: none;
+  background: transparent;
+  margin-bottom: 0;
+  margin-top: 4px;
+  transition: background-color 0.2s;
+}
+
+.dark-theme .section-header {
+  background: transparent;
 }
 
 .section-header:hover {
@@ -876,6 +967,9 @@ async function handleLazyLoad(option: TreeOption) {
 .section-icon {
   color: var(--text-secondary);
   flex-shrink: 0;
+  transition: transform 0.2s;
+  width: 14px;
+  height: 14px;
 }
 
 .section-icon.expanded {
@@ -883,33 +977,63 @@ async function handleLazyLoad(option: TreeOption) {
 }
 
 .section-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.2px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .section-count {
   margin-left: auto;
-  font-size: 12px;
-  padding: 0;
-  background: transparent;
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
   color: var(--text-secondary);
+  min-width: 16px;
+  text-align: center;
+}
+
+.dark-theme .section-count {
+  background: rgba(255,255,255,0.1);
 }
 
 .section-content {
-  padding-left: 0;
+  padding: 0 8px;
 }
 
+.sidebar-tree {
+  /* padding: 0 10px; removed to avoid double padding or overflow */
+}
+
+/* 强制给树节点内容添加右内边距，确保 Badge 不贴边 */
 .sidebar-tree :deep(.n-tree-node-content) {
-  padding: 2px 10px;
+  padding: 1px 0;
+  padding-right: 8px !important;
   border-radius: 0;
   min-height: 22px;
   background: transparent;
+  position: relative;
+  transition: background-color 0.1s;
 }
 
-/* Naive UI 在 block-line 模式下会给整行（.n-tree-node）上背景色；
-   我们只在整行上色，避免“选中同时出现两层背景（蓝+灰）”。 */
+/* 选中状态左侧高亮条 */
+.sidebar-tree :deep(.n-tree-node--selected)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-color);
+  z-index: 1;
+}
+
+.dark-theme .sidebar-tree :deep(.n-tree-node--selected)::before {
+  background: var(--accent-color);
+}
+
 .sidebar-tree :deep(.n-tree-node:hover) {
   background: var(--bg-hover);
 }
@@ -919,19 +1043,19 @@ async function handleLazyLoad(option: TreeOption) {
 }
 
 .light-theme .sidebar-tree :deep(.n-tree-node:hover) {
-  background: #e9e9e9;
+  background: rgba(0,0,0,0.04);
 }
 
 .light-theme .sidebar-tree :deep(.n-tree-node--selected) {
-  background: #dcdcdc;
+  background: rgba(33, 150, 243, 0.1);
 }
 
 .dark-theme .sidebar-tree :deep(.n-tree-node:hover) {
-  background: #2f3235;
+  background: rgba(255,255,255,0.06);
 }
 
 .dark-theme .sidebar-tree :deep(.n-tree-node--selected) {
-  background: #3a3f44;
+  background: rgba(79, 195, 247, 0.12);
 }
 
 .sidebar-tree :deep(.tree-node-archived) {
@@ -946,17 +1070,12 @@ async function handleLazyLoad(option: TreeOption) {
   margin-right: 4px;
 }
 
-.node-icon.folder { color: #e8a838; }
-.node-icon.task { color: #4caf50; }
-.node-icon.markdown { color: #42a5f5; }
-.node-icon.code { color: #ab47bc; }
-.node-icon.image { color: #26a69a; }
-.node-icon.config { color: #78909c; }
-
+/* SVGs are now colored inline */
 .node-name {
   font-size: 13px;
   color: var(--text-primary);
   white-space: nowrap;
+  line-height: 1.5;
 }
 
 .node-name.archived {
@@ -964,24 +1083,19 @@ async function handleLazyLoad(option: TreeOption) {
   color: var(--text-secondary);
 }
 
-.progress-badge {
-  font-size: 11px;
-  padding: 2px 6px;
+/* Using :deep to ensure styles apply to NTree rendered content */
+.sidebar-tree :deep(.progress-badge) {
+  font-size: 10px;
+  font-family: Consolas, "Courier New", monospace;
+  padding: 1px 6px;
   border-radius: 10px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
-  margin-left: 8px;
+  margin-left: auto;
+  /* margin-right is handled by parent container padding */
   flex-shrink: 0;
-}
-
-.progress-badge.complete {
-  background: var(--success-bg);
-  color: var(--success-color);
-}
-
-.progress-badge.partial {
-  background: var(--warning-bg);
-  color: var(--warning-color);
+  min-width: 16px;
+  text-align: center;
 }
 
 .other-files {

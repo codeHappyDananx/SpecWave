@@ -687,12 +687,26 @@ function createProjectStore(storeKey: string) {
 
   // 解析任务列表 - 增强版，支持需求引用和章节标题
   function parseTaskList(content: string): TaskItem[] {
-    const lines = content.split('\n')
+    const normalized = String(content || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const lines = normalized.split('\n')
     const tasks: TaskItem[] = []
-    let currentId = 0
-    let currentTask: TaskItem | null = null
     let currentSection = ''
     let currentSectionNumberParts: number[] | null = null
+
+    type LineInfo = { number: number; text: string; from: number; to: number; nextFrom: number }
+    const lineInfos: LineInfo[] = []
+    {
+      let offset = 0
+      for (let i = 0; i < lines.length; i++) {
+        const text = lines[i]
+        const from = offset
+        const to = from + text.length
+        const hasNewline = to < normalized.length && normalized[to] === '\n'
+        const nextFrom = to + (hasNewline ? 1 : 0)
+        lineInfos.push({ number: i + 1, text, from, to, nextFrom })
+        offset = nextFrom
+      }
+    }
 
     function parseNumberParts(token: string): number[] | null {
       if (!token) return null
@@ -720,37 +734,65 @@ function createProjectStore(storeKey: string) {
       }
       return true
     }
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]
-      
+
+    function isSectionLine(text: string): RegExpMatchArray | null {
+      return text.match(/^#{2,3}\s+(.+)$/)
+    }
+
+    function isTaskLine(text: string): RegExpMatchArray | null {
+      return text.match(/^(\s*)-\s*\[([ xX])\]\s*(.+)$/)
+    }
+
+    function countLeadingSpaces(text: string): number {
+      let count = 0
+      while (count < text.length && text[count] === ' ') count += 1
+      return count
+    }
+
+    function stripIndent(text: string, indent: number): string {
+      if (indent <= 0) return text
+      const pattern = new RegExp(`^\\s{0,${indent}}`)
+      return text.replace(pattern, '')
+    }
+
+    for (let i = 0; i < lineInfos.length; i++) {
+      const info = lineInfos[i]
+      const line = info.text
+
       // 匹配章节标题 (## 或 ###)
-      const sectionMatch = line.match(/^#{2,3}\s+(.+)$/)
+      const sectionMatch = isSectionLine(line)
       if (sectionMatch) {
         currentSection = sectionMatch[1].trim()
         currentSectionNumberParts = extractLeadingNumberParts(currentSection)
         // 添加章节标题作为特殊项
         tasks.push({
-          id: `section-${currentId++}`,
+          id: `section-${info.number}`,
           label: currentSection,
           checked: false,
           level: 0,
-          isSection: true
+          isSection: true,
+          source: {
+            lineNumber: info.number,
+            lineFrom: info.from,
+            lineTo: info.to,
+            indent: 0,
+            insertAfterLinePos: info.nextFrom
+          }
         })
         continue
       }
       
       // 匹配任务行
-      const taskMatch = line.match(/^(\s*)-\s*\[(x|\s*)\]\*?\s*(.+)$/i)
+      const taskMatch = isTaskLine(line)
       if (taskMatch) {
         const indent = taskMatch[1].length
         const checked = taskMatch[2].toLowerCase() === 'x'
-        const label = taskMatch[3].trim()
+        const rawLabel = taskMatch[3]
         const indentLevel = Math.floor(indent / 2)
 
         // 兼容“无缩进但有编号”的子任务（例如 1.0 章节下的 1.0.1）
         let level = indentLevel
-        const leadingNumberParts = extractLeadingNumberParts(label)
+        const leadingNumberParts = extractLeadingNumberParts(rawLabel.trim())
         if (leadingNumberParts && currentSectionNumberParts) {
           if (startsWithParts(leadingNumberParts, currentSectionNumberParts)) {
             const diff = leadingNumberParts.length - currentSectionNumberParts.length
@@ -759,32 +801,93 @@ function createProjectStore(storeKey: string) {
         }
         
         // 解析需求引用 (如 _Requirements: 1.1, 2.3_)
-        const reqMatch = label.match(/_Requirements?:\s*([^_]+)_/i)
+        const reqMatch = rawLabel.match(/_Requirements?:\s*([^_]+)_/i)
         const requirements = reqMatch 
           ? reqMatch[1].split(',').map(r => r.trim())
           : []
+
+        const checkboxStart = line.indexOf('[')
+        const statusPos = checkboxStart >= 0 ? info.from + checkboxStart + 1 : undefined
+        const closeBracket = line.indexOf(']', checkboxStart >= 0 ? checkboxStart : 0)
+        let labelStartIndex = closeBracket >= 0 ? closeBracket + 1 : 0
+        while (labelStartIndex < line.length && line[labelStartIndex] === ' ') labelStartIndex += 1
+        let labelEndIndex = line.length
+        const reqOffset = line.slice(labelStartIndex).search(/_Requirements?:/i)
+        if (reqOffset >= 0) {
+          labelEndIndex = labelStartIndex + reqOffset
+          while (labelEndIndex > labelStartIndex && (line[labelEndIndex - 1] === ' ' || line[labelEndIndex - 1] === '\t')) {
+            labelEndIndex -= 1
+          }
+        } else {
+          while (labelEndIndex > labelStartIndex && (line[labelEndIndex - 1] === ' ' || line[labelEndIndex - 1] === '\t')) {
+            labelEndIndex -= 1
+          }
+        }
+
+        const labelWithoutReq = rawLabel.replace(/_Requirements?:\s*[^_]+_/gi, '').trim()
         
-        currentTask = {
-          id: `task-${currentId++}`,
-          label: label.replace(/_Requirements?:\s*[^_]+_/gi, '').trim(),
+        const task: TaskItem = {
+          id: `task-${info.number}`,
+          label: labelWithoutReq,
           checked,
           level,
           requirements,
-          section: currentSection
-        }
-        
-        tasks.push(currentTask)
-      }
-      // 匹配任务描述（缩进的非任务行）
-      else if (currentTask && line.match(/^\s{2,}-\s+[^[\]]/)) {
-        const descMatch = line.match(/^\s+-\s+(.+)$/)
-        if (descMatch) {
-          if (!currentTask.description) {
-            currentTask.description = descMatch[1]
-          } else {
-            currentTask.description += '\n' + descMatch[1]
+          section: currentSection,
+          source: {
+            lineNumber: info.number,
+            lineFrom: info.from,
+            lineTo: info.to,
+            indent,
+            statusPos,
+            labelFrom: info.from + labelStartIndex,
+            labelTo: info.from + labelEndIndex,
+            insertAfterLinePos: info.nextFrom
           }
         }
+
+        // 解析描述块：紧随任务行的连续缩进/引用/段落行，直到下一个任务行或章节行
+        let scan = i + 1
+        while (scan < lineInfos.length && lineInfos[scan].text.trim() === '') scan += 1
+
+        if (scan < lineInfos.length) {
+          const nextLine = lineInfos[scan].text
+          const nextIsBoundary = !!isTaskLine(nextLine) || !!isSectionLine(nextLine)
+          const nextLooksLikeDesc = nextLine.startsWith(' ') || nextLine.startsWith('\t') || nextLine.startsWith('>')
+
+          if (!nextIsBoundary && nextLooksLikeDesc) {
+            const descStart = scan
+            const descIndent = countLeadingSpaces(lineInfos[descStart].text)
+            let end = descStart
+            while (end < lineInfos.length) {
+              const t = lineInfos[end].text
+              if (isTaskLine(t) || isSectionLine(t)) break
+              if (t.trim() === '') {
+                end += 1
+                continue
+              }
+              if (t.startsWith(' ') || t.startsWith('\t') || t.startsWith('>')) {
+                end += 1
+                continue
+              }
+              break
+            }
+
+            const descLines = lineInfos.slice(descStart, end).map((l) => stripIndent(l.text, descIndent))
+            const descText = descLines.join('\n').trimEnd()
+            if (descText.trim().length > 0) {
+              task.description = descText
+            }
+            if (task.source) {
+              task.source.descriptionFrom = lineInfos[descStart].from
+              task.source.descriptionTo = end < lineInfos.length ? lineInfos[end].from : normalized.length
+              task.source.descriptionIndent = descIndent
+            }
+
+            i = end - 1
+          }
+        }
+
+        tasks.push(task)
       }
     }
     

@@ -33,13 +33,23 @@
           <span class="file-path">{{ normalizedPath }}</span>
           <h2>{{ file?.name }}</h2>
         </div>
-        <button
-          v-if="canToggleView"
-          class="view-btn"
-          type="button"
-          :title="viewButtonTitle"
-          @click="toggleViewMode"
-        >{{ viewButtonLabel }}</button>
+        <div class="header-actions">
+          <button
+            v-if="isMarkdownSurfaceActive"
+            class="ln-btn"
+            type="button"
+            :class="{ active: uiStore.markdownLineNumbers }"
+            title="行号"
+            @click="uiStore.toggleMarkdownLineNumbers"
+          >LN</button>
+          <button
+            v-if="canToggleView"
+            class="view-btn"
+            type="button"
+            :title="viewButtonTitle"
+            @click="toggleViewMode"
+          >{{ viewButtonLabel }}</button>
+        </div>
       </div>
       
     <div class="content-body" :class="{ 'is-editor': isEditorActive }" ref="contentBodyRef" @scroll="handleContentScroll">
@@ -47,9 +57,23 @@
           <img :src="file.content" :alt="file.name" />
         </div>
         
-        <div v-else-if="file?.type === 'task' && currentContentMode === 'task'" class="task-content">
-          <!-- 顶部统计栏 -->
-          <div class="task-dashboard-header">
+        <div v-else-if="file?.type === 'task'" class="task-content" :class="{ 'is-surface': currentContentMode !== 'task' }">
+          <div class="markdown-surface-content" v-show="currentContentMode !== 'task'">
+            <MarkdownSurface
+              ref="markdownSurfaceRef"
+              :file="file!"
+              :project-path="projectStore.projectPath"
+              :mode="taskMarkdownMode"
+              :show-line-numbers="uiStore.markdownLineNumbers"
+              @doc-changed="handleTaskDocChanged"
+              @save-status="saveStatus = $event"
+              @saved="handleFileSaved"
+            />
+          </div>
+
+          <div v-show="currentContentMode === 'task'">
+            <!-- 顶部统计栏 -->
+            <div class="task-dashboard-header">
             <div class="progress-overview">
               <div class="progress-ring-wrapper">
                 <svg class="progress-ring" width="60" height="60">
@@ -92,7 +116,7 @@
                 收起全部
               </button>
             </div>
-          </div>
+            </div>
           
           <div class="task-board">
             <template v-for="group in groupedTasks" :key="group.id">
@@ -135,7 +159,22 @@
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                       </div>
-                      <div v-if="task.description" class="task-desc">{{ task.description }}</div>
+                      <textarea
+                        v-if="editingDescTaskId === task.id"
+                        ref="descEditInput"
+                        v-model="editingDescValue"
+                        class="task-desc-textarea"
+                        rows="3"
+                        @blur="saveTaskDescription(task)"
+                        @keyup.escape="cancelDescEdit"
+                        @keydown.ctrl.enter.prevent="saveTaskDescription(task)"
+                      ></textarea>
+                      <div
+                        v-else
+                        class="task-desc"
+                        :class="{ placeholder: !task.description }"
+                        @dblclick="startEditDescription(task)"
+                      >{{ task.description ? task.description : '双击添加描述' }}</div>
                     </div>
                   </div>
                 </div>
@@ -152,8 +191,21 @@
               <p>没有符合条件的任务</p>
             </div>
           </div>
+          </div>
         </div>
         
+        <div v-else-if="isMarkdownSurfaceActive" class="markdown-surface-content">
+          <MarkdownSurface
+            ref="markdownSurfaceRef"
+            :file="file!"
+            :project-path="projectStore.projectPath"
+            :mode="(currentContentMode as 'view' | 'editor')"
+            :show-line-numbers="uiStore.markdownLineNumbers"
+            @save-status="saveStatus = $event"
+            @saved="handleFileSaved"
+          />
+        </div>
+
         <div v-else-if="currentContentMode === 'view'" class="view-content">
           <div v-if="file?.type === 'code'" class="code-content">
             <pre><code :class="'language-' + (file.fileType || 'text')" v-html="highlightedCode"></code></pre>
@@ -187,13 +239,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
-import { marked } from 'marked'
+import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import hljs from 'highlight.js'
 import type { FileContent, TaskItem } from '../types'
 import { useProjectStore } from '../stores/project'
+import { useUIStore } from '../stores/ui'
 import { isPerfEnabled, perfLog, perfNow } from '../utils/perf'
 import FileEditor from './FileEditor.vue'
+import MarkdownSurface from './MarkdownSurface.vue'
 
 const props = defineProps<{
   storeKey: string
@@ -201,6 +254,7 @@ const props = defineProps<{
   isLoading: boolean
 }>()
 let projectStore = useProjectStore(props.storeKey)
+const uiStore = useUIStore()
 watch(() => props.storeKey, (next) => {
   projectStore = useProjectStore(next)
 })
@@ -209,6 +263,9 @@ const taskFilter = ref<'all' | 'pending' | 'completed'>('all')
 const editingTaskId = ref<string | null>(null)
 const editingValue = ref('')
 const editInput = ref<HTMLTextAreaElement | null>(null)
+const editingDescTaskId = ref<string | null>(null)
+const editingDescValue = ref('')
+const descEditInput = ref<HTMLTextAreaElement | null>(null)
 const saveStatus = ref<'saving' | 'saved' | 'error' | null>(null)
 const originalContent = ref('')
 const taskScrollTop = ref(0)
@@ -217,9 +274,19 @@ const contentBodyRef = ref<HTMLElement | null>(null)
 const collapsedGroups = ref(new Set<string>())
 const renderedContent = ref('')
 const highlightedCode = ref('')
+type MarkdownSurfaceHandle = {
+  openFind?: () => void
+  save?: () => Promise<void>
+  undoOnce?: () => boolean
+  redoOnce?: () => boolean
+  getText?: () => string
+  setText?: (nextText: string) => void
+  applyEdits?: (edits: Array<{ from: number; to: number; insert: string }>, options?: { scrollIntoView?: boolean }) => boolean
+}
+
 const fileEditorRef = ref<{ openFind?: () => void } | null>(null)
+const markdownSurfaceRef = ref<MarkdownSurfaceHandle | null>(null)
 const LARGE_FILE_THRESHOLD = 200_000
-let markdownRenderToken = 0
 let codeRenderToken = 0
 const requestIdle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback
 
@@ -243,6 +310,7 @@ const viewModeOverrides = ref<Record<string, ContentMode>>({})
 
 function getDefaultContentMode(file: FileContent): ContentMode {
   if (file.type === 'task') return 'task'
+  if (file.type === 'markdown' || file.name.toLowerCase().endsWith('.md')) return 'view'
   return 'editor'
 }
 
@@ -259,7 +327,21 @@ const currentContentMode = computed<ContentMode>(() => {
   return getContentModeForFile(f)
 })
 
-const isEditorActive = computed(() => currentContentMode.value === 'editor')
+const isMarkdownSurfaceActive = computed(() => {
+  const f = props.file
+  if (!f) return false
+  if (currentContentMode.value === 'task') return false
+  return f.name.toLowerCase().endsWith('.md')
+})
+
+const isEditorActive = computed(() => currentContentMode.value === 'editor' || isMarkdownSurfaceActive.value)
+
+const isMarkdownLikeFile = computed(() => {
+  const f = props.file
+  if (!f) return false
+  if (f.type === 'image') return false
+  return f.name.toLowerCase().endsWith('.md')
+})
 
 const canToggleView = computed(() => {
   const f = props.file
@@ -271,7 +353,14 @@ const canToggleView = computed(() => {
 const viewButtonLabel = computed(() => {
   const f = props.file
   if (!f) return 'View'
-  if (f.type === 'task') return currentContentMode.value === 'task' ? 'View' : 'Task'
+  if (f.type === 'task') {
+    if (currentContentMode.value === 'task') return 'View'
+    if (currentContentMode.value === 'view') return 'Source'
+    return 'Task'
+  }
+  if (isMarkdownLikeFile.value) {
+    return currentContentMode.value === 'view' ? 'Source' : 'View'
+  }
   return currentContentMode.value === 'view' ? 'Edit' : 'View'
 })
 
@@ -279,18 +368,31 @@ const viewButtonTitle = computed(() => {
   const f = props.file
   if (!f) return '切换视图'
   if (f.type === 'task') {
-    return currentContentMode.value === 'task' ? '切到编辑器（原文）' : '切回任务看板'
+    if (currentContentMode.value === 'task') return '切到渲染视图'
+    if (currentContentMode.value === 'view') return '切到源码编辑'
+    return '切回任务看板'
+  }
+  if (isMarkdownLikeFile.value) {
+    return currentContentMode.value === 'view' ? '切到源码编辑' : '切到渲染视图'
   }
   return currentContentMode.value === 'view' ? '切到编辑器' : '切到渲染视图'
+})
+
+const taskMarkdownMode = computed<'view' | 'editor'>(() => {
+  return currentContentMode.value === 'editor' ? 'editor' : 'view'
 })
 
 function toggleViewMode() {
   const f = props.file
   if (!f || f.type === 'image') return
-  const next: ContentMode =
-    f.type === 'task'
-      ? (currentContentMode.value === 'task' ? 'editor' : 'task')
-      : (currentContentMode.value === 'view' ? 'editor' : 'view')
+  const next: ContentMode = (() => {
+    if (f.type === 'task') {
+      if (currentContentMode.value === 'task') return 'view'
+      if (currentContentMode.value === 'view') return 'editor'
+      return 'task'
+    }
+    return currentContentMode.value === 'view' ? 'editor' : 'view'
+  })()
 
   viewModeOverrides.value = { ...viewModeOverrides.value, [f.path]: next }
 }
@@ -317,6 +419,7 @@ watch(() => props.file, (newFile, oldFile) => {
   if (!isTask || !isSameFile) {
     taskFilter.value = 'all'
     editingTaskId.value = null
+    editingDescTaskId.value = null
     saveStatus.value = null
     collapsedGroups.value = new Set()
     if (isTask) {
@@ -328,6 +431,14 @@ watch(() => props.file, (newFile, oldFile) => {
   }
   if (newFile) {
     originalContent.value = newFile.content
+  }
+  if (isTask) {
+    nextTick(() => {
+      const text = markdownSurfaceRef.value?.getText?.()
+      if (typeof text === 'string') {
+        originalContent.value = text
+      }
+    })
   }
   scheduleRender(newFile)
   scheduleFindIndex()
@@ -359,7 +470,52 @@ function handleFileSaved(content: string) {
   projectStore.currentFile = { ...props.file, content }
 }
 
-marked.setOptions({ breaks: true, gfm: true })
+function handleTaskDocChanged(content: string) {
+  if (props.file?.type !== 'task') return
+  originalContent.value = content
+}
+
+function isTextInputElement(el: Element | null): boolean {
+  if (!el) return false
+  const tag = (el as HTMLElement).tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+  return (el as HTMLElement).isContentEditable === true
+}
+
+function handleTaskUndoRedoKeydown(event: KeyboardEvent) {
+  if (props.file?.type !== 'task') return
+  if (currentContentMode.value !== 'task') return
+  if (editingTaskId.value || editingDescTaskId.value) return
+  if (isTextInputElement(document.activeElement)) return
+
+  const key = event.key.toLowerCase()
+  const mod = event.ctrlKey || event.metaKey
+  if (!mod || event.altKey) return
+
+  const surface = markdownSurfaceRef.value
+  if (!surface) return
+
+  if (key === 'z' && !event.shiftKey) {
+    const ok = surface.undoOnce?.()
+    if (ok) void surface.save?.()
+    event.preventDefault()
+    return
+  }
+
+  if (key === 'y' || (key === 'z' && event.shiftKey)) {
+    const ok = surface.redoOnce?.()
+    if (ok) void surface.save?.()
+    event.preventDefault()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleTaskUndoRedoKeydown, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleTaskUndoRedoKeydown, true)
+})
 
 function scheduleRender(file: FileContent | null) {
   clearHighlights()
@@ -376,11 +532,6 @@ function scheduleRender(file: FileContent | null) {
   }
   if (file.type === 'task') {
     renderedContent.value = ''
-    highlightedCode.value = ''
-    return
-  }
-  if (file.type === 'markdown') {
-    scheduleMarkdownRender(file)
     highlightedCode.value = ''
     return
   }
@@ -413,6 +564,10 @@ function openLegacyFind() {
 
 function openFind() {
   if (props.file?.type === 'image') return
+  if (isMarkdownSurfaceActive.value) {
+    markdownSurfaceRef.value?.openFind?.()
+    return
+  }
   if (isEditorActive.value) {
     fileEditorRef.value?.openFind?.()
     return
@@ -655,32 +810,6 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-function scheduleMarkdownRender(file: FileContent) {
-  const token = ++markdownRenderToken
-  renderedContent.value = ''
-  const perfEnabled = isPerfEnabled()
-  const run = () => {
-    if (token !== markdownRenderToken) return
-    const start = perfEnabled ? perfNow() : 0
-    const result = marked(file.content)
-    renderedContent.value = result
-    if (perfEnabled) {
-      const durationMs = perfNow() - start
-      perfLog('markdown.render', {
-        path: file.path,
-        bytes: file.content.length,
-        durationMs: Math.round(durationMs * 1000) / 1000,
-        deferred: true
-      })
-    }
-  }
-  if (typeof requestIdle === 'function') {
-    requestIdle(run, { timeout: 400 })
-  } else {
-    window.setTimeout(run, file.content.length > LARGE_FILE_THRESHOLD ? 60 : 0)
-  }
-}
-
 function scheduleCodeHighlight(file: FileContent) {
   const token = ++codeRenderToken
   highlightedCode.value = ''
@@ -741,18 +870,6 @@ function scheduleCodeHighlight(file: FileContent) {
 const taskList = computed<TaskItem[]>(() => {
   if (!props.file || props.file.type !== 'task') return []
   return projectStore.parseTaskList(originalContent.value)
-})
-
-const filteredTaskList = computed(() => {
-  // 基础过滤，不包含章节
-  let tasks = taskList.value
-  
-  // 如果是按状态筛选，我们先保留所有章节，然后在分组时过滤任务
-  if (taskFilter.value !== 'all') {
-    // 这里我们返回完整列表，在分组逻辑中处理筛选
-    return tasks
-  }
-  return tasks
 })
 
 // 分组逻辑
@@ -820,6 +937,8 @@ const normalizedPath = computed(() => {
 })
 
 function startEdit(task: TaskItem) {
+  editingDescTaskId.value = null
+  editingDescValue.value = ''
   editingTaskId.value = task.id
   editingValue.value = task.label
   nextTick(() => { editInput.value?.focus(); editInput.value?.select() })
@@ -827,9 +946,15 @@ function startEdit(task: TaskItem) {
 
 function cancelEdit() { editingTaskId.value = null; editingValue.value = '' }
 
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, (match) => '\\' + match)
+function startEditDescription(task: TaskItem) {
+  editingTaskId.value = null
+  editingValue.value = ''
+  editingDescTaskId.value = task.id
+  editingDescValue.value = task.description || ''
+  nextTick(() => { descEditInput.value?.focus(); descEditInput.value?.select() })
 }
+
+function cancelDescEdit() { editingDescTaskId.value = null; editingDescValue.value = '' }
 
 function toggleGroup(groupId: string) {
   const newSet = new Set(collapsedGroups.value)
@@ -844,58 +969,64 @@ function toggleGroup(groupId: string) {
 // 简单的 toggleTask，用于点击 Checkbox 切换状态
 function toggleTask(task: TaskItem) {
   if (editingTaskId.value === task.id) return
-  
-  // 构建新的 label：[x] <-> [ ]
-  // 这里我们需要更精确地定位并修改原始文本
-  // 实际上最简单的方法是复用 saveTaskEdit 的逻辑，但我们需要先修改 content
-  
-  // 找到原始行
-  const oldLabel = task.label
-  const escaped = escapeRegex(oldLabel)
-  // 匹配 [ ] 或 [x]
-  const regex = new RegExp(`(^\\s*-\\s*\\[)([ xX])(\\]\\s*)${escaped}`, 'm')
-  const match = originalContent.value.match(regex)
-  
-  if (match) {
-    const newStatus = task.checked ? ' ' : 'x' // 反转
-    const newContent = originalContent.value.replace(regex, `$1${newStatus}$3${oldLabel}`)
-    
-    // 保存
-    saveContent(newContent, task, oldLabel) // 注意：这里 label 没变，只是 status 变了，但 parseTaskList 会重新解析
-  }
-}
+  if (editingDescTaskId.value === task.id) return
+  const source = task.source
+  const surface = markdownSurfaceRef.value
+  if (!source || typeof source.statusPos !== 'number') return
+  if (!surface?.applyEdits) return
 
-// 复用保存逻辑
-async function saveContent(newContent: string, task: TaskItem, newLabel: string) {
-  if (newContent === originalContent.value) { cancelEdit(); return }
-  
-  saveStatus.value = 'saving'
-  try {
-    if (window.electronAPI && props.file) {
-      const fullPath = `${projectStore.projectPath}/${props.file.path}`
-      const result = await window.electronAPI.saveFile(fullPath, newContent)
-      if (result.success) {
-        originalContent.value = newContent
-        task.label = newLabel
-        saveStatus.value = 'saved'
-        setTimeout(() => { saveStatus.value = null }, 2000)
-      } else { saveStatus.value = 'error'; setTimeout(() => { saveStatus.value = null }, 3000) }
-    }
-  } catch { saveStatus.value = 'error'; setTimeout(() => { saveStatus.value = null }, 3000) }
+  const newStatus = task.checked ? ' ' : 'x'
+  const ok = surface.applyEdits([{ from: source.statusPos, to: source.statusPos + 1, insert: newStatus }], { scrollIntoView: false })
+  if (ok) void surface.save?.()
 }
 
 async function saveTaskEdit(task: TaskItem) {
-  if (!editingValue.value.trim() || editingValue.value === task.label) { cancelEdit(); return }
-  const newLabel = editingValue.value.trim().replace(/[\r\n]+/g, ' ')
-  if (newLabel === task.label) { cancelEdit(); return }
-  
-  const oldLabel = task.label
-  const escaped = escapeRegex(oldLabel)
-  const regex = new RegExp(`(^\\s*-\\s*\\[[ xX]\\]\\s*)${escaped}`, 'm')
-  const newContent = originalContent.value.replace(regex, `$1${newLabel}`)
-  
-  await saveContent(newContent, task, newLabel)
+  const nextLabel = editingValue.value.trim().replace(/[\r\n]+/g, ' ')
+  if (!nextLabel) { cancelEdit(); return }
+  if (nextLabel === task.label) { cancelEdit(); return }
+
+  const source = task.source
+  const surface = markdownSurfaceRef.value
+  if (!source || typeof source.labelFrom !== 'number' || typeof source.labelTo !== 'number') { cancelEdit(); return }
+  if (!surface?.applyEdits) { cancelEdit(); return }
+
+  const ok = surface.applyEdits([{ from: source.labelFrom, to: source.labelTo, insert: nextLabel }], { scrollIntoView: false })
+  if (ok) await surface.save?.()
   cancelEdit()
+}
+
+async function saveTaskDescription(task: TaskItem) {
+  const surface = markdownSurfaceRef.value
+  const source = task.source
+  if (!surface?.applyEdits || !surface.save || !source) { cancelDescEdit(); return }
+
+  const nextRaw = editingDescValue.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd()
+  const hasExisting = typeof source.descriptionFrom === 'number' && typeof source.descriptionTo === 'number'
+
+  if (nextRaw.trim().length === 0) {
+    if (hasExisting) {
+      const ok = surface.applyEdits([{ from: source.descriptionFrom!, to: source.descriptionTo!, insert: '' }], { scrollIntoView: false })
+      if (ok) await surface.save()
+    }
+    cancelDescEdit()
+    return
+  }
+
+  const indentSize = typeof source.descriptionIndent === 'number' ? source.descriptionIndent : Math.max(0, source.indent + 2)
+  const indent = ' '.repeat(indentSize)
+  const body = nextRaw.split('\n').map((line) => indent + line).join('\n') + '\n'
+
+  if (hasExisting) {
+    const ok = surface.applyEdits([{ from: source.descriptionFrom!, to: source.descriptionTo!, insert: body }], { scrollIntoView: false })
+    if (ok) await surface.save()
+    cancelDescEdit()
+    return
+  }
+
+  const insertPos = typeof source.insertAfterLinePos === 'number' ? source.insertAfterLinePos : source.lineTo + 1
+  const ok = surface.applyEdits([{ from: insertPos, to: insertPos, insert: body }], { scrollIntoView: false })
+  if (ok) await surface.save()
+  cancelDescEdit()
 }
 </script>
 
@@ -997,6 +1128,7 @@ async function saveTaskEdit(task: TaskItem) {
 .file-info { display: flex; flex-direction: column; gap: 4px; }
 .file-path { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
 .content-header h2 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text-primary); }
+.header-actions { display: flex; align-items: center; gap: 8px; }
 
 .view-btn {
   height: 28px;
@@ -1012,10 +1144,32 @@ async function saveTaskEdit(task: TaskItem) {
 .view-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 .view-btn:active { background: var(--bg-tertiary); }
 
-.content-body { flex: 1; overflow: auto; padding: 32px; }
-.content-body.is-editor { padding: 0; overflow: hidden; }
+.ln-btn {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ln-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.ln-btn:active { background: var(--bg-tertiary); }
+.ln-btn.active { border-color: var(--accent-color); color: var(--text-primary); }
 
-.editor-content { height: 100%; }
+.content-body { flex: 1; overflow: auto; padding: 32px; }
+.content-body.is-editor { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+.markdown-surface-content {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-content { flex: 1; min-height: 0; }
 
 .code-content {
   width: max-content;
@@ -1122,6 +1276,7 @@ async function saveTaskEdit(task: TaskItem) {
 .filter-chip.active .badge { background: rgba(255,255,255,0.2); }
 
 /* Task Board */
+.task-hidden-surface { display: none; }
 .task-board { display: flex; flex-direction: column; gap: 24px; padding-bottom: 60px; }
 
 .task-group-card { 
@@ -1187,13 +1342,16 @@ async function saveTaskEdit(task: TaskItem) {
 .task-content-wrapper { flex: 1; display: flex; flex-direction: column; gap: 4px; }
 .task-main { display: flex; align-items: flex-start; justify-content: space-between; }
 .task-text { font-size: 15px; line-height: 1.5; color: var(--text-primary); cursor: text; transition: color 0.2s; }
-.task-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 2px; }
+.task-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 2px; white-space: pre-wrap; cursor: text; }
+.task-desc.placeholder { display: none; color: var(--text-tertiary); opacity: 0.7; }
+.task-row:hover .task-desc.placeholder { display: block; }
 
 .task-edit-icon { opacity: 0; color: var(--text-tertiary); background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s; }
 .task-row:hover .task-edit-icon { opacity: 1; }
 .task-edit-icon:hover { background: var(--bg-tertiary); color: var(--accent-color); }
 
 .task-edit-textarea { width: 100%; padding: 8px; border: 2px solid var(--accent-color); border-radius: 6px; font-family: inherit; font-size: 14px; line-height: 1.5; resize: vertical; }
+.task-desc-textarea { width: 100%; padding: 8px; border: 2px solid var(--accent-color); border-radius: 6px; font-family: inherit; font-size: 13px; line-height: 1.5; resize: vertical; margin-top: 2px; }
 
 .empty-filter-state { text-align: center; padding: 60px 0; color: var(--text-secondary); }
 .empty-icon { margin-bottom: 16px; opacity: 0.3; color: var(--text-secondary); }

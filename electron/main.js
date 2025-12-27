@@ -20,6 +20,7 @@ let ptySessions = new Map()
 let ptySessionId = 0
 let userPreferences = {
   theme: 'system',
+  markdownLineNumbers: true,
   sidebarWidth: 250,
   terminalWidth: 350,
   sidebarCollapsed: false,

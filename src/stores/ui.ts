@@ -4,12 +4,13 @@ import { ref } from 'vue'
 export const useUIStore = defineStore('ui', () => {
   // 状态
   const theme = ref<'light' | 'dark' | 'system'>('system')
-  const sidebarWidth = ref(250)
+  const sidebarWidth = ref(180)
   const terminalWidth = ref(350)
   const terminalOpen = ref(false)
   const sidebarCollapsed = ref(false)
   const contentCollapsed = ref(false)
   const terminalCollapsed = ref(false)
+  const markdownLineNumbers = ref(true)
   const searchQuery = ref('')
   const isSearching = ref(false)
 
@@ -45,6 +46,9 @@ export const useUIStore = defineStore('ui', () => {
         if (prefs.terminalCollapsed !== undefined) {
           terminalCollapsed.value = prefs.terminalCollapsed
         }
+        if (prefs.markdownLineNumbers !== undefined) {
+          markdownLineNumbers.value = prefs.markdownLineNumbers === true
+        }
         normalizePanels()
         applyTheme()
       })
@@ -66,6 +70,8 @@ export const useUIStore = defineStore('ui', () => {
       if (savedContentCollapsed !== null) contentCollapsed.value = savedContentCollapsed === 'true'
       const savedTerminalCollapsed = localStorage.getItem('terminalCollapsed')
       if (savedTerminalCollapsed !== null) terminalCollapsed.value = savedTerminalCollapsed === 'true'
+      const savedMarkdownLineNumbers = localStorage.getItem('markdownLineNumbers')
+      if (savedMarkdownLineNumbers !== null) markdownLineNumbers.value = savedMarkdownLineNumbers === 'true'
       normalizePanels()
       applyTheme()
     }
@@ -162,6 +168,11 @@ export const useUIStore = defineStore('ui', () => {
     savePreferences()
   }
 
+  function toggleMarkdownLineNumbers(): void {
+    markdownLineNumbers.value = !markdownLineNumbers.value
+    savePreferences()
+  }
+
   // 设置搜索查询
   function setSearchQuery(query: string): void {
     searchQuery.value = query
@@ -179,6 +190,7 @@ export const useUIStore = defineStore('ui', () => {
     if (window.electronAPI) {
       await window.electronAPI.setPreferences({
         theme: theme.value,
+        markdownLineNumbers: markdownLineNumbers.value,
         sidebarWidth: sidebarWidth.value,
         terminalWidth: terminalWidth.value,
         terminalOpen: terminalOpen.value,
@@ -188,6 +200,7 @@ export const useUIStore = defineStore('ui', () => {
       })
     } else {
       localStorage.setItem('theme', theme.value)
+      localStorage.setItem('markdownLineNumbers', String(markdownLineNumbers.value))
       localStorage.setItem('sidebarWidth', String(sidebarWidth.value))
       localStorage.setItem('terminalWidth', String(terminalWidth.value))
       localStorage.setItem('terminalOpen', String(terminalOpen.value))
@@ -215,6 +228,7 @@ export const useUIStore = defineStore('ui', () => {
     sidebarCollapsed,
     contentCollapsed,
     terminalCollapsed,
+    markdownLineNumbers,
     searchQuery,
     isSearching,
     
@@ -232,6 +246,7 @@ export const useUIStore = defineStore('ui', () => {
     collapseTerminal,
     expandTerminal,
     expandSidebar,
+    toggleMarkdownLineNumbers,
     setSearchQuery,
     clearSearch,
     savePreferences
