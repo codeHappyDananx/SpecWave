@@ -41,4 +41,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}
-          path: dist-electron
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*.zip
