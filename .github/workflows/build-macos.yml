@@ -23,7 +23,14 @@ jobs:
           node-version: 18
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - run: npm ci
+        env:
+          PYTHON: ${{ env.pythonLocation }}/bin/python
+          npm_config_python: ${{ env.pythonLocation }}/bin/python
 
       - run: npm run electron:build:mac -- --${{ matrix.arch }}
 
