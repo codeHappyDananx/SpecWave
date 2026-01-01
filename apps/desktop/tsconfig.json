@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/ui-next" }],
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node"],
+    "baseUrl": "."
+  },
+  "include": ["src"]
+}

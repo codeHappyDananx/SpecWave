@@ -1,0 +1,29 @@
+{
+  "name": "@specwave/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@specwave/contracts": "workspace:*",
+    "@specwave/ui-next": "workspace:*",
+    "electron": "^27.3.11",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.5.4"
+  }
+}

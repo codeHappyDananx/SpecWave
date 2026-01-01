@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "references": [{ "path": "../contracts" }],
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
+    "outDir": "./dist"
+  },
+  "include": ["src"]
+}

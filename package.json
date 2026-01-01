@@ -1,0 +1,17 @@
+{
+  "name": "specwave",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm -C apps/desktop dev",
+    "build": "pnpm -C apps/desktop build",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

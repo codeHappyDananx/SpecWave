@@ -1,0 +1,18 @@
+node_modules
+.DS_Store
+dist
+dist-electron
+out
+release
+*.log
+*.tsbuildinfo
+.env
+.env.*
+.vscode
+.idea
+
+# 防止 tsc 输出污染源码目录（此仓库以 TS 为主，src 下的 .js/.d.ts 视为生成物）
+apps/**/src/**/*.js
+apps/**/src/**/*.js.map
+apps/**/src/**/*.d.ts
+apps/**/src/**/*.d.ts.map
