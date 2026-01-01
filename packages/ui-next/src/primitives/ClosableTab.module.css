@@ -1,0 +1,7 @@
+.root{border:2px solid transparent;border-radius:var(--sw-radius-md);padding:6px 8px;background:var(--sw-muted);cursor:pointer;font:inherit;font-weight:800;white-space:nowrap;display:inline-flex;align-items:center;gap:10px;transition:transform var(--t-quick),background var(--t-quick),border-color var(--t-quick),color var(--t-quick);max-width:160px;}
+.root[aria-selected="true"]{background:#fff;border-color:var(--sw-border);font-weight:800;}
+.root:hover{transform:scale(1.02);}
+.text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.close{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;border:0;background:#fff;color:var(--sw-fg);cursor:pointer;transition:transform var(--t-quick),background var(--t-quick);}
+.close:hover{transform:scale(1.06);background:#E5E7EB;}
+

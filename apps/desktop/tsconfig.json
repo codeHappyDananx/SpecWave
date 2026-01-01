@@ -3,6 +3,7 @@
   "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/ui-next" }],
   "compilerOptions": {
     "composite": true,
+    "noEmit": true,
     "types": ["node"],
     "baseUrl": "."
   },

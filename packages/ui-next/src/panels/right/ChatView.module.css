@@ -1,0 +1,7 @@
+.root{min-height:0;height:100%;display:grid;gap:10px;grid-template-rows:1fr auto;}
+.msgs{min-height:0;overflow:auto;display:grid;gap:10px;align-content:start;}
+.msg{border-radius:var(--sw-radius-lg);padding:12px;display:grid;gap:6px;}
+.msgUser{background:#DBEAFE;}
+.msgAi{background:#ECFDF5;}
+.who{font-weight:800;letter-spacing:-.02em;}
+

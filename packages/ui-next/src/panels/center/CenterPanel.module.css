@@ -1,0 +1,14 @@
+.content{display:grid;gap:12px;min-height:0;}
+.topBlock{display:grid;gap:10px;}
+.badgeRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.tabs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.preview{border-radius:var(--sw-radius-lg);background:#fff;padding:14px;overflow:auto;min-height:0;}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;}
+.editor{border-radius:var(--sw-radius-lg);background:#0B1220;color:#fff;padding:14px;font-family:var(--sw-font-mono);line-height:1.55;overflow:auto;min-height:0;}
+.editorTitle{opacity:.7;}
+.editorBody{margin-top:10px;}
+.tasksTitle{margin:0 0 10px;font-weight:800;letter-spacing:-.02em;}
+.previewTitle{margin:0 0 10px;font-weight:800;letter-spacing:-.02em;}
+.p{margin:0 0 10px;line-height:1.7;}
+.muted{color:#4B5563;font-weight:700;}
+.bottomBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}

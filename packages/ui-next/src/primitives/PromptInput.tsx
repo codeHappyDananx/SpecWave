@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './PromptInput.module.css';
 
 export type PromptInputProps = {
   value?: string;
@@ -20,7 +21,7 @@ export function PromptInput(props: PromptInputProps) {
 
   return (
     <input
-      className="input mono"
+      className={styles.input}
       aria-label={props.ariaLabel}
       placeholder={props.placeholder}
       value={text}
@@ -37,4 +38,3 @@ export function PromptInput(props: PromptInputProps) {
     />
   );
 }
-

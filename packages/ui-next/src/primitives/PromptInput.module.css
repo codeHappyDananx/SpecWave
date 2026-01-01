@@ -1,0 +1,3 @@
+.input{width:100%;border:0;border-radius:var(--sw-radius-md);background:var(--sw-muted);padding:12px 14px;font:inherit;font-family:var(--sw-font-mono);transition:background var(--t-quick),border var(--t-quick);}
+.input:focus{outline:none;background:#fff;border:2px solid var(--sw-primary);}
+

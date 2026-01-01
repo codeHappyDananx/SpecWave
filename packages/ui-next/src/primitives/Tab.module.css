@@ -1,0 +1,4 @@
+.tab{border:2px solid transparent;border-radius:var(--sw-radius-md);padding:8px 10px;background:var(--sw-muted);cursor:pointer;font:inherit;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;transition:transform var(--t-quick),background var(--t-quick),border-color var(--t-quick),color var(--t-quick);}
+.tab[aria-selected="true"]{background:#fff;border-color:var(--sw-border);font-weight:800;}
+.tab:hover{transform:scale(1.02);}
+

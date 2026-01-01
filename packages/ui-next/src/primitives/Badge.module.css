@@ -1,0 +1,6 @@
+.badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:var(--sw-radius-md);background:var(--sw-muted);font-weight:700;font-size:.82rem;white-space:nowrap;}
+.mono{font-family:var(--sw-font-mono);}
+.primary{background:#DBEAFE;color:#1D4ED8;}
+.secondary{background:#D1FAE5;color:#047857;}
+.accent{background:#FEF3C7;color:#B45309;}
+

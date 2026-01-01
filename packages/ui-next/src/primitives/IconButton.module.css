@@ -1,0 +1,6 @@
+.button{width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--sw-radius-md);border:0;cursor:pointer;transition:transform var(--t-quick),background var(--t-quick),color var(--t-quick),border-color var(--t-quick);user-select:none;line-height:1;}
+.button[data-active="true"]{background:var(--sw-primary);color:#fff;}
+.button[data-active="false"]{background:#fff;color:var(--sw-primary);border:2px solid var(--sw-border);}
+.button:hover{transform:scale(1.05);}
+.button:active{transform:scale(.98);}
+
