@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registerIpcHandlers } from './ipc';
 
 let mainWindow: BrowserWindow | null = null;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -8,6 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Windows 环境下 GPU 进程偶发崩溃时，先用软渲染保证可用性（后续可做成可配置项）。
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
+
+registerIpcHandlers();
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({

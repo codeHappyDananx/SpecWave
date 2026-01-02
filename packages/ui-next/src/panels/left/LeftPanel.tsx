@@ -1,13 +1,67 @@
 import React from 'react';
+import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { Icon } from '../../primitives/Icons';
 import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
 import styles from './LeftPanel.module.css';
 
+type LeftIntent = Extract<UIIntent, | { type: 'EXPLORER_TOGGLE_DIR' } | { type: 'EXPLORER_OPEN_FILE' }>;
+
 export type LeftPanelProps = {
+  explorer: AppViewModel['explorer'];
+  dispatch: (intent: LeftIntent) => void;
   minwPx: number;
 };
 
 export function LeftPanel(props: LeftPanelProps) {
+  const renderNode = (tree: 'workspace' | 'project', node: AppViewModel['explorer']['workspace'][number], depth: number) => {
+    const isExpanded = props.explorer.expanded[tree].includes(node.id);
+    const isSelected = props.explorer.selectedPath === node.id;
+    const rowStyle = { paddingLeft: `${10 + depth * 18}px` };
+
+    if (node.kind === 'dir') {
+      return (
+        <li key={node.id} className={styles.node}>
+          <button
+            className={styles.nodeButton}
+            type="button"
+            style={rowStyle}
+            aria-current={isSelected ? 'true' : 'false'}
+            onClick={() => props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree, id: node.id })}
+          >
+            <span className={styles.caret} aria-hidden="true">
+              {isExpanded ? '▾' : '▸'}
+            </span>
+            <span className={styles.name}>{node.name}</span>
+            {node.isLoading ? <span className={styles.meta}>加载中…</span> : null}
+          </button>
+          {node.error ? <div className={styles.error}>{node.error}</div> : null}
+          {isExpanded && node.children ? (
+            <ul className={styles.tree} aria-label={`${node.name} 子节点`}>
+              {node.children.map((c) => renderNode(tree, c, depth + 1))}
+            </ul>
+          ) : null}
+        </li>
+      );
+    }
+
+    return (
+      <li key={node.id} className={styles.node}>
+        <button
+          className={styles.nodeButton}
+          type="button"
+          style={rowStyle}
+          aria-current={isSelected ? 'true' : 'false'}
+          onClick={() => props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: node.id })}
+        >
+          <span className={styles.caret} aria-hidden="true">
+            •
+          </span>
+          <span className={styles.name}>{node.name}</span>
+        </button>
+      </li>
+    );
+  };
+
   return (
     <Panel
       as="aside"
@@ -22,59 +76,33 @@ export function LeftPanel(props: LeftPanelProps) {
       }
     >
       <div className={styles.content}>
-        <details className={styles.group} open>
-          <summary className={styles.groupSummary}>SpecWave 工作区</summary>
-          <ul className={styles.tree} aria-label="工作区树">
-            <li>
-              <button type="button" aria-current="true">
-                <span className={styles.mark} />
-                <span>stories</span>
-                <span className={styles.meta}>12</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className={styles.mark} />
-                <span>bugs</span>
-                <span className={styles.meta}>3</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className={styles.mark} />
-                <span>workspace</span>
-                <span className={styles.meta}>—</span>
-              </button>
-            </li>
-          </ul>
-        </details>
+        {!props.explorer.projectRoot ? (
+          <div className={styles.empty} aria-label="未打开项目">
+            还未打开项目。点击顶部“打开项目”后，这里会显示工作区与项目文件树。
+          </div>
+        ) : (
+          <>
+            <details className={styles.group} open>
+              <summary className={styles.groupSummary}>SpecWave 工作区</summary>
+              {props.explorer.workspaceRoot ? (
+                <ul className={styles.tree} aria-label="工作区树">
+                  {props.explorer.workspace.map((n) => renderNode('workspace', n, 0))}
+                </ul>
+              ) : (
+                <div className={styles.muted}>未找到 .specwave/workspace（该目录不是 SpecWave 项目或未初始化）。</div>
+              )}
+            </details>
 
-        <details className={styles.group} open>
-          <summary className={styles.groupSummary}>项目文件</summary>
-          <ul className={styles.tree} aria-label="项目文件树">
-            <li>
-              <button type="button">
-                <span className={styles.mark} />
-                <span>src</span>
-                <span className={styles.meta}>…</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className={styles.mark} />
-                <span>packages</span>
-                <span className={styles.meta}>…</span>
-              </button>
-            </li>
-            <li>
-              <button type="button">
-                <span className={styles.mark} />
-                <span>README.md</span>
-                <span className={styles.meta}>md</span>
-              </button>
-            </li>
-          </ul>
-        </details>
+            <details className={styles.group} open>
+              <summary className={styles.groupSummary}>项目文件</summary>
+              <ul className={styles.tree} aria-label="项目文件树">
+                {props.explorer.project.map((n) => renderNode('project', n, 0))}
+              </ul>
+            </details>
+
+            {props.explorer.error ? <div className={styles.error}>{props.explorer.error}</div> : null}
+          </>
+        )}
       </div>
     </Panel>
   );

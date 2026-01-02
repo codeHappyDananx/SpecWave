@@ -15,6 +15,8 @@ export type SpecWaveAppProps = {
 export function SpecWaveApp(props: SpecWaveAppProps) {
   const { vm, dispatch } = props;
 
+  const activeProject = vm.projects.activeTabId ? vm.projects.openTabs.find((t) => t.id === vm.projects.activeTabId) : null;
+
   const panelMinW = {
     left: 240,
     // 中区内容宽度：按窗口宽度的 70% 计算；小于此宽度则中区内部横向滚动查看（内容不被挤压）。
@@ -41,12 +43,19 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           showCenter={vm.centerVisible}
           showRight={vm.rightVisible}
           dispatch={dispatch}
-          left={<LeftPanel minwPx={panelMinW.left} />}
-          center={<CenterPanel centerMode={vm.ui.centerMode} dispatch={dispatch} minwPx={panelMinW.center} />}
+          left={<LeftPanel explorer={vm.explorer} dispatch={dispatch} minwPx={panelMinW.left} />}
+          center={<CenterPanel content={vm.content} dispatch={dispatch} minwPx={panelMinW.center} />}
           right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={dispatch} minwPx={panelMinW.right} />}
         />
 
-        <StatusBar />
+        <StatusBar
+          projectPath={activeProject?.path ?? null}
+          filePath={vm.content.file?.path ?? null}
+          saveStatus={vm.content.saveStatus}
+          saveError={vm.content.saveError}
+          explorerError={vm.explorer.error}
+          theme={vm.ui.theme}
+        />
       </div>
     </div>
   );

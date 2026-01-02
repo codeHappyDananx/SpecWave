@@ -80,7 +80,7 @@
 ### contracts（交互契约层）
 
 - `packages/contracts/src/index.ts`
-  - 做什么：定义 `UIIntent`、`AppViewModel`、`LayoutVM` 等交互契约。
+  - 做什么：定义 `UIIntent`、`AppViewModel`（含 app/explorer/content/layout）以及任务/文件树等 UI 交互契约。
   - 依赖谁：无（只做类型定义）。
   - 由谁依赖：`apps/desktop` store、`packages/ui-next` UI。
 
@@ -95,11 +95,15 @@
   - 依赖谁：`tsconfig.base.json`。
   - 由谁依赖：根 `typecheck`、`apps/desktop` 的 `typecheck` script。
 - `apps/desktop/src/main/index.ts`
-  - 做什么：Electron 主进程（创建窗口、加载 renderer、打开外链）。
+  - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链）。
   - 依赖谁：Electron API。
   - 由谁依赖：electron-vite main entry。
+- `apps/desktop/src/main/ipc.ts`
+  - 做什么：主进程 IPC handlers（目录选择、读目录、读文本、写文本+sha256 冲突保护）。
+  - 依赖谁：Electron `ipcMain/dialog`、Node `fs/crypto`。
+  - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/preload/index.ts`
-  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave` 的最小 API）。
+  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：目录选择/读目录/读文件/保存文件）。
   - 依赖谁：Electron API。
   - 由谁依赖：主进程 `BrowserWindow.webPreferences.preload`。
 - `apps/desktop/src/renderer/index.html`
@@ -123,7 +127,7 @@
   - 依赖谁：`useAppStore`、`@specwave/ui-next`。
   - 由谁依赖：`main.tsx`。
 - `apps/desktop/src/renderer/src/store.ts`
-  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；维护 mock `AppViewModel` + 布局拖拽规则）。
+  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；编排项目选择→文件树→打开/编辑/保存；并维护布局拖拽与右区 mock）。
   - 依赖谁：`@specwave/contracts`。
   - 由谁依赖：`App.tsx`。
 
@@ -171,7 +175,7 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`LayoutGrid.tsx`。
 - `packages/ui-next/src/shell/StatusBar.tsx`
-  - 做什么：底部状态条（只展示，后续可接 VM）。
+  - 做什么：底部状态条（展示项目/文件/保存状态与错误）。
   - 依赖谁：`primitives/Badge`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/StatusBar.module.css`
@@ -221,12 +225,12 @@
 #### ui-next / panels（三栏内容）
 
 - `packages/ui-next/src/panels/left/LeftPanel.tsx` / `packages/ui-next/src/panels/left/LeftPanel.module.css`
-  - 做什么：左区（文件/导航占位树）。
-  - 依赖谁：`Panel`、`Icons`。
+  - 做什么：左区（工作区树 + 项目文件树；点击目录展开，点击文件打开）。
+  - 依赖谁：`Panel`、`Icons`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/center/CenterPanel.tsx` / `packages/ui-next/src/panels/center/CenterPanel.module.css`
-  - 做什么：中区（work/tasks 占位；演示 Tab 切换与内容布局）。
-  - 依赖谁：`Panel`、`Tab`、`Badge`、`Icons`。
+  - 做什么：中区（文件渲染/源码编辑/保存；task 文件支持任务看板勾选写回）。
+  - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`
   - 做什么：右区（终端/对话切换 + tabs + 新增入口），只派发右区相关 intents。

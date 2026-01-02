@@ -3,9 +3,10 @@ export type RightMode = "terminal" | "chat";
 export type ProjectTabVM = {
   id: string;
   folderName: string;
+  path: string;
 };
 
-export type CenterMode = "work" | "tasks";
+export type AppMode = "welcome" | "main";
 
 export type LayoutVM = {
   containerWidthPx: number;
@@ -15,16 +16,83 @@ export type LayoutVM = {
   rightPx: number;
 };
 
+export type ExplorerTree = "workspace" | "project";
+
+export type ExplorerNodeVM = {
+  id: string;
+  name: string;
+  kind: "dir" | "file";
+  children?: ExplorerNodeVM[];
+  isLoading?: boolean;
+  error?: string;
+};
+
+export type ExplorerVM = {
+  workspaceRoot: string | null;
+  projectRoot: string | null;
+  workspace: ExplorerNodeVM[];
+  project: ExplorerNodeVM[];
+  expanded: {
+    workspace: string[];
+    project: string[];
+  };
+  selectedPath: string | null;
+  isLoading: boolean;
+  error: string | null;
+};
+
+export type ContentKind = "markdown" | "task" | "text";
+export type ContentMode = "view" | "editor" | "task";
+
+export type ContentFileVM = {
+  path: string;
+  name: string;
+  kind: ContentKind;
+  sha256: string;
+};
+
+export type TaskSourceVM = {
+  statusPos: number;
+};
+
+export type TaskItemVM = {
+  id: string;
+  label: string;
+  checked: boolean;
+  level: number;
+  source: TaskSourceVM;
+};
+
+export type TaskBoardVM = {
+  items: TaskItemVM[];
+};
+
+export type ContentVM = {
+  file: ContentFileVM | null;
+  text: string;
+  draftText: string;
+  mode: ContentMode;
+  isDirty: boolean;
+  saveStatus: "idle" | "saving" | "saved" | "error" | "conflict";
+  saveError: string | null;
+  taskBoard: TaskBoardVM | null;
+};
+
 export type UIIntent =
   | { type: "PANEL_TOGGLE_LEFT" }
   | { type: "PANEL_TOGGLE_CENTER" }
   | { type: "PANEL_TOGGLE_RIGHT" }
   | { type: "RIGHT_MODE_SET"; mode: RightMode }
   | { type: "RIGHT_PANEL_ADD" }
-  | { type: "CENTER_MODE_SET"; mode: CenterMode }
-  | { type: "PROJECT_OPEN_MOCK" }
+  | { type: "PROJECT_SELECT" }
   | { type: "PROJECT_TAB_SET_ACTIVE"; id: string }
   | { type: "PROJECT_TAB_CLOSE"; id: string }
+  | { type: "EXPLORER_TOGGLE_DIR"; tree: ExplorerTree; id: string }
+  | { type: "EXPLORER_OPEN_FILE"; path: string }
+  | { type: "CONTENT_TOGGLE_VIEW_MODE" }
+  | { type: "CONTENT_DRAFT_SET"; text: string }
+  | { type: "CONTENT_SAVE_REQUEST" }
+  | { type: "TASK_ITEM_TOGGLE"; taskId: string; source: TaskSourceVM }
   | { type: "THEME_TOGGLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
   | { type: "TERMINAL_PANEL_SET_ACTIVE"; id: string }
@@ -47,10 +115,17 @@ export type ChatMessageVM = {
 };
 
 export type AppViewModel = {
+  app: {
+    mode: AppMode;
+  };
+
   projects: {
     openTabs: ProjectTabVM[];
     activeTabId: string | null;
   };
+
+  explorer: ExplorerVM;
+  content: ContentVM;
 
   leftVisible: boolean;
   centerVisible: boolean;
@@ -72,10 +147,7 @@ export type AppViewModel = {
     draftBySession: Record<string, string>;
   };
 
-  ui: {
-    centerMode: CenterMode;
-    theme: "light";
-  };
+  ui: { theme: "light" };
 
   layout: LayoutVM;
 };

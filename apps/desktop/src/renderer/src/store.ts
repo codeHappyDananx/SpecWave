@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import type { AppViewModel, ChatMessageVM, UIIntent } from '@specwave/contracts';
+import type {
+  AppViewModel,
+  ChatMessageVM,
+  ContentKind,
+  ContentMode,
+  ExplorerNodeVM,
+  TaskBoardVM,
+  TaskItemVM,
+  UIIntent
+} from '@specwave/contracts';
 
 type AppState = {
   vm: AppViewModel;
@@ -19,9 +28,27 @@ const initialTerminalLines = [
 ];
 
 const initialVm: AppViewModel = {
-  projects: {
-    openTabs: [{ id: 'proj-1', folderName: 'openspec-visualizer' }],
-    activeTabId: 'proj-1'
+  app: { mode: 'welcome' },
+  projects: { openTabs: [], activeTabId: null },
+  explorer: {
+    workspaceRoot: null,
+    projectRoot: null,
+    workspace: [],
+    project: [],
+    expanded: { workspace: [], project: [] },
+    selectedPath: null,
+    isLoading: false,
+    error: null
+  },
+  content: {
+    file: null,
+    text: '',
+    draftText: '',
+    mode: 'view',
+    isDirty: false,
+    saveStatus: 'idle',
+    saveError: null,
+    taskBoard: null
   },
   leftVisible: true,
   centerVisible: true,
@@ -48,7 +75,7 @@ const initialVm: AppViewModel = {
       'chat-2': ''
     }
   },
-  ui: { centerMode: 'work', theme: 'light' },
+  ui: { theme: 'light' },
   layout: { containerWidthPx: 1280, isDragging: false, leftPx: 280, centerPx: 640, rightPx: 360 }
 };
 
@@ -240,6 +267,102 @@ function applyDrag(snapshot: DragSnapshot, deltaX: number) {
   return { leftVisible, centerVisible, rightVisible, leftPx, centerPx, rightPx };
 }
 
+let openProjectSeq = 0;
+let openFileSeq = 0;
+
+function detectSep(p: string) {
+  return p.includes('/') ? '/' : '\\';
+}
+
+function joinPath(base: string, ...rest: string[]) {
+  const sep = detectSep(base);
+  const parts = [base, ...rest].filter(Boolean).map((s) => s.replace(/[\\/]+$/g, '').replace(/^[\\/]+/g, ''));
+  if (parts.length === 0) return '';
+  const [first, ...tail] = parts;
+  return [first, ...tail].join(sep);
+}
+
+function basename(p: string) {
+  const sep = detectSep(p);
+  const normalized = p.replace(/[\\/]+$/g, '');
+  const idx = normalized.lastIndexOf(sep);
+  return idx >= 0 ? normalized.slice(idx + 1) : normalized;
+}
+
+function toExplorerNodes(entries: { name: string; path: string; kind: 'dir' | 'file' }[]): ExplorerNodeVM[] {
+  return entries.map((e) => ({ id: e.path, name: e.name, kind: e.kind }));
+}
+
+function updateNodeById(
+  nodes: ExplorerNodeVM[],
+  id: string,
+  updater: (node: ExplorerNodeVM) => ExplorerNodeVM
+): ExplorerNodeVM[] {
+  return nodes.map((n) => {
+    if (n.id === id) return updater(n);
+    if (!n.children) return n;
+    const nextChildren = updateNodeById(n.children, id, updater);
+    if (nextChildren === n.children) return n;
+    return { ...n, children: nextChildren };
+  });
+}
+
+function findNodeById(nodes: ExplorerNodeVM[], id: string): ExplorerNodeVM | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (!n.children) continue;
+    const hit = findNodeById(n.children, id);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function detectContentKind(filePath: string): ContentKind {
+  const lower = filePath.toLowerCase();
+  const name = basename(filePath).toLowerCase();
+  if (name === 'tasks.md' || name === 'work.md') return 'task';
+  if (lower.endsWith('.md')) return 'markdown';
+  return 'text';
+}
+
+function defaultContentMode(kind: ContentKind): ContentMode {
+  if (kind === 'task') return 'task' as const;
+  if (kind === 'markdown') return 'view' as const;
+  return 'editor' as const;
+}
+
+function parseTaskBoard(text: string): TaskBoardVM {
+  const items: TaskItemVM[] = [];
+  const re = /^(?<indent>[ \t]*)-\s*\[(?<status>[ xX])\]\s+(?<label>.*)$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const lineStart = m.index;
+    const fullLine = (m[0] ?? '').replace(/\r$/, '');
+    const indent = m.groups?.indent ?? '';
+    const status = (m.groups?.status ?? ' ').toLowerCase();
+    const labelRaw = (m.groups?.label ?? '').replace(/\r$/, '');
+
+    const bracketIdx = fullLine.indexOf('[');
+    if (bracketIdx < 0) continue;
+    const statusPos = lineStart + bracketIdx + 1;
+    const level = Math.max(0, Math.floor(indent.length / 2));
+
+    items.push({
+      id: `task-${statusPos}`,
+      label: labelRaw,
+      checked: status === 'x',
+      level,
+      source: { statusPos }
+    });
+  }
+  return { items };
+}
+
+function toggleCharAt(text: string, pos: number, nextChar: string) {
+  if (pos < 0 || pos >= text.length) return text;
+  return text.slice(0, pos) + nextChar + text.slice(pos + 1);
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   vm: initialVm,
   intentLog: [],
@@ -289,32 +412,308 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         case 'GLOBAL_SEARCH_SET':
           return { vm: { ...vm, globalSearchQuery: intent.query } };
-        case 'CENTER_MODE_SET':
-          {
-            const nextVm = { ...vm, ui: { ...vm.ui, centerMode: intent.mode }, centerVisible: true };
-            const nextLayout = normalizeLayoutStable(nextVm);
-            return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
-          }
-        case 'PROJECT_OPEN_MOCK': {
-          const nextIdx = vm.projects.openTabs.length + 1;
-          const next = { id: `proj-${nextIdx}`, folderName: `project-${nextIdx}` };
-          return {
-            vm: {
-              ...vm,
-              projects: {
-                openTabs: [...vm.projects.openTabs, next],
-                activeTabId: next.id
-              }
+        case 'PROJECT_SELECT': {
+          const seq = ++openProjectSeq;
+          void (async () => {
+            const api = window.specwave;
+            if (!api) {
+              set((s) => ({
+                vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: '未检测到桌面端 API（preload 未注入）。' } }
+              }));
+              return;
             }
-          };
+
+            const dirPath = await api.selectDirectory();
+            if (!dirPath) {
+              set((s) => ({ vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false } } }));
+              return;
+            }
+
+            const projectName = basename(dirPath);
+            const tabId = `proj-${Date.now()}`;
+            const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+
+            const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
+            if (seq !== openProjectSeq) return;
+
+            const errors: string[] = [];
+            const workspaceNodes = workspaceRes.ok ? toExplorerNodes(workspaceRes.entries) : (errors.push(`工作区读取失败：${workspaceRes.error}`), []);
+            const projectNodes = projectRes.ok ? toExplorerNodes(projectRes.entries) : (errors.push(`项目目录读取失败：${projectRes.error}`), []);
+
+            set((state) => ({
+              vm: {
+                ...state.vm,
+                app: { mode: 'main' },
+                projects: { openTabs: [{ id: tabId, folderName: projectName, path: dirPath }], activeTabId: tabId },
+                explorer: {
+                  workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
+                  projectRoot: dirPath,
+                  workspace: workspaceNodes,
+                  project: projectNodes,
+                  expanded: { workspace: [], project: [] },
+                  selectedPath: null,
+                  isLoading: false,
+                  error: errors.length ? errors.join('；') : null
+                },
+                content: {
+                  file: null,
+                  text: '',
+                  draftText: '',
+                  mode: 'view',
+                  isDirty: false,
+                  saveStatus: 'idle',
+                  saveError: null,
+                  taskBoard: null
+                }
+              }
+            }));
+          })();
+
+          return { vm: { ...vm, explorer: { ...vm.explorer, isLoading: true, error: null } } };
         }
         case 'PROJECT_TAB_SET_ACTIVE':
           return { vm: { ...vm, projects: { ...vm.projects, activeTabId: intent.id } } };
         case 'PROJECT_TAB_CLOSE': {
           const nextTabs = vm.projects.openTabs.filter((t) => t.id !== intent.id);
-          const nextActive =
-            vm.projects.activeTabId === intent.id ? (nextTabs[0]?.id ?? null) : vm.projects.activeTabId;
-          return { vm: { ...vm, projects: { openTabs: nextTabs, activeTabId: nextActive } } };
+          const nextActive = vm.projects.activeTabId === intent.id ? (nextTabs[0]?.id ?? null) : vm.projects.activeTabId;
+          const isEmpty = nextTabs.length === 0;
+          if (!isEmpty) return { vm: { ...vm, projects: { openTabs: nextTabs, activeTabId: nextActive } } };
+          return {
+            vm: {
+              ...vm,
+              app: { mode: 'welcome' },
+              projects: { openTabs: [], activeTabId: null },
+              explorer: { ...initialVm.explorer },
+              content: { ...initialVm.content }
+            }
+          };
+        }
+        case 'EXPLORER_TOGGLE_DIR': {
+          const tree = intent.tree;
+          const expanded = vm.explorer.expanded[tree];
+          const isExpanded = expanded.includes(intent.id);
+          const nextExpanded = isExpanded ? expanded.filter((x) => x !== intent.id) : [...expanded, intent.id];
+
+          const treeNodes = tree === 'workspace' ? vm.explorer.workspace : vm.explorer.project;
+          const target = findNodeById(treeNodes, intent.id);
+
+          if (!isExpanded && target?.kind === 'dir' && target.children == null && !target.isLoading) {
+            const loadingNodes = updateNodeById(treeNodes, intent.id, (n) => ({ ...n, isLoading: true, error: undefined }));
+            void (async () => {
+              const api = window.specwave;
+              if (!api) return;
+              const res = await api.readDirectory(intent.id);
+              set((state) => {
+                const vm2 = state.vm;
+                const nodes2 = tree === 'workspace' ? vm2.explorer.workspace : vm2.explorer.project;
+                const nextNodes = updateNodeById(nodes2, intent.id, (n) => ({
+                  ...n,
+                  isLoading: false,
+                  children: res.ok ? toExplorerNodes(res.entries) : [],
+                  error: res.ok ? undefined : res.error
+                }));
+                return {
+                  vm: {
+                    ...vm2,
+                    explorer: { ...vm2.explorer, [tree]: nextNodes }
+                  }
+                };
+              });
+            })();
+
+            return {
+              vm: {
+                ...vm,
+                explorer: {
+                  ...vm.explorer,
+                  expanded: { ...vm.explorer.expanded, [tree]: nextExpanded },
+                  [tree]: loadingNodes
+                }
+              }
+            };
+          }
+
+          return { vm: { ...vm, explorer: { ...vm.explorer, expanded: { ...vm.explorer.expanded, [tree]: nextExpanded } } } };
+        }
+        case 'EXPLORER_OPEN_FILE': {
+          const seq = ++openFileSeq;
+          const filePath = intent.path;
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+            const res = await api.readTextFile(filePath);
+            if (seq !== openFileSeq) return;
+
+            set((state) => {
+              const vm2 = state.vm;
+              if (vm2.explorer.selectedPath !== filePath) return { vm: vm2 };
+
+              if (!res.ok) {
+                return {
+                  vm: {
+                    ...vm2,
+                    content: { ...vm2.content, saveStatus: 'error', saveError: res.error }
+                  }
+                };
+              }
+
+              const kind = detectContentKind(filePath);
+              const mode = defaultContentMode(kind);
+              const taskBoard = kind === 'task' ? parseTaskBoard(res.text) : null;
+
+              return {
+                vm: {
+                  ...vm2,
+                  content: {
+                    file: { path: filePath, name: basename(filePath), kind, sha256: res.sha256 },
+                    text: res.text,
+                    draftText: res.text,
+                    mode,
+                    isDirty: false,
+                    saveStatus: 'idle',
+                    saveError: null,
+                    taskBoard
+                  }
+                }
+              };
+            });
+          })();
+
+          return {
+            vm: {
+              ...vm,
+              centerVisible: true,
+              explorer: { ...vm.explorer, selectedPath: filePath },
+              content: { ...vm.content, saveStatus: 'idle', saveError: null }
+            }
+          };
+        }
+        case 'CONTENT_TOGGLE_VIEW_MODE': {
+          const file = vm.content.file;
+          if (!file) return { vm };
+          const effectiveText = vm.content.isDirty ? vm.content.draftText : vm.content.text;
+
+          const nextMode = (() => {
+            if (file.kind === 'task') {
+              if (vm.content.mode === 'task') return 'view' as const;
+              if (vm.content.mode === 'view') return 'editor' as const;
+              return 'task' as const;
+            }
+            if (vm.content.mode === 'view') return 'editor' as const;
+            return 'view' as const;
+          })();
+
+          const nextTaskBoard = file.kind === 'task' && nextMode === 'task' ? parseTaskBoard(effectiveText) : vm.content.taskBoard;
+          return {
+            vm: {
+              ...vm,
+              content: { ...vm.content, mode: nextMode, taskBoard: nextTaskBoard, draftText: effectiveText }
+            }
+          };
+        }
+        case 'CONTENT_DRAFT_SET': {
+          const file = vm.content.file;
+          if (!file) return { vm };
+          const nextDraft = intent.text;
+          const isDirty = nextDraft !== vm.content.text;
+          return { vm: { ...vm, content: { ...vm.content, draftText: nextDraft, isDirty, saveStatus: 'idle', saveError: null } } };
+        }
+        case 'CONTENT_SAVE_REQUEST': {
+          const file = vm.content.file;
+          if (!file || !vm.content.isDirty) return { vm };
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+            const current = get().vm.content.file;
+            if (!current || current.path !== file.path) return;
+            const text = get().vm.content.draftText;
+            const res = await api.saveTextFile(current.path, text, current.sha256);
+
+            set((state) => {
+              const vm2 = state.vm;
+              if (!vm2.content.file || vm2.content.file.path !== file.path) return { vm: vm2 };
+
+              if (!res.ok) {
+                if ('conflict' in res && res.conflict) {
+                  return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'conflict', saveError: res.error } } };
+                }
+                return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'error', saveError: res.error } } };
+              }
+
+              const kind = vm2.content.file.kind;
+              const nextText = vm2.content.draftText;
+              return {
+                vm: {
+                  ...vm2,
+                  content: {
+                    ...vm2.content,
+                    text: nextText,
+                    isDirty: false,
+                    saveStatus: 'saved',
+                    saveError: null,
+                    file: { ...vm2.content.file, sha256: res.sha256 },
+                    taskBoard: kind === 'task' ? parseTaskBoard(nextText) : vm2.content.taskBoard
+                  }
+                }
+              };
+            });
+          })();
+
+          return { vm: { ...vm, content: { ...vm.content, saveStatus: 'saving', saveError: null } } };
+        }
+        case 'TASK_ITEM_TOGGLE': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+
+          const effectiveText = vm.content.isDirty ? vm.content.draftText : vm.content.text;
+          const currentChar = effectiveText[intent.source.statusPos] ?? ' ';
+          const nextChar = currentChar.toLowerCase() === 'x' ? ' ' : 'x';
+          const nextText = toggleCharAt(effectiveText, intent.source.statusPos, nextChar);
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+            const current = get().vm.content.file;
+            if (!current || current.path !== file.path) return;
+            const res = await api.saveTextFile(current.path, nextText, current.sha256);
+
+            set((state) => {
+              const vm2 = state.vm;
+              if (!vm2.content.file || vm2.content.file.path !== file.path) return { vm: vm2 };
+
+              if (!res.ok) {
+                if ('conflict' in res && res.conflict) {
+                  return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'conflict', saveError: res.error } } };
+                }
+                return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'error', saveError: res.error } } };
+              }
+
+              return {
+                vm: {
+                  ...vm2,
+                  content: {
+                    ...vm2.content,
+                    text: nextText,
+                    draftText: nextText,
+                    isDirty: false,
+                    saveStatus: 'saved',
+                    saveError: null,
+                    file: { ...vm2.content.file!, sha256: res.sha256 },
+                    taskBoard: parseTaskBoard(nextText)
+                  }
+                }
+              };
+            });
+          })();
+
+          return {
+            vm: {
+              ...vm,
+              content: { ...vm.content, draftText: nextText, isDirty: true, saveStatus: 'saving', saveError: null, taskBoard: parseTaskBoard(nextText) }
+            }
+          };
         }
         case 'THEME_TOGGLE':
           return { vm };
@@ -475,7 +874,44 @@ export const useAppStore = create<AppState>((set, get) => ({
           };
         }
         case 'SHORTCUT_SAVE':
-          return { vm };
+          if (!vm.content.file || !vm.content.isDirty) return { vm };
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+            const current = get().vm.content.file;
+            if (!current) return;
+            const text = get().vm.content.draftText;
+            const res = await api.saveTextFile(current.path, text, current.sha256);
+            set((state) => {
+              const vm2 = state.vm;
+              if (!vm2.content.file || vm2.content.file.path !== current.path) return { vm: vm2 };
+
+              if (!res.ok) {
+                if ('conflict' in res && res.conflict) {
+                  return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'conflict', saveError: res.error } } };
+                }
+                return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'error', saveError: res.error } } };
+              }
+
+              const kind = vm2.content.file.kind;
+              const nextText = vm2.content.draftText;
+              return {
+                vm: {
+                  ...vm2,
+                  content: {
+                    ...vm2.content,
+                    text: nextText,
+                    isDirty: false,
+                    saveStatus: 'saved',
+                    saveError: null,
+                    file: { ...vm2.content.file, sha256: res.sha256 },
+                    taskBoard: kind === 'task' ? parseTaskBoard(nextText) : vm2.content.taskBoard
+                  }
+                }
+              };
+            });
+          })();
+          return { vm: { ...vm, content: { ...vm.content, saveStatus: 'saving', saveError: null } } };
         case 'SHORTCUT_FIND':
           return { vm };
         default:

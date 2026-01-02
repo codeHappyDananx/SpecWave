@@ -1,14 +1,39 @@
-.content{display:grid;gap:12px;min-height:0;}
-.topBlock{display:grid;gap:10px;}
-.badgeRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.tabs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.preview{border-radius:var(--sw-radius-lg);background:#fff;padding:14px;overflow:auto;min-height:0;}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;}
-.editor{border-radius:var(--sw-radius-lg);background:#0B1220;color:#fff;padding:14px;font-family:var(--sw-font-mono);line-height:1.55;overflow:auto;min-height:0;}
-.editorTitle{opacity:.7;}
-.editorBody{margin-top:10px;}
-.tasksTitle{margin:0 0 10px;font-weight:800;letter-spacing:-.02em;}
-.previewTitle{margin:0 0 10px;font-weight:800;letter-spacing:-.02em;}
-.p{margin:0 0 10px;line-height:1.7;}
+.header{display:flex;align-items:center;gap:12px;min-width:0;width:100%;}
+.headerMain{min-width:0;display:flex;flex-direction:column;gap:6px;flex:1;}
+.titleRow{display:flex;align-items:center;gap:10px;min-width:0;}
+.fileName{font-weight:900;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.filePath{font-family:var(--sw-font-mono);font-size:.86rem;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.headerActions{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
+.modeButton{border:0;border-radius:var(--sw-radius-md);padding:10px 12px;background:var(--sw-muted);cursor:pointer;font:inherit;font-weight:800;transition:transform var(--t-quick),background var(--t-quick);white-space:nowrap;}
+.modeButton:hover{background:#E5E7EB;transform:scale(1.02);}
+.modeButton:active{transform:scale(.98);}
+.saveButton{border:0;border-radius:var(--sw-radius-md);padding:10px 12px;background:var(--sw-primary);color:#fff;cursor:pointer;font:inherit;font-weight:900;transition:transform var(--t-quick),filter var(--t-quick);white-space:nowrap;}
+.saveButton:hover{filter:brightness(1.02);transform:scale(1.02);}
+.saveButton:active{transform:scale(.98);}
+.saveButton:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
+.empty{display:grid;place-items:center;gap:6px;padding:18px 12px;text-align:center;color:#374151;}
+.emptyTitle{margin:0;font-weight:900;letter-spacing:-.02em;}
+.emptyDesc{margin:0;font-weight:700;}
+
+.editorWrap{min-height:0;height:100%;display:flex;}
+.editor{width:100%;min-height:0;height:100%;resize:none;border:2px solid var(--sw-border);border-radius:var(--sw-radius-lg);background:#0B1220;color:#fff;padding:14px;font-family:var(--sw-font-mono);line-height:1.55;outline:none;}
+
+.taskBoard{display:flex;flex-direction:column;gap:10px;min-height:0;}
+.taskList{margin:0;padding:0;list-style:none;display:grid;gap:6px;}
+.taskItem{min-width:0;}
+.taskToggle{width:100%;border:0;border-radius:var(--sw-radius-md);padding:10px;background:transparent;cursor:pointer;font:inherit;display:flex;align-items:flex-start;gap:10px;transition:background var(--t-quick);text-align:left;}
+.taskToggle:hover{background:#E5E7EB;}
+.taskBox{width:22px;height:22px;border-radius:6px;border:2px solid var(--sw-border);display:inline-flex;align-items:center;justify-content:center;font-weight:900;color:var(--sw-primary);flex:0 0 auto;background:#fff;}
+.taskToggle[aria-checked="true"] .taskBox{border-color:var(--sw-primary);}
+.taskLabel{font-weight:800;line-height:1.45;word-break:break-word;}
+
 .muted{color:#4B5563;font-weight:700;}
-.bottomBadges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.markdown{border-radius:var(--sw-radius-lg);background:#fff;padding:14px;overflow:auto;min-height:0;line-height:1.75;}
+.markdown :where(h1,h2,h3){letter-spacing:-.02em;}
+.markdown :where(code){font-family:var(--sw-font-mono);}
+.markdown :where(pre){background:#0B1220;color:#fff;padding:12px;border-radius:var(--sw-radius-lg);overflow:auto;}
+
+.pre{margin:0;border-radius:var(--sw-radius-lg);background:#0B1220;color:#fff;padding:14px;font-family:var(--sw-font-mono);line-height:1.55;overflow:auto;min-height:0;}
+
+.error{margin-top:10px;border-radius:var(--sw-radius-lg);background:#FEF2F2;border:2px solid #FCA5A5;color:#991B1B;padding:10px;font-weight:800;}

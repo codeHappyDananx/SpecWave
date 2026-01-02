@@ -9,7 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@specwave/contracts": "workspace:*"
+    "@specwave/contracts": "workspace:*",
+    "react-markdown": "^10.1.0"
   },
   "peerDependencies": {
     "react": "^18",

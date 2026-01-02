@@ -9,11 +9,10 @@ type TopBarIntent = Extract<
   UIIntent,
   | { type: 'PROJECT_TAB_SET_ACTIVE' }
   | { type: 'PROJECT_TAB_CLOSE' }
-  | { type: 'PROJECT_OPEN_MOCK' }
+  | { type: 'PROJECT_SELECT' }
   | { type: 'GLOBAL_SEARCH_SET' }
   | { type: 'PANEL_TOGGLE_LEFT' }
   | { type: 'PANEL_TOGGLE_CENTER' }
-  | { type: 'CENTER_MODE_SET' }
   | { type: 'PANEL_TOGGLE_RIGHT' }
   | { type: 'RIGHT_MODE_SET' }
   | { type: 'THEME_TOGGLE' }
@@ -44,6 +43,13 @@ export function TopBar(props: TopBarProps) {
                 onClose={() => props.dispatch({ type: 'PROJECT_TAB_CLOSE', id: t.id })}
               />
             ))}
+            <IconButton
+              active
+              title="打开项目"
+              ariaLabel="打开项目"
+              icon={<Icon name="plus" />}
+              onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
+            />
           </div>
         ) : (
           <div className={styles.emptyTop} aria-label="未打开项目">
@@ -53,7 +59,7 @@ export function TopBar(props: TopBarProps) {
             <button
               className={styles.openProjectButton}
               type="button"
-              onClick={() => props.dispatch({ type: 'PROJECT_OPEN_MOCK' })}
+              onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
             >
               打开项目
             </button>
@@ -83,13 +89,7 @@ export function TopBar(props: TopBarProps) {
             active={props.centerVisible}
             title="任务"
             icon={<Icon name="tasks" />}
-            onClick={() => {
-              if (props.centerVisible) {
-                props.dispatch({ type: 'PANEL_TOGGLE_CENTER' });
-                return;
-              }
-              props.dispatch({ type: 'CENTER_MODE_SET', mode: 'tasks' });
-            }}
+            onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_CENTER' })}
           />
           <IconButton
             active={props.rightVisible && props.rightMode === 'terminal'}
