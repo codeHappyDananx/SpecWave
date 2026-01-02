@@ -177,7 +177,7 @@ export function ColorBends({
 
     const renderer = new THREE.WebGLRenderer({
       antialias: false,
-      powerPreference: 'high-performance',
+      powerPreference: 'default',
       alpha: true
     });
     rendererRef.current = renderer;
