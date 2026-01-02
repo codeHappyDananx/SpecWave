@@ -28,7 +28,7 @@ const initialTerminalLines = [
 ];
 
 const initialVm: AppViewModel = {
-  app: { mode: 'welcome' },
+  app: { mode: 'welcome', recentProjects: [] },
   projects: { openTabs: [], activeTabId: null },
   explorer: {
     workspaceRoot: null,
@@ -436,14 +436,29 @@ export const useAppStore = create<AppState>((set, get) => ({
             const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
             if (seq !== openProjectSeq) return;
 
-            const errors: string[] = [];
-            const workspaceNodes = workspaceRes.ok ? toExplorerNodes(workspaceRes.entries) : (errors.push(`工作区读取失败：${workspaceRes.error}`), []);
-            const projectNodes = projectRes.ok ? toExplorerNodes(projectRes.entries) : (errors.push(`项目目录读取失败：${projectRes.error}`), []);
+            if (!projectRes.ok) {
+              set((s) => ({
+                vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: `项目目录读取失败：${projectRes.error}` } }
+              }));
+              return;
+            }
+
+            const workspaceNodes = workspaceRes.ok ? toExplorerNodes(workspaceRes.entries) : [];
+            const projectNodes = toExplorerNodes(projectRes.entries);
+
+            const workspaceError = workspaceRes.ok
+              ? null
+              : workspaceRes.error.includes('ENOENT')
+                ? null
+                : `工作区读取失败：${workspaceRes.error}`;
+
+            const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
+            if (seq !== openProjectSeq) return;
 
             set((state) => ({
               vm: {
                 ...state.vm,
-                app: { mode: 'main' },
+                app: { mode: 'main', recentProjects },
                 projects: { openTabs: [{ id: tabId, folderName: projectName, path: dirPath }], activeTabId: tabId },
                 explorer: {
                   workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
@@ -453,7 +468,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                   expanded: { workspace: [], project: [] },
                   selectedPath: null,
                   isLoading: false,
-                  error: errors.length ? errors.join('；') : null
+                  error: workspaceError
                 },
                 content: {
                   file: null,
@@ -471,6 +486,84 @@ export const useAppStore = create<AppState>((set, get) => ({
 
           return { vm: { ...vm, explorer: { ...vm.explorer, isLoading: true, error: null } } };
         }
+        case 'PROJECT_OPEN_RECENT': {
+          const seq = ++openProjectSeq;
+          const dirPath = intent.path;
+          void (async () => {
+            const api = window.specwave;
+            if (!api) {
+              set((s) => ({
+                vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: '未检测到桌面端 API（preload 未注入）。' } }
+              }));
+              return;
+            }
+
+            const projectName = basename(dirPath);
+            const tabId = `proj-${Date.now()}`;
+            const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+
+            const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
+            if (seq !== openProjectSeq) return;
+
+            if (!projectRes.ok) {
+              set((s) => ({
+                vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: `项目目录读取失败：${projectRes.error}` } }
+              }));
+              return;
+            }
+
+            const workspaceNodes = workspaceRes.ok ? toExplorerNodes(workspaceRes.entries) : [];
+            const projectNodes = toExplorerNodes(projectRes.entries);
+
+            const workspaceError = workspaceRes.ok
+              ? null
+              : workspaceRes.error.includes('ENOENT')
+                ? null
+                : `工作区读取失败：${workspaceRes.error}`;
+
+            const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
+            if (seq !== openProjectSeq) return;
+
+            set((state) => ({
+              vm: {
+                ...state.vm,
+                app: { mode: 'main', recentProjects },
+                projects: { openTabs: [{ id: tabId, folderName: projectName, path: dirPath }], activeTabId: tabId },
+                explorer: {
+                  workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
+                  projectRoot: dirPath,
+                  workspace: workspaceNodes,
+                  project: projectNodes,
+                  expanded: { workspace: [], project: [] },
+                  selectedPath: null,
+                  isLoading: false,
+                  error: workspaceError
+                },
+                content: {
+                  file: null,
+                  text: '',
+                  draftText: '',
+                  mode: 'view',
+                  isDirty: false,
+                  saveStatus: 'idle',
+                  saveError: null,
+                  taskBoard: null
+                }
+              }
+            }));
+          })();
+
+          return { vm: { ...vm, explorer: { ...vm.explorer, isLoading: true, error: null } } };
+        }
+        case 'RECENT_PROJECT_REMOVE': {
+          void (async () => {
+            const api = window.specwave;
+            if (!api?.removeRecentProject) return;
+            const recentProjects = await api.removeRecentProject(intent.path);
+            set((state) => ({ vm: { ...state.vm, app: { ...state.vm.app, recentProjects } } }));
+          })();
+          return { vm };
+        }
         case 'PROJECT_TAB_SET_ACTIVE':
           return { vm: { ...vm, projects: { ...vm.projects, activeTabId: intent.id } } };
         case 'PROJECT_TAB_CLOSE': {
@@ -481,7 +574,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           return {
             vm: {
               ...vm,
-              app: { mode: 'welcome' },
+              app: { ...vm.app, mode: 'welcome' },
               projects: { openTabs: [], activeTabId: null },
               explorer: { ...initialVm.explorer },
               content: { ...initialVm.content }
@@ -920,3 +1013,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   }
 }));
+
+void (async () => {
+  const api = window.specwave;
+  if (!api?.getRecentProjects) return;
+  const recentProjects = await api.getRecentProjects();
+  useAppStore.setState((state) => ({
+    vm: {
+      ...state.vm,
+      app: { ...state.vm.app, recentProjects }
+    }
+  }));
+})();

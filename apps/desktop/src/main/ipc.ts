@@ -2,6 +2,7 @@ import { dialog, ipcMain } from 'electron';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { getRecentProjects, removeRecentProject, touchRecentProject } from './recentProjects';
 
 type DirEntryDTO = {
   name: string;
@@ -45,6 +46,18 @@ async function readDirectoryEntries(dirPath: string): Promise<DirEntryDTO[]> {
 }
 
 export function registerIpcHandlers() {
+  ipcMain.handle('specwave:getRecentProjects', async () => {
+    return getRecentProjects();
+  });
+
+  ipcMain.handle('specwave:touchRecentProject', async (_evt, args: { path: string }) => {
+    return touchRecentProject(args.path);
+  });
+
+  ipcMain.handle('specwave:removeRecentProject', async (_evt, args: { path: string }) => {
+    return removeRecentProject(args.path);
+  });
+
   ipcMain.handle('specwave:selectDirectory', async () => {
     try {
       const res = await dialog.showOpenDialog({
@@ -97,4 +110,3 @@ export function registerIpcHandlers() {
     }
   );
 }
-

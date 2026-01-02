@@ -5,6 +5,7 @@ import { RightPanel } from '../panels/right/RightPanel';
 import { LayoutGrid } from './LayoutGrid';
 import { StatusBar } from './StatusBar';
 import { TopBar } from './TopBar';
+import { WelcomePage } from './WelcomePage';
 import styles from './SpecWaveApp.module.css';
 
 export type SpecWaveAppProps = {
@@ -14,6 +15,19 @@ export type SpecWaveAppProps = {
 
 export function SpecWaveApp(props: SpecWaveAppProps) {
   const { vm, dispatch } = props;
+
+  if (vm.app.mode === 'welcome') {
+    return (
+      <div className={styles.root}>
+        <WelcomePage
+          recentProjects={vm.app.recentProjects}
+          isLoading={vm.explorer.isLoading}
+          error={vm.explorer.error}
+          dispatch={dispatch}
+        />
+      </div>
+    );
+  }
 
   const activeProject = vm.projects.activeTabId ? vm.projects.openTabs.find((t) => t.id === vm.projects.activeTabId) : null;
 

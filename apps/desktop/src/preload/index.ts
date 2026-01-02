@@ -13,8 +13,19 @@ export type SaveTextFileResult =
   | { ok: false; error: string }
   | { ok: false; conflict: true; error: string };
 
+export type RecentProjectDTO = {
+  path: string;
+  name: string;
+  lastOpenedAt: number;
+  exists: boolean;
+};
+
 contextBridge.exposeInMainWorld('specwave', {
   ping: () => 'pong',
+  getRecentProjects: () => ipcRenderer.invoke('specwave:getRecentProjects') as Promise<RecentProjectDTO[]>,
+  touchRecentProject: (p: string) => ipcRenderer.invoke('specwave:touchRecentProject', { path: p }) as Promise<RecentProjectDTO[]>,
+  removeRecentProject: (p: string) =>
+    ipcRenderer.invoke('specwave:removeRecentProject', { path: p }) as Promise<RecentProjectDTO[]>,
   selectDirectory: () => ipcRenderer.invoke('specwave:selectDirectory') as Promise<string | null>,
   readDirectory: (dirPath: string) =>
     ipcRenderer.invoke('specwave:readDirectory', { dirPath }) as Promise<ReadDirectoryResult>,
@@ -28,6 +39,9 @@ declare global {
   interface Window {
     specwave: {
       ping: () => string;
+      getRecentProjects: () => Promise<RecentProjectDTO[]>;
+      touchRecentProject: (path: string) => Promise<RecentProjectDTO[]>;
+      removeRecentProject: (path: string) => Promise<RecentProjectDTO[]>;
       selectDirectory: () => Promise<string | null>;
       readDirectory: (dirPath: string) => Promise<ReadDirectoryResult>;
       readTextFile: (filePath: string) => Promise<ReadTextFileResult>;

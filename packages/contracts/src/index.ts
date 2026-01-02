@@ -6,6 +6,13 @@ export type ProjectTabVM = {
   path: string;
 };
 
+export type RecentProjectVM = {
+  path: string;
+  name: string;
+  lastOpenedAt: number;
+  exists: boolean;
+};
+
 export type AppMode = "welcome" | "main";
 
 export type LayoutVM = {
@@ -85,6 +92,8 @@ export type UIIntent =
   | { type: "RIGHT_MODE_SET"; mode: RightMode }
   | { type: "RIGHT_PANEL_ADD" }
   | { type: "PROJECT_SELECT" }
+  | { type: "PROJECT_OPEN_RECENT"; path: string }
+  | { type: "RECENT_PROJECT_REMOVE"; path: string }
   | { type: "PROJECT_TAB_SET_ACTIVE"; id: string }
   | { type: "PROJECT_TAB_CLOSE"; id: string }
   | { type: "EXPLORER_TOGGLE_DIR"; tree: ExplorerTree; id: string }
@@ -117,6 +126,7 @@ export type ChatMessageVM = {
 export type AppViewModel = {
   app: {
     mode: AppMode;
+    recentProjects: RecentProjectVM[];
   };
 
   projects: {

@@ -90,3 +90,11 @@ SpecWave 的桌面工作区分为：
 - Chromium/Electron：使用 `::-webkit-scrollbar*`
 - Firefox：使用 `scrollbar-color` / `scrollbar-width`
 
+## 9. WelcomePage 特例（允许突破，但必须“只影响自己”）
+
+WelcomePage 允许更“炫酷”的视觉（暗色背景、渐变、blur、WebGL 动效等），用于拉开“欢迎页”和“工作区”的层级体验。
+
+硬约束：
+- 样式只能写在 `packages/ui-next/src/shell/WelcomePage.module.css`（CSS Modules），禁止把欢迎页样式写进 `packages/ui-next/src/styles.css`。
+- WelcomePage 的动效/第三方源码只能在 WelcomePage 内引用（例如 `packages/ui-next/src/vendor/react-bits/*`），禁止扩散到主工作区三栏。
+- WelcomePage 的任何调整都不应改变 TopBar/LayoutGrid/StatusBar/panels 的视觉口径。

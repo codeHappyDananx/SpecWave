@@ -98,12 +98,16 @@
   - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链）。
   - 依赖谁：Electron API。
   - 由谁依赖：electron-vite main entry。
+- `apps/desktop/src/main/recentProjects.ts`
+  - 做什么：最近项目持久化（读写 `userData/recent-projects.json`；默认最多 10 条、去重按最近打开排序；返回时补 `exists`）。
+  - 依赖谁：Electron `app.getPath('userData')`、Node `fs/path`。
+  - 由谁依赖：`apps/desktop/src/main/ipc.ts`。
 - `apps/desktop/src/main/ipc.ts`
-  - 做什么：主进程 IPC handlers（目录选择、读目录、读文本、写文本+sha256 冲突保护）。
+  - 做什么：主进程 IPC handlers（目录选择、读目录、读文本、写文本+sha256 冲突保护；以及最近项目读/写/移除）。
   - 依赖谁：Electron `ipcMain/dialog`、Node `fs/crypto`。
   - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/preload/index.ts`
-  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：目录选择/读目录/读文件/保存文件）。
+  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：目录选择/读目录/读文件/保存文件；以及最近项目读/写/移除）。
   - 依赖谁：Electron API。
   - 由谁依赖：主进程 `BrowserWindow.webPreferences.preload`。
 - `apps/desktop/src/renderer/index.html`
@@ -127,7 +131,7 @@
   - 依赖谁：`useAppStore`、`@specwave/ui-next`。
   - 由谁依赖：`main.tsx`。
 - `apps/desktop/src/renderer/src/store.ts`
-  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；编排项目选择→文件树→打开/编辑/保存；并维护布局拖拽与右区 mock）。
+  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；负责 welcome/main 模式切换；编排项目选择→文件树→打开/编辑/保存；并维护布局拖拽与右区 mock；最近项目走 preload→主进程持久化）。
   - 依赖谁：`@specwave/contracts`。
   - 由谁依赖：`App.tsx`。
 
@@ -151,13 +155,21 @@
 #### ui-next / shell（组合层）
 
 - `packages/ui-next/src/shell/SpecWaveApp.tsx`
-  - 做什么：UI Shell（组合 TopBar / LayoutGrid / StatusBar 与三栏 panels）。
+  - 做什么：UI Shell（按 `vm.app.mode` 在 WelcomePage 与主工作区之间切换；主工作区组合 TopBar / LayoutGrid / StatusBar 与三栏 panels）。
   - 依赖谁：`shell/*`、`panels/*`、`@specwave/contracts`。
   - 由谁依赖：`packages/ui-next/src/index.ts`。
 - `packages/ui-next/src/shell/SpecWaveApp.module.css`
   - 做什么：Shell 容器布局样式（root/app）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
+- `packages/ui-next/src/shell/WelcomePage.tsx`
+  - 做什么：欢迎页（未打开项目时展示；只负责“打开项目 + 最近项目管理”，不引入三栏逻辑）。
+  - 依赖谁：`@specwave/contracts`、`primitives/Icons`、`vendor/react-bits`。
+  - 由谁依赖：`SpecWaveApp.tsx`。
+- `packages/ui-next/src/shell/WelcomePage.module.css`
+  - 做什么：欢迎页样式（允许单页炫酷，但必须局部化，不影响主工作区）。
+  - 依赖谁：tokens（CSS variables）。
+  - 由谁依赖：`WelcomePage.tsx`。
 - `packages/ui-next/src/shell/TopBar.tsx`
   - 做什么：顶部栏（项目 tabs / 搜索 / 功能入口），只上报 intents，不落业务逻辑。
   - 依赖谁：`primitives/*`、`@specwave/contracts`。
@@ -182,6 +194,21 @@
   - 做什么：状态条样式。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`StatusBar.tsx`。
+
+#### ui-next / vendor（第三方源码）
+
+- `packages/ui-next/src/vendor/react-bits/NOTICE.md`
+  - 做什么：记录 react-bits 源码的来源、改造点与使用口径。
+  - 依赖谁：无。
+  - 由谁依赖：人（排查/升级/合规时对照）。
+- `packages/ui-next/src/vendor/react-bits/LICENSE.md`
+  - 做什么：react-bits 的许可证（MIT + Commons Clause）。
+  - 依赖谁：无。
+  - 由谁依赖：人（合规审阅）。
+- `packages/ui-next/src/vendor/react-bits/FaultyTerminal.tsx` / `packages/ui-next/src/vendor/react-bits/FaultyTerminal.module.css`
+  - 做什么：WelcomePage 背景动效（WebGL/OGL）；只允许 WelcomePage 引用，避免把动效扩散到主工作区。
+  - 依赖谁：`ogl`、React。
+  - 由谁依赖：`WelcomePage.tsx`。
 
 #### ui-next / primitives（可复用组件）
 
