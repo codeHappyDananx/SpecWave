@@ -79,6 +79,7 @@
   - 默认行为：
     - 清理本仓库残留的 `electron/node/esbuild` 进程（避免端口占用与 cache 锁冲突）。
     - 设置开发环境 `SPECWAVE_USER_DATA_DIR=.tmp-specwave-userdata/`（可回收）。
+    - 默认使用 `SPECWAVE_ANGLE=warp`（软件 D3D11），保证 WelcomePage 的 WebGL2 背景动效（含 three.js）可用。
   - 参数：
     - `start.bat d3d9|d3d11|warp|swiftshader|nogpu`
     - `start.bat --no-clean`
@@ -114,7 +115,7 @@
     - `SPECWAVE_DISABLE_GPU_SANDBOX`：`1` 时关闭 GPU sandbox（仅排查，存在安全权衡）。
     - `SPECWAVE_OPEN_DEVTOOLS`：`1` 时开发模式自动打开 DevTools。
     - `SPECWAVE_RESET_GPU_PREFS`：`1` 时清空 `userData/gpu-preferences.json`（重置自动自救的稳定 GPU 配置）。
-  - 默认值：开发模式（Windows）默认 `ANGLE=d3d9`，避免部分环境 `d3d11` 直接崩溃。
+  - 默认值：开发模式（Windows）默认 `ANGLE=warp`，保证 WebGL2 可用（three.js r163+ 强制 WebGL2）。
 - `apps/desktop/src/main/gpuPrefs.ts`
   - 做什么：GPU 配置持久化（读写 `userData/gpu-preferences.json`），用于记住“自动自救”后的稳定 ANGLE/WebGL 策略，避免用户每次启动都要手动切换。
   - 依赖谁：Electron `app.getPath('userData')`、Node `fs/path`。

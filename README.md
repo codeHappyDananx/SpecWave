@@ -18,7 +18,7 @@
 ### WelcomePage 背景动效（WebGL）排查
 
 如果你在 Windows 上遇到 `GPU process exited unexpectedly` 或 WelcomePage 动效黑屏/卡顿，优先尝试切换 ANGLE：  
-- 开发模式默认使用 `d3d9`（避免部分环境 `d3d11` 直接崩溃）；需要手动指定时按下面方式覆盖即可。  
+- 开发模式默认使用 `warp`（软件 D3D11，更稳且能提供 WebGL2；避免随机背景里 three.js 直接黑屏）；需要手动指定时按下面方式覆盖即可。  
 - 直接用启动脚本参数：`start.bat d3d9` / `start.bat warp` / `start.bat swiftshader` / `start.bat nogpu`  
 - PowerShell：`$env:SPECWAVE_ANGLE='d3d9'; .\start.bat`  
 - 仍不行：`$env:SPECWAVE_ANGLE='warp'; .\start.bat`  

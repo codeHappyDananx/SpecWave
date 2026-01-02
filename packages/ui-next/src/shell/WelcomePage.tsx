@@ -12,6 +12,15 @@ import styles from './WelcomePage.module.css';
 const WELCOME_BG_KEYS = ['faulty-terminal', 'prismatic-burst', 'hyperspeed', 'color-bends', 'prism'] as const;
 type WelcomeBgKey = (typeof WELCOME_BG_KEYS)[number];
 
+const BG_WEBGL2_REQUIRED: Record<WelcomeBgKey, boolean> = {
+  'faulty-terminal': false,
+  // PrismaticBurst 的 shader 使用 `#version 300 es`，且 three.js（Hyperspeed/ColorBends）r163+ 也强制 WebGL2
+  'prismatic-burst': true,
+  hyperspeed: true,
+  'color-bends': true,
+  prism: false
+};
+
 const PRISMATIC_COLORS = ['#8be9fd', '#a78bfa', '#22c55e', '#fbbf24', '#fb7185'];
 const COLOR_BENDS_COLORS = ['#8be9fd', '#a78bfa', '#22c55e', '#fbbf24', '#60a5fa', '#fb7185'];
 
@@ -88,8 +97,9 @@ export function WelcomePage(props: WelcomePageProps) {
   useEffect(() => {
     if (hasLoggedRef.current) return;
     hasLoggedRef.current = true;
+    const needWebgl2 = BG_WEBGL2_REQUIRED[bgKey] ? '1' : '0';
     console.info(
-      `[SpecWave][Welcome] 背景选择：${bgKey} dpr=${dpr} devicePixelRatio=${typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1} webgl=${webglSupport.webgl ? '1' : '0'} webgl2=${webglSupport.webgl2 ? '1' : '0'}`
+      `[SpecWave][Welcome] 背景选择：${bgKey} dpr=${dpr} devicePixelRatio=${typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1} webgl=${webglSupport.webgl ? '1' : '0'} webgl2=${webglSupport.webgl2 ? '1' : '0'} requireWebgl2=${needWebgl2}`
     );
   }, [bgKey, dpr, webglSupport.webgl, webglSupport.webgl2]);
 

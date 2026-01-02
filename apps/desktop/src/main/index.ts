@@ -56,9 +56,10 @@ const angle = (
   readCliArg('--specwave-angle') ||
   process.env.SPECWAVE_ANGLE ||
   persistedGpuPrefs?.angle ||
-  // 开发期优先“能跑起来”：部分 Windows 环境 D3D11 会直接把 GPU 进程打崩，导致 WebGL 全黑。
+  // WelcomePage 背景动效里包含 three.js（r163+ 强制 WebGL2）；而 ANGLE=d3d9 通常只有 WebGL1，
+  // 会直接导致“随机到某些背景=纯黑”。开发期默认用 WARP（软件 D3D11）来保证 WebGL2 可用。
   // 正式包仍会默认走 d3d11（并有自动自救）。
-  (isDevAtBoot && process.platform === 'win32' ? 'd3d9' : 'd3d11')
+  (isDevAtBoot && process.platform === 'win32' ? 'warp' : 'd3d11')
 ).toLowerCase();
 const useGl = (readCliArg('--specwave-use-gl') || process.env.SPECWAVE_USE_GL || persistedGpuPrefs?.useGl || '').toLowerCase();
 const openDevTools = (readCliArg('--specwave-open-devtools') || process.env.SPECWAVE_OPEN_DEVTOOLS || '0') === '1';
@@ -183,31 +184,24 @@ app.whenReady().then(() => {
     crashCount += 1;
     if (crashCount < 2) return;
 
-    // stage 0: D3D11 → D3D9
+    // stage 0: D3D11 → WARP（软件 D3D11，通常更稳且能提供 WebGL2）
     if (gpuFallbackStage <= 0) {
-      persistGpuPrefs({ angle: 'd3d9', useGl: '', disableGpu: false, fallbackStage: 1 });
-      relaunchWithArgs({ '--specwave-angle': 'd3d9', '--specwave-gpu-fallback-stage': '1' });
+      persistGpuPrefs({ angle: 'warp', useGl: '', disableGpu: false, fallbackStage: 1 });
+      relaunchWithArgs({ '--specwave-angle': 'warp', '--specwave-gpu-fallback-stage': '1' });
       return;
     }
 
-    // stage 1: 仍然崩溃 → WARP（软件 D3D11）
+    // stage 1: 仍然崩溃 → SwiftShader（软件 WebGL）
     if (gpuFallbackStage === 1) {
-      persistGpuPrefs({ angle: 'warp', useGl: '', disableGpu: false, fallbackStage: 2 });
-      relaunchWithArgs({ '--specwave-angle': 'warp', '--specwave-gpu-fallback-stage': '2' });
+      persistGpuPrefs({ useGl: 'swiftshader-webgl', disableGpu: false, fallbackStage: 2 });
+      relaunchWithArgs({ '--specwave-use-gl': 'swiftshader-webgl', '--specwave-gpu-fallback-stage': '2' });
       return;
     }
 
-    // stage 2: 仍然崩溃 → SwiftShader（软件 WebGL）
+    // stage 2: 仍然崩溃 → 禁用 GPU（保证窗口可用）
     if (gpuFallbackStage === 2) {
-      persistGpuPrefs({ useGl: 'swiftshader-webgl', disableGpu: false, fallbackStage: 3 });
-      relaunchWithArgs({ '--specwave-use-gl': 'swiftshader-webgl', '--specwave-gpu-fallback-stage': '3' });
-      return;
-    }
-
-    // stage 3: 仍然崩溃 → 禁用 GPU（保证窗口可用）
-    if (gpuFallbackStage === 3) {
-      persistGpuPrefs({ disableGpu: true, fallbackStage: 4 });
-      relaunchWithArgs({ '--specwave-disable-gpu': '1', '--specwave-gpu-fallback-stage': '4' });
+      persistGpuPrefs({ disableGpu: true, fallbackStage: 3 });
+      relaunchWithArgs({ '--specwave-disable-gpu': '1', '--specwave-gpu-fallback-stage': '3' });
     }
   });
 
