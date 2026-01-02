@@ -183,11 +183,11 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.tsx`
-  - 做什么：欢迎页（未打开项目时展示；只负责“打开项目 + 最近项目管理”，不引入三栏逻辑）。
+  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；不引入三栏逻辑）。
   - 依赖谁：`@specwave/contracts`、`primitives/Icons`、`vendor/react-bits`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.module.css`
-  - 做什么：欢迎页样式（允许单页炫酷，但必须局部化，不影响主工作区）。
+  - 做什么：欢迎页样式（内容区居中；历史列表默认无背景；允许单页炫酷，但必须局部化，不影响主工作区）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`WelcomePage.tsx`。
 - `packages/ui-next/src/shell/TopBar.tsx`
