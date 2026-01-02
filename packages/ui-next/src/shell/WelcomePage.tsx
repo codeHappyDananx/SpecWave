@@ -136,62 +136,35 @@ export function WelcomePage(props: WelcomePageProps) {
       </div>
 
       <div className={styles.content}>
-        <section className={styles.hero} aria-label="开始">
-          <div className={styles.brandRow}>
-            <div className={styles.logo} aria-hidden="true" />
-            <div className={styles.brandText}>SpecWave</div>
+        <button
+          type="button"
+          className={styles.openButton}
+          disabled={isLoading}
+          onClick={() => dispatch({ type: 'PROJECT_SELECT' })}
+        >
+          {isLoading ? '正在打开…' : '打开项目'}
+        </button>
+
+        {!webglOk && !dismissWebglNotice ? (
+          <button
+            type="button"
+            className={styles.webglBadge}
+            aria-label="背景动效不可用（WebGL 不可用），点击关闭提示"
+            title="当前环境无法创建 WebGL，欢迎页背景动效不可用。若遇到 GPU 崩溃，请优先切换 ANGLE 后重启。"
+            onClick={() => setDismissWebglNotice(true)}
+          >
+            <Icon name="warning" size={18} />
+          </button>
+        ) : null}
+
+        {error ? (
+          <div className={styles.error} role="status" aria-live="polite">
+            {error}
           </div>
+        ) : null}
 
-          <h1 className={styles.title}>打开项目，开始梳理与解耦。</h1>
-          <p className={styles.subtitle}>欢迎页只负责“起步”：打开项目、管理最近项目，不引入三栏任何逻辑。</p>
-
-          {!webglOk && !dismissWebglNotice ? (
-            <div className={styles.webglNotice} role="status" aria-live="polite">
-              <span className={styles.webglNoticeIcon} aria-hidden="true">
-                <Icon name="warning" size={18} />
-              </span>
-              <div className={styles.webglNoticeText}>
-                当前环境无法创建 WebGL，欢迎页背景动效不可用。若你看到 “GPU process exited unexpectedly”，请优先切换 ANGLE（例如{' '}
-                <code className={styles.inlineCode}>SPECWAVE_ANGLE=d3d9</code>）后重启。
-              </div>
-              <button
-                type="button"
-                className={styles.webglNoticeClose}
-                aria-label="关闭提示"
-                onClick={() => setDismissWebglNotice(true)}
-              >
-                <Icon name="close" size={18} />
-              </button>
-            </div>
-          ) : null}
-
-          <div className={styles.actions}>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              disabled={isLoading}
-              onClick={() => dispatch({ type: 'PROJECT_SELECT' })}
-            >
-              {isLoading ? '正在打开…' : '打开项目'}
-            </button>
-          </div>
-
-          {error ? (
-            <div className={styles.error} role="status" aria-live="polite">
-              {error}
-            </div>
-          ) : null}
-        </section>
-
-        <section className={styles.recents} aria-label="最近项目">
-          <div className={styles.recentsHeader}>
-            <h2 className={styles.recentsTitle}>最近项目</h2>
-            <div className={styles.recentsHint}>默认保存 10 条；路径不存在不会自动删除。</div>
-          </div>
-
-          {recentProjects.length === 0 ? (
-            <div className={styles.empty}>暂无记录。你可以点击“打开项目”开始。</div>
-          ) : (
+        {recentProjects.length > 0 ? (
+          <section className={styles.recents} aria-label="历史项目">
             <div className={styles.list} role="list">
               {recentProjects.map((p) => (
                 <div key={p.path} className={styles.item} role="listitem">
@@ -215,7 +188,7 @@ export function WelcomePage(props: WelcomePageProps) {
                   <button
                     type="button"
                     className={styles.itemRemove}
-                    aria-label={`从最近项目移除：${p.name}`}
+                    aria-label={`从历史项目移除：${p.name}`}
                     onClick={() => dispatch({ type: 'RECENT_PROJECT_REMOVE', path: p.path })}
                   >
                     <Icon name="close" size={18} />
@@ -223,8 +196,8 @@ export function WelcomePage(props: WelcomePageProps) {
                 </div>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        ) : null}
       </div>
     </div>
   );
