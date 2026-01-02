@@ -197,7 +197,7 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.tsx`
-  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；欢迎页窗口为 frameless 时，右上角自绘 `X` 用于退出应用；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
+  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；欢迎页窗口为 frameless：顶部 44px 为无感拖拽区，右上角自绘 `X` 用于退出应用；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
   - 依赖谁：`@specwave/contracts`、`primitives/Icons`、`vendor/react-bits`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.module.css`
@@ -278,6 +278,10 @@
   - 做什么：图标按钮（统一 active/hover/press 反馈）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：TopBar、RightPanel。
+- `packages/ui-next/src/primitives/ShinyText.tsx` / `packages/ui-next/src/primitives/ShinyText.module.css`
+  - 做什么：渐变扫光文字（欢迎页按钮/关闭等“炫酷但局部化”的展示效果）。
+  - 依赖谁：`motion/react`、React。
+  - 由谁依赖：`WelcomePage.tsx`。
 - `packages/ui-next/src/primitives/Tab.tsx` / `packages/ui-next/src/primitives/Tab.module.css`
   - 做什么：Tab 按钮（用于 tablist）。
   - 依赖谁：tokens（CSS variables）。

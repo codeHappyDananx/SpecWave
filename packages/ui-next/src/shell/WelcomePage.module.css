@@ -5,7 +5,6 @@
   overflow: hidden;
   background: #05070d;
   color: #eef2ff;
-  -webkit-app-region: drag;
   --mx: 50%;
   --my: 50%;
 }
@@ -15,6 +14,7 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  z-index: 0;
 }
 
 .bgFx {
@@ -125,6 +125,7 @@
 
 .content {
   position: relative;
+  z-index: 1;
   height: 100%;
   width: 100%;
   display: flex;
@@ -136,34 +137,44 @@
   -webkit-app-region: no-drag;
 }
 
-.closeButton {
+.dragBar {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  z-index: 2;
+  -webkit-app-region: drag;
+}
+
+.closeButton {
+  width: 44px;
+  height: 44px;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.14);
-  color: rgba(238, 242, 255, 0.24);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
   cursor: pointer;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.5;
+  font-size: 22px;
+  font-weight: 700;
+  opacity: 0.85;
   transition:
     opacity var(--t-quick),
     background var(--t-quick),
-    color var(--t-quick),
     transform var(--t-quick),
     border-color var(--t-quick);
   -webkit-app-region: no-drag;
 }
 .closeButton:hover {
-  opacity: 0.92;
+  opacity: 1;
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(238, 242, 255, 0.78);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.14);
   transform: scale(1.02);
 }
 .closeButton:active {

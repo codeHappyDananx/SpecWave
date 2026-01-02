@@ -1,0 +1,6 @@
+.root {
+  display: inline-block;
+  line-height: 1;
+  will-change: background-position;
+  user-select: none;
+}

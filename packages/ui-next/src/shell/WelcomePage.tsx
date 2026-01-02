@@ -7,6 +7,7 @@ import { Hyperspeed } from '../vendor/react-bits/Hyperspeed';
 import { Prism } from '../vendor/react-bits/Prism';
 import { PrismaticBurst } from '../vendor/react-bits/PrismaticBurst';
 import { Icon } from '../primitives/Icons';
+import { ShinyText } from '../primitives/ShinyText';
 import styles from './WelcomePage.module.css';
 
 const WELCOME_BG_KEYS = ['faulty-terminal', 'prismatic-burst', 'hyperspeed', 'color-bends', 'prism'] as const;
@@ -177,16 +178,6 @@ export function WelcomePage(props: WelcomePageProps) {
 
   return (
     <div ref={rootRef} className={styles.root} aria-label="欢迎页">
-      <button
-        type="button"
-        className={styles.closeButton}
-        aria-label="退出应用"
-        title="退出应用"
-        onClick={() => dispatch({ type: 'APP_QUIT_REQUEST' })}
-      >
-        <Icon name="close" size={18} />
-      </button>
-
       <div className={styles.bg} aria-hidden="true">
         {bg === 'css-fallback' ? <div className={styles.fallbackFx} /> : null}
 
@@ -269,6 +260,18 @@ export function WelcomePage(props: WelcomePageProps) {
         <div className={styles.vignette} />
       </div>
 
+      <div className={styles.dragBar}>
+        <button
+          type="button"
+          className={styles.closeButton}
+          aria-label="退出应用"
+          title="退出应用"
+          onClick={() => dispatch({ type: 'APP_QUIT_REQUEST' })}
+        >
+          <ShinyText text="×" speed={1.6} color="rgba(238, 242, 255, 0.5)" shineColor="#ffffff" spread={120} />
+        </button>
+      </div>
+
       <div className={styles.content}>
         <button
           type="button"
@@ -276,7 +279,14 @@ export function WelcomePage(props: WelcomePageProps) {
           disabled={isLoading}
           onClick={() => dispatch({ type: 'PROJECT_SELECT' })}
         >
-          {isLoading ? '正在打开…' : '打开项目'}
+          <ShinyText
+            text={isLoading ? '正在打开…' : '打开项目'}
+            disabled={isLoading}
+            speed={2}
+            color="#b5b5b5"
+            shineColor="#ffffff"
+            spread={120}
+          />
         </button>
 
         {!dismissWebglNotice && (!webglOk || useCssFallback) ? (
