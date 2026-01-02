@@ -2,7 +2,13 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Renderer, Triangle, Program, Mesh } from 'ogl';
 import styles from './Prism.module.css';
-import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
+import {
+  attachWebglContextLoss,
+  createFirstFrameLogger,
+  createFpsSampleLogger,
+  logWebglContextInfo,
+  logWebglInitFailed
+} from './webglDiagnostics';
 
 export type PrismProps = {
   className?: string;
@@ -83,6 +89,7 @@ export function Prism({
       return;
     }
     const gl = renderer.gl;
+    logWebglContextInfo('Prism', gl);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     gl.disable(gl.BLEND);
@@ -301,6 +308,8 @@ export function Prism({
     };
 
     const NOISE_IS_ZERO = NOISE < 1e-6;
+    const logFirstFrame = createFirstFrameLogger('Prism', { dpr: dprValue });
+    const logFpsSample = createFpsSampleLogger('Prism');
     let raf = 0;
     const t0 = performance.now();
     const startRAF = () => {
@@ -410,6 +419,8 @@ export function Prism({
       }
 
       renderer.render({ scene: mesh });
+      logFirstFrame();
+      logFpsSample();
       if (continueRAF) {
         raf = requestAnimationFrame(render);
       } else {

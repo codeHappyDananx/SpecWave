@@ -4,7 +4,13 @@ import * as THREE from 'three';
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, SMAAEffect, SMAAPreset } from 'postprocessing';
 
 import styles from './Hyperspeed.module.css';
-import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
+import {
+  attachWebglContextLoss,
+  createFirstFrameLogger,
+  createFpsSampleLogger,
+  logWebglContextInfo,
+  logWebglInitFailed
+} from './webglDiagnostics';
 
 export type HyperspeedProps = {
   className?: string;
@@ -364,7 +370,8 @@ export function Hyperspeed({
         this.container = container;
         this.renderer = new THREE.WebGLRenderer({
           antialias: false,
-          alpha: true
+          alpha: true,
+          powerPreference: 'high-performance'
         });
         this.renderer.setSize(container.offsetWidth, container.offsetHeight, false);
         this.renderer.setPixelRatio(Math.min(options.dpr ?? window.devicePixelRatio ?? 1, 2));
@@ -451,14 +458,14 @@ export function Hyperspeed({
           new BloomEffect({
             luminanceThreshold: 0.2,
             luminanceSmoothing: 0,
-            resolutionScale: 1
+            resolutionScale: 0.65
           })
         );
 
         const smaaPass = new EffectPass(
           this.camera,
           new SMAAEffect({
-            preset: SMAAPreset.MEDIUM,
+            preset: SMAAPreset.LOW,
             searchImage: SMAAEffect.searchImageDataURL,
             areaImage: SMAAEffect.areaImageDataURL
           })
@@ -1122,6 +1129,7 @@ export function Hyperspeed({
       return needResize;
     }
 
+    let cancelled = false;
     (function () {
       const container = hyperspeed.current;
       if (!container) return;
@@ -1129,11 +1137,23 @@ export function Hyperspeed({
       options.distortion = distortions[options.distortion];
 
       try {
+        const logFirstFrame = createFirstFrameLogger('Hyperspeed', { dpr });
+        const logFpsSample = createFpsSampleLogger('Hyperspeed');
         const myApp = new App(container, options);
+        logWebglContextInfo('Hyperspeed', myApp.renderer.getContext());
+        const originalRender = myApp.render;
+        myApp.render = (delta) => {
+          originalRender.call(myApp, delta);
+          logFirstFrame();
+          logFpsSample();
+        };
         appRef.current = myApp;
         myApp
           .loadAssets()
-          .then(myApp.init)
+          .then(() => {
+            if (cancelled) return;
+            myApp.init();
+          })
           .catch((err) => logWebglInitFailed('Hyperspeed', err));
       } catch (err) {
         logWebglInitFailed('Hyperspeed', err);
@@ -1141,8 +1161,10 @@ export function Hyperspeed({
     })();
 
     return () => {
+      cancelled = true;
       if (appRef.current) {
         appRef.current.dispose();
+        appRef.current = null;
       }
     };
   }, [effectOptions, dpr]);

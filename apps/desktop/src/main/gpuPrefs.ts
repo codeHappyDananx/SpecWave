@@ -6,6 +6,7 @@ export type GpuPrefs = {
   angle?: string;
   useGl?: string;
   disableGpu?: boolean;
+  disableGpuSandbox?: boolean;
   fallbackStage?: number;
   updatedAt?: number;
 };
@@ -26,6 +27,7 @@ export function loadGpuPrefsSync(): GpuPrefs | null {
     if (typeof obj.angle === 'string') prefs.angle = obj.angle;
     if (typeof obj.useGl === 'string') prefs.useGl = obj.useGl;
     if (typeof obj.disableGpu === 'boolean') prefs.disableGpu = obj.disableGpu;
+    if (typeof obj.disableGpuSandbox === 'boolean') prefs.disableGpuSandbox = obj.disableGpuSandbox;
     if (typeof obj.fallbackStage === 'number' && Number.isFinite(obj.fallbackStage)) prefs.fallbackStage = obj.fallbackStage;
     if (typeof obj.updatedAt === 'number' && Number.isFinite(obj.updatedAt)) prefs.updatedAt = obj.updatedAt;
 
@@ -52,4 +54,3 @@ export function clearGpuPrefsSync() {
     // ignore
   }
 }
-

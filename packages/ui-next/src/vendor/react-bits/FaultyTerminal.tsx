@@ -1,7 +1,13 @@
 import { Color, Program, Renderer, Mesh, Triangle } from 'ogl';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import styles from './FaultyTerminal.module.css';
-import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
+import {
+  attachWebglContextLoss,
+  createFirstFrameLogger,
+  createFpsSampleLogger,
+  logWebglContextInfo,
+  logWebglInitFailed
+} from './webglDiagnostics';
 
 type Vec2 = [number, number];
 
@@ -293,6 +299,9 @@ export function FaultyTerminal({
     const ctn = containerRef.current;
     if (!ctn) return;
 
+    const logFirstFrame = createFirstFrameLogger('FaultyTerminal', { dpr });
+    const logFpsSample = createFpsSampleLogger('FaultyTerminal');
+
     let renderer: Renderer;
     try {
       renderer = new Renderer({ dpr });
@@ -302,6 +311,7 @@ export function FaultyTerminal({
     }
     rendererRef.current = renderer;
     const gl = renderer.gl;
+    logWebglContextInfo('FaultyTerminal', gl);
     gl.clearColor(0, 0, 0, 1);
 
     const geometry = new Triangle(gl);
@@ -392,6 +402,8 @@ export function FaultyTerminal({
       }
 
       renderer.render({ scene: mesh });
+      logFirstFrame();
+      logFpsSample();
     };
     rafRef.current = requestAnimationFrame(update);
     ctn.appendChild(gl.canvas);
@@ -400,6 +412,7 @@ export function FaultyTerminal({
 
     return () => {
       cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
       detachContextLoss();
       resizeObserver.disconnect();
       if (mouseReact) window.removeEventListener('pointermove', handlePointerMove);

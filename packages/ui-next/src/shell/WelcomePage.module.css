@@ -5,6 +5,8 @@
   overflow: hidden;
   background: #05070d;
   color: #eef2ff;
+  --mx: 50%;
+  --my: 50%;
 }
 
 .bg {
@@ -18,6 +20,87 @@
   position: absolute;
   inset: 0;
   opacity: 0.72;
+}
+
+.fallbackFx {
+  position: absolute;
+  inset: -35%;
+  opacity: 0.9;
+  background:
+    radial-gradient(closest-side at var(--mx) var(--my), rgba(139, 233, 253, 0.22), rgba(0, 0, 0, 0) 60%),
+    radial-gradient(closest-side at calc(100% - var(--mx)) calc(100% - var(--my)), rgba(167, 139, 250, 0.18), rgba(0, 0, 0, 0) 62%),
+    conic-gradient(
+      from 180deg at 50% 50%,
+      rgba(34, 197, 94, 0) 0deg,
+      rgba(34, 197, 94, 0.12) 70deg,
+      rgba(96, 165, 250, 0) 140deg,
+      rgba(251, 113, 133, 0.14) 210deg,
+      rgba(0, 0, 0, 0) 360deg
+    );
+  transform: rotate(-6deg) scale(1.08);
+  animation: swWelcomeSpin 18s linear infinite;
+}
+
+.fallbackFx::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.06) 0,
+      rgba(255, 255, 255, 0.06) 1px,
+      rgba(255, 255, 255, 0) 1px,
+      rgba(255, 255, 255, 0) 140px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      rgba(255, 255, 255, 0) 1px,
+      rgba(255, 255, 255, 0) 140px
+    );
+  animation: swWelcomeDrift 9s linear infinite;
+}
+
+.fallbackFx::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background: radial-gradient(closest-side at var(--mx) var(--my), rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0) 70%);
+  animation: swWelcomePulse 6.5s ease-in-out infinite;
+}
+
+@keyframes swWelcomeSpin {
+  from {
+    transform: rotate(-6deg) scale(1.08);
+  }
+  to {
+    transform: rotate(354deg) scale(1.08);
+  }
+}
+
+@keyframes swWelcomeDrift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-140px, 140px, 0);
+  }
+}
+
+@keyframes swWelcomePulse {
+  0% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.22;
+  }
+  100% {
+    opacity: 0.12;
+  }
 }
 
 .backdrop {

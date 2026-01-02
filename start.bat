@@ -21,7 +21,7 @@ if errorlevel 1 (
 )
 
 rem 用法：
-rem - 直接双击：默认启动（Windows 默认 ANGLE=warp，以保证 WebGL2 可用）
+rem - 直接双击：默认启动（Windows 默认 ANGLE=d3d11，优先硬件加速）
 rem - 指定模式：start.bat d3d11 ^| d3d9 ^| warp ^| swiftshader ^| nogpu
 rem - 关闭清理：start.bat --no-clean
 rem - 打开 DevTools：start.bat --devtools
@@ -50,8 +50,8 @@ echo 用法：
 echo   start.bat [mode] [--no-clean] [--devtools]
 echo.
 echo mode：
-echo   d3d9        - ANGLE d3d9（更稳，默认）
-echo   d3d11       - ANGLE d3d11（默认显卡后端）
+echo   d3d11       - ANGLE d3d11（默认，优先硬件加速 + WebGL2）
+echo   d3d9        - ANGLE d3d9（更稳，但多数环境下仅 WebGL1）
 echo   warp        - ANGLE WARP（软件 D3D11）
 echo   swiftshader - use-gl=swiftshader-webgl（软件 WebGL，最硬兜底）
 echo   nogpu       - disable-gpu（只用于排查/兜底）
@@ -67,7 +67,7 @@ exit /b 0
 
 rem === 开发启动默认参数（尽量做到“一键可跑”） ===
 set "SPECWAVE_DISABLE_GPU=0"
-set "SPECWAVE_ANGLE=warp"
+set "SPECWAVE_ANGLE=d3d11"
 set "SPECWAVE_USE_GL="
 set "SPECWAVE_DISABLE_GPU_SANDBOX=0"
 set "SPECWAVE_OPEN_DEVTOOLS=0"

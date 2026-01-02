@@ -10,6 +10,7 @@
 
 - **只做 vendor，不对外发布组件库**：仅作为本项目应用的一部分使用。
 - **做了最小改造**：移除全局 CSS 引用，改为 CSS Modules；去掉全局 `id`/`canvas` 选择器；补 `dpr` 等参数用于性能控制。
+- **补齐 WebGL 诊断与兜底**：统一输出 WebGL 渲染器信息/首帧耗时/FPS 采样；在 `CONTEXT_LOST_WEBGL` 时停帧，并广播 `specwave-webgl-context-lost` 事件，供 `WelcomePage` 自动切换到 CSS 背景动效，避免黑屏/低帧率拖垮体验。
 
 ## 已 vendor 的背景
 

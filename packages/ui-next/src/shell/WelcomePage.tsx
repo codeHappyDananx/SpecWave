@@ -11,6 +11,7 @@ import styles from './WelcomePage.module.css';
 
 const WELCOME_BG_KEYS = ['faulty-terminal', 'prismatic-burst', 'hyperspeed', 'color-bends', 'prism'] as const;
 type WelcomeBgKey = (typeof WELCOME_BG_KEYS)[number];
+type WelcomeBgMode = WelcomeBgKey | 'css-fallback' | 'none';
 
 const BG_WEBGL2_REQUIRED: Record<WelcomeBgKey, boolean> = {
   'faulty-terminal': false,
@@ -43,20 +44,58 @@ export type WelcomePageProps = {
   dispatch: (intent: UIIntent) => void;
 };
 
-function getWebglSupport() {
-  if (typeof document === 'undefined') return { webgl: false, webgl2: false };
+type WebglTier = 'hardware' | 'software' | 'unknown';
+
+type WebglDiagnostics = {
+  webgl: boolean;
+  webgl2: boolean;
+  tier: WebglTier;
+  vendor: string;
+  renderer: string;
+};
+
+function getWebglDiagnostics(): WebglDiagnostics {
+  if (typeof document === 'undefined') {
+    return { webgl: false, webgl2: false, tier: 'unknown', vendor: '', renderer: '' };
+  }
+
   try {
     const canvas = document.createElement('canvas');
-    const webgl2 = Boolean(canvas.getContext('webgl2'));
-    const webgl = webgl2 || Boolean(canvas.getContext('webgl'));
-    return { webgl, webgl2 };
+    const gl2 = canvas.getContext('webgl2');
+    const gl = (gl2 || canvas.getContext('webgl')) as (WebGLRenderingContext | WebGL2RenderingContext | null);
+    if (!gl) return { webgl: false, webgl2: false, tier: 'unknown', vendor: '', renderer: '' };
+
+    let vendor = '';
+    let renderer = '';
+    try {
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info') as
+        | { UNMASKED_VENDOR_WEBGL: number; UNMASKED_RENDERER_WEBGL: number }
+        | null;
+      vendor = debugInfo ? String(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)) : '';
+      renderer = debugInfo ? String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)) : '';
+    } catch {
+      // ignore
+    }
+    if (!vendor) vendor = String(gl.getParameter(gl.VENDOR) || '');
+    if (!renderer) renderer = String(gl.getParameter(gl.RENDERER) || '');
+
+    const info = `${vendor} ${renderer}`.toLowerCase();
+    const isSoftware = info.includes('swiftshader') || info.includes('warp');
+
+    return {
+      webgl: true,
+      webgl2: Boolean(gl2),
+      tier: isSoftware ? 'software' : vendor || renderer ? 'hardware' : 'unknown',
+      vendor,
+      renderer
+    };
   } catch {
-    return { webgl: false, webgl2: false };
+    return { webgl: false, webgl2: false, tier: 'unknown', vendor: '', renderer: '' };
   }
 }
 
-const WELCOME_DPR_MIN = 2;
-const WELCOME_DPR_MAX = 3;
+const WELCOME_DPR_MIN = 1;
+const WELCOME_DPR_MAX = 2;
 
 function clampDpr(value: number, min = 1, max = 2) {
   const v = Number.isFinite(value) && value > 0 ? value : 1;
@@ -66,17 +105,32 @@ function clampDpr(value: number, min = 1, max = 2) {
 function computeWelcomeDpr() {
   if (typeof window === 'undefined') return WELCOME_DPR_MIN;
   const base = window.devicePixelRatio || 1;
-  // 欢迎页背景以“更清晰”为优先：即使在 100% 缩放（DPR=1），也至少按 2 倍渲染。
+  // 欢迎页背景按系统缩放渲染：避免不必要的过采样导致帧率暴跌（尤其是落到软件 WebGL 时）。
   return clampDpr(base, WELCOME_DPR_MIN, WELCOME_DPR_MAX);
 }
 
 export function WelcomePage(props: WelcomePageProps) {
   const { recentProjects, isLoading, error, dispatch } = props;
   const [dismissWebglNotice, setDismissWebglNotice] = useState(false);
-  const webglSupport = useMemo(() => getWebglSupport(), []);
-  const webglOk = webglSupport.webgl;
+  const webgl = useMemo(() => getWebglDiagnostics(), []);
+  const webglOk = webgl.webgl;
+  const [forceCssFallback, setForceCssFallback] = useState(false);
+  const useCssFallback = webglOk && (forceCssFallback || webgl.tier === 'software');
   const [dpr, setDpr] = useState(() => computeWelcomeDpr());
-  const hasLoggedRef = useRef(false);
+  const lastLoggedBgRef = useRef<WelcomeBgMode | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onLost = () => setForceCssFallback(true);
+    window.addEventListener('specwave-webgl-context-lost', onLost as EventListener);
+    return () => window.removeEventListener('specwave-webgl-context-lost', onLost as EventListener);
+  }, []);
+
+  const eligibleBgKeys: readonly WelcomeBgKey[] = useMemo(() => {
+    if (!webgl.webgl) return [];
+    if (webgl.webgl2) return WELCOME_BG_KEYS;
+    return WELCOME_BG_KEYS.filter((k) => !BG_WEBGL2_REQUIRED[k]);
+  }, [webgl.webgl, webgl.webgl2]);
 
   useEffect(() => {
     const update = () => setDpr(computeWelcomeDpr());
@@ -89,24 +143,44 @@ export function WelcomePage(props: WelcomePageProps) {
     };
   }, []);
 
-  const bgKey: WelcomeBgKey = useMemo(() => {
-    const idx = Math.floor(Math.random() * WELCOME_BG_KEYS.length);
-    return WELCOME_BG_KEYS[idx] ?? 'faulty-terminal';
-  }, []);
+  useEffect(() => {
+    if (!useCssFallback) return;
+    const root = rootRef.current;
+    if (!root) return;
+    const onMove = (e: PointerEvent) => {
+      const rect = root.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / Math.max(1, rect.width);
+      const y = (e.clientY - rect.top) / Math.max(1, rect.height);
+      root.style.setProperty('--mx', `${Math.round(x * 1000) / 10}%`);
+      root.style.setProperty('--my', `${Math.round(y * 1000) / 10}%`);
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [useCssFallback]);
+
+  const bg: WelcomeBgMode = useMemo(() => {
+    if (!webglOk) return 'none';
+    if (useCssFallback) return 'css-fallback';
+    const pool = eligibleBgKeys.length > 0 ? eligibleBgKeys : WELCOME_BG_KEYS;
+    const idx = Math.floor(Math.random() * pool.length);
+    return pool[idx] ?? 'faulty-terminal';
+  }, [eligibleBgKeys, useCssFallback, webglOk]);
 
   useEffect(() => {
-    if (hasLoggedRef.current) return;
-    hasLoggedRef.current = true;
-    const needWebgl2 = BG_WEBGL2_REQUIRED[bgKey] ? '1' : '0';
+    if (lastLoggedBgRef.current === bg) return;
+    lastLoggedBgRef.current = bg;
+    const needWebgl2 = bg !== 'css-fallback' && bg !== 'none' && BG_WEBGL2_REQUIRED[bg] ? '1' : '0';
     console.info(
-      `[SpecWave][Welcome] 背景选择：${bgKey} dpr=${dpr} devicePixelRatio=${typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1} webgl=${webglSupport.webgl ? '1' : '0'} webgl2=${webglSupport.webgl2 ? '1' : '0'} requireWebgl2=${needWebgl2}`
+      `[SpecWave][Welcome] 背景选择：${bg} dpr=${dpr} devicePixelRatio=${typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1} webgl=${webgl.webgl ? '1' : '0'} webgl2=${webgl.webgl2 ? '1' : '0'} tier=${webgl.tier} forceCssFallback=${forceCssFallback ? '1' : '0'} requireWebgl2=${needWebgl2} vendor=${webgl.vendor || '-'} renderer=${webgl.renderer || '-'}`
     );
-  }, [bgKey, dpr, webglSupport.webgl, webglSupport.webgl2]);
+  }, [bg, dpr, forceCssFallback, webgl.renderer, webgl.tier, webgl.vendor, webgl.webgl, webgl.webgl2]);
 
   return (
-    <div className={styles.root} aria-label="欢迎页">
+    <div ref={rootRef} className={styles.root} aria-label="欢迎页">
       <div className={styles.bg} aria-hidden="true">
-        {webglOk && bgKey === 'faulty-terminal' ? (
+        {bg === 'css-fallback' ? <div className={styles.fallbackFx} /> : null}
+
+        {webglOk && bg === 'faulty-terminal' ? (
           <FaultyTerminal
             className={styles.bgFx}
             mouseReact={true}
@@ -127,7 +201,7 @@ export function WelcomePage(props: WelcomePageProps) {
           />
         ) : null}
 
-        {webglOk && bgKey === 'prismatic-burst' ? (
+        {webglOk && bg === 'prismatic-burst' ? (
           <PrismaticBurst
             className={styles.bgFx}
             dpr={dpr}
@@ -143,11 +217,11 @@ export function WelcomePage(props: WelcomePageProps) {
           />
         ) : null}
 
-        {webglOk && bgKey === 'hyperspeed' ? (
+        {webglOk && bg === 'hyperspeed' ? (
           <Hyperspeed className={styles.bgFx} dpr={dpr} effectOptions={HYPERSPEED_EFFECT} />
         ) : null}
 
-        {webglOk && bgKey === 'color-bends' ? (
+        {webglOk && bg === 'color-bends' ? (
           <ColorBends
             className={styles.bgFx}
             dpr={dpr}
@@ -165,7 +239,7 @@ export function WelcomePage(props: WelcomePageProps) {
           />
         ) : null}
 
-        {webglOk && bgKey === 'prism' ? (
+        {webglOk && bg === 'prism' ? (
           <Prism
             className={styles.bgFx}
             dpr={dpr}
@@ -195,12 +269,20 @@ export function WelcomePage(props: WelcomePageProps) {
           {isLoading ? '正在打开…' : '打开项目'}
         </button>
 
-        {!webglOk && !dismissWebglNotice ? (
+        {!dismissWebglNotice && (!webglOk || useCssFallback) ? (
           <button
             type="button"
             className={styles.webglBadge}
-            aria-label="背景动效不可用（WebGL 不可用），点击关闭提示"
-            title="当前环境无法创建 WebGL，欢迎页背景动效不可用。若遇到 GPU 崩溃，请优先切换 ANGLE 后重启。"
+            aria-label={
+              webglOk
+                ? '检测到 WebGL 走软件渲染，已切换到 CSS 背景动效（点击关闭提示）'
+                : '背景动效不可用（WebGL 不可用），点击关闭提示'
+            }
+            title={
+              webglOk
+                ? '检测到 WebGL 走软件渲染（如 SwiftShader/WARP），WebGL 背景帧率会很低；已自动切换到 CSS 背景动效。'
+                : '当前环境无法创建 WebGL，欢迎页背景动效不可用。若遇到 GPU 崩溃，请优先切换 ANGLE 后重启。'
+            }
             onClick={() => setDismissWebglNotice(true)}
           >
             <Icon name="warning" size={18} />

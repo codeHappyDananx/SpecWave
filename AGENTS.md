@@ -79,7 +79,7 @@
   - 默认行为：
     - 清理本仓库残留的 `electron/node/esbuild` 进程（避免端口占用与 cache 锁冲突）。
     - 设置开发环境 `SPECWAVE_USER_DATA_DIR=.tmp-specwave-userdata/`（可回收）。
-    - 默认使用 `SPECWAVE_ANGLE=warp`（软件 D3D11），保证 WelcomePage 的 WebGL2 背景动效（含 three.js）可用。
+    - 默认使用 `SPECWAVE_ANGLE=d3d11`（优先硬件加速 + WebGL2）。
   - 参数：
     - `start.bat d3d9|d3d11|warp|swiftshader|nogpu`
     - `start.bat --no-clean`
@@ -115,9 +115,10 @@
     - `SPECWAVE_DISABLE_GPU_SANDBOX`：`1` 时关闭 GPU sandbox（仅排查，存在安全权衡）。
     - `SPECWAVE_OPEN_DEVTOOLS`：`1` 时开发模式自动打开 DevTools。
     - `SPECWAVE_RESET_GPU_PREFS`：`1` 时清空 `userData/gpu-preferences.json`（重置自动自救的稳定 GPU 配置）。
-  - 默认值：开发模式（Windows）默认 `ANGLE=warp`，保证 WebGL2 可用（three.js r163+ 强制 WebGL2）。
+  - 默认值：开发模式（Windows）默认 `ANGLE=d3d11`，优先硬件加速（WebGL2 背景动效在 three.js r163+ 下需要 WebGL2）。
+  - 生产模式自动自救顺序（GPU 进程连续崩溃时）：`d3d11` → `d3d11 + disable-gpu-sandbox` → `d3d9` → `warp` → `swiftshader-webgl` → `disable-gpu`（并持久化到 `userData/gpu-preferences.json`）。
 - `apps/desktop/src/main/gpuPrefs.ts`
-  - 做什么：GPU 配置持久化（读写 `userData/gpu-preferences.json`），用于记住“自动自救”后的稳定 ANGLE/WebGL 策略，避免用户每次启动都要手动切换。
+  - 做什么：GPU 配置持久化（读写 `userData/gpu-preferences.json`），用于记住“自动自救”后的稳定 ANGLE/WebGL 策略（含 `disableGpuSandbox`），避免用户每次启动都要手动切换。
   - 依赖谁：Electron `app.getPath('userData')`、Node `fs/path`。
   - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/main/recentProjects.ts`
@@ -185,7 +186,7 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.tsx`
-  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；不引入三栏逻辑）。
+  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
   - 依赖谁：`@specwave/contracts`、`primitives/Icons`、`vendor/react-bits`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.module.css`
@@ -228,7 +229,7 @@
   - 依赖谁：无。
   - 由谁依赖：人（合规审阅）。
 - `packages/ui-next/src/vendor/react-bits/webglDiagnostics.ts`
-  - 做什么：WebGL 初始化/丢上下文诊断（中文日志）+ 统一停帧，避免 GPU 崩溃时 rAF 打满导致全局卡顿。
+  - 做什么：WebGL 初始化/丢上下文诊断（中文日志）+ 统一停帧；在丢上下文时广播 `specwave-webgl-context-lost`，用于 WelcomePage 自动切换到 CSS 动效，避免黑屏/低帧率拖垮体验。
   - 依赖谁：DOM canvas、console。
   - 由谁依赖：`FaultyTerminal` / `PrismaticBurst` / `Prism` / `ColorBends` / `Hyperspeed`。
 - `packages/ui-next/src/vendor/react-bits/FaultyTerminal.tsx` / `packages/ui-next/src/vendor/react-bits/FaultyTerminal.module.css`

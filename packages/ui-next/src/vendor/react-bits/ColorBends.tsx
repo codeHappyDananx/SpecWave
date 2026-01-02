@@ -2,7 +2,13 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import * as THREE from 'three';
 import styles from './ColorBends.module.css';
-import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
+import {
+  attachWebglContextLoss,
+  createFirstFrameLogger,
+  createFpsSampleLogger,
+  logWebglContextInfo,
+  logWebglInitFailed
+} from './webglDiagnostics';
 
 const MAX_COLORS = 8;
 
@@ -148,6 +154,9 @@ export function ColorBends({
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
+    const logFirstFrame = createFirstFrameLogger('ColorBends', { dpr });
+    const logFpsSample = createFpsSampleLogger('ColorBends');
+
     const geometry = new THREE.PlaneGeometry(2, 2);
     const uColorsArray = Array.from({ length: MAX_COLORS }, () => new THREE.Vector3(0, 0, 0));
     const material = new THREE.ShaderMaterial({
@@ -181,7 +190,7 @@ export function ColorBends({
     try {
       renderer = new THREE.WebGLRenderer({
         antialias: false,
-        powerPreference: 'default',
+        powerPreference: 'high-performance',
         alpha: true
       });
     } catch (err) {
@@ -192,6 +201,7 @@ export function ColorBends({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(dpr);
     renderer.setClearColor(0x000000, transparent ? 0 : 1);
+    logWebglContextInfo('ColorBends', renderer.getContext());
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     renderer.domElement.style.display = 'block';
@@ -238,6 +248,8 @@ export function ColorBends({
       cur.lerp(tgt, amt);
       material.uniforms.uPointer.value.copy(cur);
       renderer.render(scene, camera);
+      logFirstFrame();
+      logFpsSample();
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);

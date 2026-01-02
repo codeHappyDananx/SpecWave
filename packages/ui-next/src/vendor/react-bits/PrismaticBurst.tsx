@@ -2,7 +2,13 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Renderer, Program, Mesh, Triangle, Texture } from 'ogl';
 import styles from './PrismaticBurst.module.css';
-import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
+import {
+  attachWebglContextLoss,
+  createFirstFrameLogger,
+  createFpsSampleLogger,
+  logWebglContextInfo,
+  logWebglInitFailed
+} from './webglDiagnostics';
 
 const vertexShader = `#version 300 es
 in vec2 position;
@@ -270,6 +276,9 @@ export function PrismaticBurst({
     rendererRef.current = renderer;
 
     const gl = renderer.gl;
+    logWebglContextInfo('PrismaticBurst', gl);
+    const logFirstFrame = createFirstFrameLogger('PrismaticBurst', { dpr });
+    const logFpsSample = createFpsSampleLogger('PrismaticBurst');
     let raf = 0;
     let detachContextLoss = () => {};
 
@@ -393,6 +402,8 @@ export function PrismaticBurst({
         program.uniforms.uTime.value = accumTime;
 
         renderer.render({ scene: meshRef.current });
+        logFirstFrame();
+        logFpsSample();
         raf = requestAnimationFrame(update);
       };
       raf = requestAnimationFrame(update);
@@ -408,7 +419,7 @@ export function PrismaticBurst({
         try {
           container.removeChild(gl.canvas);
         } catch {
-          console.warn('Canvas already removed');
+          console.warn('[SpecWave][Welcome][PrismaticBurst] canvas 已被移除（忽略）。');
         }
         try {
           meshRef.current?.remove?.();
