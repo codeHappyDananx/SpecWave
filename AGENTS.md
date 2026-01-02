@@ -111,10 +111,13 @@
   - 依赖谁：`pnpm` / workspace。
   - 由谁依赖：`pnpm --filter @specwave/desktop ...`。
 - `apps/desktop/src/main/index.ts`
-  - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链；并负责 GPU/ANGLE/DevTools 的启动策略，且在生产模式 GPU 自救后持久化稳定配置）。
+  - 做什么：Electron 主进程入口（注册 IPC handlers；创建 WelcomeWindow（无边框）与 MainWindow（有边框）；加载 renderer；打开外链；并负责 GPU/ANGLE/DevTools 的启动策略，且在生产模式 GPU 自救后持久化稳定配置）。
   - 依赖谁：Electron API。
   - 由谁依赖：electron-vite main entry。
   - 额外行为：转发 renderer 的 WelcomePage 关键日志到终端（只转发带 `[SpecWave][Welcome]` 前缀的 console，便于定位“随机某个背景黑屏/不渲染”）。
+  - 窗口策略：
+    - 启动默认创建 WelcomeWindow（`frame: false`），欢迎页右上角提供自绘 `X`（走 `APP_QUIT_REQUEST` → preload → IPC → `app.quit()`）。
+    - 选择/打开项目时：renderer 调用 `specwave:openMainWindow` 创建 MainWindow（有边框），并携带 `projectPath` 作为 query；MainWindow `ready-to-show` 后再关闭 WelcomeWindow。
   - 启动开关（环境变量或同名 `--specwave-*` 参数）：
     - `SPECWAVE_ANGLE`：`d3d11`/`d3d9`/`warp`（Windows ANGLE 后端）。
     - `SPECWAVE_USE_GL`：`swiftshader-webgl`（软件 WebGL，用于 GPU 进程崩溃排查）。
@@ -134,11 +137,11 @@
   - 依赖谁：Electron `app.getPath('userData')`、Node `fs/path`。
   - 由谁依赖：`apps/desktop/src/main/ipc.ts`。
 - `apps/desktop/src/main/ipc.ts`
-  - 做什么：主进程 IPC handlers（目录选择、读目录、读文本、写文本+sha256 冲突保护；以及最近项目读/写/移除）。
+  - 做什么：主进程 IPC handlers（打开 MainWindow、退出应用；目录选择、读目录、读文本、写文本+sha256 冲突保护；以及最近项目读/写/移除）。
   - 依赖谁：Electron `ipcMain/dialog`、Node `fs/crypto`。
   - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/preload/index.ts`
-  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：目录选择/读目录/读文件/保存文件；以及最近项目读/写/移除）。
+  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：打开 MainWindow/退出应用；目录选择/读目录/读文件/保存文件；以及最近项目读/写/移除）。
   - 依赖谁：Electron API。
   - 由谁依赖：主进程 `BrowserWindow.webPreferences.preload`。
 - `apps/desktop/src/renderer/index.html`
@@ -162,7 +165,7 @@
   - 依赖谁：`useAppStore`、`@specwave/ui-next`。
   - 由谁依赖：`main.tsx`。
 - `apps/desktop/src/renderer/src/store.ts`
-  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；负责 welcome/main 模式切换；编排项目选择→文件树→打开/编辑/保存；并维护布局拖拽与右区 mock；最近项目走 preload→主进程持久化）。
+  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；按 `specwaveWindow=welcome|main` 决定启动形态：WelcomeWindow 里收到 `PROJECT_*` 会请求主进程打开 MainWindow 并退出 Welcome；MainWindow 里读取 `projectPath` query 自动打开项目；并编排项目选择→文件树→打开/编辑/保存；维护布局拖拽与右区 mock；最近项目走 preload→主进程持久化）。
   - 依赖谁：`@specwave/contracts`。
   - 由谁依赖：`App.tsx`。
 
@@ -194,7 +197,7 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.tsx`
-  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
+  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；欢迎页窗口为 frameless 时，右上角自绘 `X` 用于退出应用；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
   - 依赖谁：`@specwave/contracts`、`primitives/Icons`、`vendor/react-bits`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.module.css`

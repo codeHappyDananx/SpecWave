@@ -5,6 +5,7 @@ import { registerIpcHandlers } from './ipc';
 import { clearGpuPrefsSync, loadGpuPrefsSync, saveGpuPrefsSync } from './gpuPrefs';
 
 let mainWindow: BrowserWindow | null = null;
+let welcomeWindow: BrowserWindow | null = null;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function readCliArg(name: string) {
@@ -87,9 +88,32 @@ console.log(
   `[SpecWave] GPU 启动参数：disableGpu=${disableGpu ? '1' : '0'} angle=${angle} useGl=${useGl || 'default'} disableGpuSandbox=${disableGpuSandbox ? '1' : '0'} stage=${gpuFallbackStage} userData=${app.getPath('userData')}`
 );
 
-registerIpcHandlers();
+function attachWelcomeLogForwarding(win: BrowserWindow) {
+  // 把 WelcomePage 的关键日志从 renderer 转发到终端，便于排查“某个动效随机为黑屏/不渲染”。
+  // 只转发带固定前缀的日志，避免刷屏。
+  win.webContents.on('console-message', (details) => {
+    const { level, message } = details;
+    if (!message.includes('[SpecWave][Welcome]')) return;
+    const prefix = '[SpecWave][Renderer]';
+    if (level === 'error') console.error(`${prefix} ${message}`);
+    else if (level === 'warning') console.warn(`${prefix} ${message}`);
+    else console.log(`${prefix} ${message}`);
+  });
+}
 
-function createMainWindow() {
+function loadRenderer(win: BrowserWindow, query: Record<string, string>) {
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
+  if (rendererUrl) {
+    const url = new URL(rendererUrl);
+    for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+    void win.loadURL(url.toString());
+    return;
+  }
+
+  void win.loadFile(path.join(__dirname, '../renderer/index.html'), { query });
+}
+
+function createMainWindow(args?: { projectPath?: string | null; onReadyToShow?: () => void }) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -102,19 +126,11 @@ function createMainWindow() {
     }
   });
 
-  // 把 WelcomePage 的关键日志从 renderer 转发到终端，便于排查“某个动效随机为黑屏/不渲染”。
-  // 只转发带固定前缀的日志，避免刷屏。
-  mainWindow.webContents.on('console-message', (details) => {
-    const { level, message } = details;
-    if (!message.includes('[SpecWave][Welcome]')) return;
-    const prefix = '[SpecWave][Renderer]';
-    if (level === 'error') console.error(`${prefix} ${message}`);
-    else if (level === 'warning') console.warn(`${prefix} ${message}`);
-    else console.log(`${prefix} ${message}`);
-  });
+  attachWelcomeLogForwarding(mainWindow);
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+    args?.onReadyToShow?.();
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -122,17 +138,83 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-  }
+  loadRenderer(mainWindow, {
+    specwaveWindow: 'main',
+    ...(args?.projectPath ? { projectPath: args.projectPath } : {})
+  });
 
   // DevTools 默认不自动打开（它会显著拖慢 WebGL 背景帧率）；需要时手动打开即可。
   if (process.env.ELECTRON_RENDERER_URL && openDevTools) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
+
+function createWelcomeWindow() {
+  welcomeWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 860,
+    minHeight: 560,
+    show: false,
+    backgroundColor: '#05070d',
+    frame: false,
+    resizable: true,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  attachWelcomeLogForwarding(welcomeWindow);
+
+  welcomeWindow.on('ready-to-show', () => {
+    welcomeWindow?.show();
+  });
+
+  welcomeWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url);
+    return { action: 'deny' };
+  });
+
+  loadRenderer(welcomeWindow, { specwaveWindow: 'welcome' });
+
+  // DevTools 默认不自动打开（它会显著拖慢 WebGL 背景帧率）；需要时手动打开即可。
+  if (process.env.ELECTRON_RENDERER_URL && openDevTools) {
+    welcomeWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
+  welcomeWindow.on('closed', () => {
+    welcomeWindow = null;
+  });
+}
+
+async function openMainWindow(args: { projectPath?: string | null }) {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
+
+  // Welcome → Main：避免用户看到“窗口空白/闪一下”，先隐藏 Welcome，Main 准备好再关掉。
+  welcomeWindow?.hide();
+
+  createMainWindow({
+    projectPath: args.projectPath ?? null,
+    onReadyToShow: () => {
+      welcomeWindow?.close();
+    }
+  });
+}
+
+registerIpcHandlers({
+  openMainWindow,
+  quitApp: () => app.quit()
+});
 
 app.setAppUserModelId('ai.specwave');
 
@@ -241,10 +323,10 @@ app.whenReady().then(() => {
     }
   });
 
-  createMainWindow();
+  createWelcomeWindow();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWelcomeWindow();
   });
 });
 

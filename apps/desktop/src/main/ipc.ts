@@ -17,6 +17,11 @@ type SaveTextFileResult =
   | { ok: false; error: string }
   | { ok: false; conflict: true; error: string };
 
+export type AppShellBridge = {
+  openMainWindow: (args: { projectPath?: string | null }) => Promise<void> | void;
+  quitApp: () => void;
+};
+
 function sha256(buf: Buffer) {
   return createHash('sha256').update(buf).digest('hex');
 }
@@ -45,7 +50,15 @@ async function readDirectoryEntries(dirPath: string): Promise<DirEntryDTO[]> {
   return entries;
 }
 
-export function registerIpcHandlers() {
+export function registerIpcHandlers(appShell: AppShellBridge) {
+  ipcMain.handle('specwave:openMainWindow', async (_evt, args: { projectPath?: string | null }) => {
+    await appShell.openMainWindow({ projectPath: args?.projectPath ?? null });
+  });
+
+  ipcMain.handle('specwave:quitApp', async () => {
+    appShell.quitApp();
+  });
+
   ipcMain.handle('specwave:getRecentProjects', async () => {
     return getRecentProjects();
   });

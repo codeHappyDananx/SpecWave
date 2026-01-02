@@ -22,6 +22,9 @@ export type RecentProjectDTO = {
 
 contextBridge.exposeInMainWorld('specwave', {
   ping: () => 'pong',
+  openMainWindow: (projectPath?: string | null) =>
+    ipcRenderer.invoke('specwave:openMainWindow', { projectPath }) as Promise<void>,
+  quitApp: () => ipcRenderer.invoke('specwave:quitApp') as Promise<void>,
   getRecentProjects: () => ipcRenderer.invoke('specwave:getRecentProjects') as Promise<RecentProjectDTO[]>,
   touchRecentProject: (p: string) => ipcRenderer.invoke('specwave:touchRecentProject', { path: p }) as Promise<RecentProjectDTO[]>,
   removeRecentProject: (p: string) =>
@@ -39,6 +42,8 @@ declare global {
   interface Window {
     specwave: {
       ping: () => string;
+      openMainWindow: (projectPath?: string | null) => Promise<void>;
+      quitApp: () => Promise<void>;
       getRecentProjects: () => Promise<RecentProjectDTO[]>;
       touchRecentProject: (path: string) => Promise<RecentProjectDTO[]>;
       removeRecentProject: (path: string) => Promise<RecentProjectDTO[]>;

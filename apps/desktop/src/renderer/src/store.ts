@@ -27,8 +27,25 @@ const initialTerminalLines = [
   '✔ Renderer connected'
 ];
 
+type SpecwaveWindowKind = 'welcome' | 'main';
+
+function getSpecwaveWindowKind(): SpecwaveWindowKind {
+  if (typeof window === 'undefined') return 'main';
+  const v = new URLSearchParams(window.location.search).get('specwaveWindow');
+  if (v === 'main') return 'main';
+  return 'welcome';
+}
+
+function getBootProjectPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('projectPath');
+}
+
+const specwaveWindowKind = getSpecwaveWindowKind();
+const bootProjectPath = getBootProjectPath();
+
 const initialVm: AppViewModel = {
-  app: { mode: 'welcome', recentProjects: [] },
+  app: { mode: specwaveWindowKind === 'welcome' ? 'welcome' : 'main', recentProjects: [] },
   projects: { openTabs: [], activeTabId: null },
   explorer: {
     workspaceRoot: null,
@@ -404,6 +421,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           const nextLayout = normalizeLayoutStable(nextVm);
           return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
         }
+        case 'APP_QUIT_REQUEST': {
+          void (async () => {
+            const api = window.specwave;
+            if (api?.quitApp) {
+              await api.quitApp();
+              return;
+            }
+            window.close();
+          })();
+          return { vm };
+        }
         case 'RIGHT_MODE_SET':
           {
             const nextVm = { ...vm, rightMode: intent.mode, rightVisible: true };
@@ -424,14 +452,32 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
 
             const dirPath = await api.selectDirectory();
-            if (!dirPath) {
-              set((s) => ({ vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false } } }));
-              return;
-            }
+             if (!dirPath) {
+               set((s) => ({ vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false } } }));
+               return;
+             }
 
-            const projectName = basename(dirPath);
-            const tabId = `proj-${Date.now()}`;
-            const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+             if (specwaveWindowKind === 'welcome' && api.openMainWindow) {
+               try {
+                 await api.openMainWindow(dirPath);
+               } catch (err) {
+                 set((s) => ({
+                   vm: {
+                     ...s.vm,
+                     explorer: {
+                       ...s.vm.explorer,
+                       isLoading: false,
+                       error: `打开主窗口失败：${err instanceof Error ? err.message : String(err)}`
+                     }
+                   }
+                 }));
+               }
+               return;
+             }
+
+             const projectName = basename(dirPath);
+             const tabId = `proj-${Date.now()}`;
+             const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
 
             const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
             if (seq !== openProjectSeq) return;
@@ -490,17 +536,35 @@ export const useAppStore = create<AppState>((set, get) => ({
           const seq = ++openProjectSeq;
           const dirPath = intent.path;
           void (async () => {
-            const api = window.specwave;
-            if (!api) {
-              set((s) => ({
-                vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: '未检测到桌面端 API（preload 未注入）。' } }
-              }));
-              return;
-            }
+             const api = window.specwave;
+             if (!api) {
+               set((s) => ({
+                 vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: '未检测到桌面端 API（preload 未注入）。' } }
+               }));
+               return;
+             }
 
-            const projectName = basename(dirPath);
-            const tabId = `proj-${Date.now()}`;
-            const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+             if (specwaveWindowKind === 'welcome' && api.openMainWindow) {
+               try {
+                 await api.openMainWindow(dirPath);
+               } catch (err) {
+                 set((s) => ({
+                   vm: {
+                     ...s.vm,
+                     explorer: {
+                       ...s.vm.explorer,
+                       isLoading: false,
+                       error: `打开主窗口失败：${err instanceof Error ? err.message : String(err)}`
+                     }
+                   }
+                 }));
+               }
+               return;
+             }
+
+             const projectName = basename(dirPath);
+             const tabId = `proj-${Date.now()}`;
+             const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
 
             const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
             if (seq !== openProjectSeq) return;
@@ -1025,3 +1089,7 @@ void (async () => {
     }
   }));
 })();
+
+if (specwaveWindowKind === 'main' && bootProjectPath) {
+  useAppStore.getState().dispatch({ type: 'PROJECT_OPEN_RECENT', path: bootProjectPath });
+}

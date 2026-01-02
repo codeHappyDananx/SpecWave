@@ -177,6 +177,16 @@ export function WelcomePage(props: WelcomePageProps) {
 
   return (
     <div ref={rootRef} className={styles.root} aria-label="欢迎页">
+      <button
+        type="button"
+        className={styles.closeButton}
+        aria-label="退出应用"
+        title="退出应用"
+        onClick={() => dispatch({ type: 'APP_QUIT_REQUEST' })}
+      >
+        <Icon name="close" size={18} />
+      </button>
+
       <div className={styles.bg} aria-hidden="true">
         {bg === 'css-fallback' ? <div className={styles.fallbackFx} /> : null}
 

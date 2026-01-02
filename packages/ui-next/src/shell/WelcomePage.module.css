@@ -5,6 +5,7 @@
   overflow: hidden;
   background: #05070d;
   color: #eef2ff;
+  -webkit-app-region: drag;
   --mx: 50%;
   --my: 50%;
 }
@@ -132,6 +133,41 @@
   justify-content: center;
   gap: 18px;
   padding: 56px 22px;
+  -webkit-app-region: no-drag;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.14);
+  color: rgba(238, 242, 255, 0.24);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition:
+    opacity var(--t-quick),
+    background var(--t-quick),
+    color var(--t-quick),
+    transform var(--t-quick),
+    border-color var(--t-quick);
+  -webkit-app-region: no-drag;
+}
+.closeButton:hover {
+  opacity: 0.92;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(238, 242, 255, 0.78);
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: scale(1.02);
+}
+.closeButton:active {
+  transform: scale(0.98);
 }
 
 .openButton {

@@ -86,6 +86,7 @@ export type ContentVM = {
 };
 
 export type UIIntent =
+  | { type: "APP_QUIT_REQUEST" }
   | { type: "PANEL_TOGGLE_LEFT" }
   | { type: "PANEL_TOGGLE_CENTER" }
   | { type: "PANEL_TOGGLE_RIGHT" }
