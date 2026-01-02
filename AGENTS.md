@@ -52,6 +52,10 @@
   - 做什么：monorepo scripts 入口（`dev/build/typecheck`，其中 `typecheck` 使用 `tsc -b`）。
   - 依赖谁：`pnpm` / workspace。
   - 由谁依赖：所有 workspace。
+- `pnpm-lock.yaml`
+  - 做什么：依赖锁文件（保证安装可复现；升级 Electron 等二进制依赖时必须同步更新）。
+  - 依赖谁：`pnpm`。
+  - 由谁依赖：本仓库所有安装/构建/CI。
 - `pnpm-workspace.yaml`
   - 做什么：pnpm workspace 定义。
   - 依赖谁：无。
@@ -102,6 +106,10 @@
   - 做什么：桌面端 TS 配置（强制 `noEmit`，只做类型检查）。
   - 依赖谁：`tsconfig.base.json`。
   - 由谁依赖：根 `typecheck`、`apps/desktop` 的 `typecheck` script。
+- `apps/desktop/package.json`
+  - 做什么：桌面端 package 定义（Electron/React 等依赖版本；提供 `dev/build/preview/typecheck` scripts）。
+  - 依赖谁：`pnpm` / workspace。
+  - 由谁依赖：`pnpm --filter @specwave/desktop ...`。
 - `apps/desktop/src/main/index.ts`
   - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链；并负责 GPU/ANGLE/DevTools 的启动策略，且在生产模式 GPU 自救后持久化稳定配置）。
   - 依赖谁：Electron API。

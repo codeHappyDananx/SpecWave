@@ -104,11 +104,12 @@ function createMainWindow() {
 
   // 把 WelcomePage 的关键日志从 renderer 转发到终端，便于排查“某个动效随机为黑屏/不渲染”。
   // 只转发带固定前缀的日志，避免刷屏。
-  mainWindow.webContents.on('console-message', (_event, level, message) => {
+  mainWindow.webContents.on('console-message', (details) => {
+    const { level, message } = details;
     if (!message.includes('[SpecWave][Welcome]')) return;
     const prefix = '[SpecWave][Renderer]';
-    if (level === 2) console.error(`${prefix} ${message}`);
-    else if (level === 1) console.warn(`${prefix} ${message}`);
+    if (level === 'error') console.error(`${prefix} ${message}`);
+    else if (level === 'warning') console.warn(`${prefix} ${message}`);
     else console.log(`${prefix} ${message}`);
   });
 

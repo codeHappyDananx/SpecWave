@@ -13,7 +13,7 @@
   "dependencies": {
     "@specwave/contracts": "workspace:*",
     "@specwave/ui-next": "workspace:*",
-    "electron": "^27.3.11",
+    "electron": "^39.2.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zustand": "^4.5.5"
