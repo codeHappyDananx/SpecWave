@@ -3,10 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerIpcHandlers } from './ipc';
 import { clearGpuPrefsSync, loadGpuPrefsSync, saveGpuPrefsSync } from './gpuPrefs';
+import { registerTerminalIpcHandlers } from './terminal/ipc';
+import { PtyManager } from './terminal/ptyManager';
 
 let mainWindow: BrowserWindow | null = null;
 let welcomeWindow: BrowserWindow | null = null;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ptyManager = new PtyManager();
 
 function readCliArg(name: string) {
   const prefix = `${name}=`;
@@ -126,29 +129,33 @@ function createMainWindow(args?: { projectPath?: string | null; onReadyToShow?: 
     }
   });
 
-  attachWelcomeLogForwarding(mainWindow);
+  const win = mainWindow;
+  const webContentsId = win.webContents.id;
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow?.show();
+  attachWelcomeLogForwarding(win);
+
+  win.on('ready-to-show', () => {
+    win.show();
     args?.onReadyToShow?.();
   });
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: 'deny' };
   });
 
-  loadRenderer(mainWindow, {
+  loadRenderer(win, {
     specwaveWindow: 'main',
     ...(args?.projectPath ? { projectPath: args.projectPath } : {})
   });
 
   // DevTools 默认不自动打开（它会显著拖慢 WebGL 背景帧率）；需要时手动打开即可。
   if (process.env.ELECTRON_RENDERER_URL && openDevTools) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    win.webContents.openDevTools({ mode: 'detach' });
   }
 
-  mainWindow.on('closed', () => {
+  win.on('closed', () => {
+    ptyManager.disposeByWebContents(webContentsId);
     mainWindow = null;
   });
 }
@@ -171,6 +178,7 @@ function createWelcomeWindow() {
   });
 
   const win = welcomeWindow;
+  const webContentsId = win.webContents.id;
 
   attachWelcomeLogForwarding(win);
 
@@ -191,6 +199,7 @@ function createWelcomeWindow() {
   }
 
   win.on('closed', () => {
+    ptyManager.disposeByWebContents(webContentsId);
     welcomeWindow = null;
   });
 
@@ -243,6 +252,7 @@ registerIpcHandlers({
   openWelcomeWindow,
   quitApp: () => app.quit()
 });
+registerTerminalIpcHandlers(ptyManager);
 
 app.setAppUserModelId('ai.specwave');
 
@@ -356,6 +366,10 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWelcomeWindow();
   });
+});
+
+app.on('before-quit', () => {
+  ptyManager.disposeAll();
 });
 
 app.on('window-all-closed', () => {

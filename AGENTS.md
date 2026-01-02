@@ -147,8 +147,16 @@
   - 做什么：主进程 IPC handlers（打开 MainWindow、退出应用；目录选择、读目录、读文本、写文本+sha256 冲突保护；以及最近项目读/写/移除）。
   - 依赖谁：Electron `ipcMain/dialog`、Node `fs/crypto`。
   - 由谁依赖：`apps/desktop/src/main/index.ts`。
+- `apps/desktop/src/main/terminal/ptyManager.ts`
+  - 做什么：主进程终端会话管理（`node-pty`）：创建/写入/resize/kill；把输出/退出事件转发给对应 renderer（`specwave:terminal:event`）。
+  - 依赖谁：`node-pty`、Electron `WebContents`。
+  - 由谁依赖：`apps/desktop/src/main/index.ts`。
+- `apps/desktop/src/main/terminal/ipc.ts`
+  - 做什么：终端 IPC 注册（`specwave:terminal:*`）：create/kill（invoke）、write/resize（send）。
+  - 依赖谁：Electron `ipcMain`、`ptyManager`。
+  - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/preload/index.ts`
-  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：打开 MainWindow/退出应用；目录选择/读目录/读文件/保存文件；以及最近项目读/写/移除）。
+  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：窗口控制、文件系统能力、最近项目持久化；以及终端会话 create/kill/write/resize 与事件订阅）。
   - 依赖谁：Electron API。
   - 由谁依赖：主进程 `BrowserWindow.webPreferences.preload`。
 - `apps/desktop/src/renderer/index.html`
@@ -172,7 +180,7 @@
   - 依赖谁：`useAppStore`、`@specwave/ui-next`。
   - 由谁依赖：`main.tsx`。
 - `apps/desktop/src/renderer/src/store.ts`
-  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；按 `specwaveWindow=welcome|main` 决定启动形态：WelcomeWindow 里收到 `PROJECT_*` 会请求主进程打开 MainWindow 并退出 Welcome；MainWindow 里读取 `projectPath` query 自动打开项目；并编排项目选择→文件树→打开/编辑/保存；维护布局拖拽与右区 mock；最近项目走 preload→主进程持久化）。
+  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；按 `specwaveWindow=welcome|main` 决定启动形态；编排项目选择→文件树→打开/编辑/保存；维护布局拖拽；右区终端对接 `node-pty` 流式输出（preload 事件订阅 → store 聚合 → VM 输出），UI 不直接接触 Node 能力）。
   - 依赖谁：`@specwave/contracts`。
   - 由谁依赖：`App.tsx`。
 
@@ -333,8 +341,8 @@
   - 依赖谁：`Panel`、`IconButton`、`ClosableTab`、`Icons`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/TerminalView.tsx` / `packages/ui-next/src/panels/right/TerminalView.module.css`
-  - 做什么：终端视图（输出区 + `PromptInput`）。
-  - 依赖谁：`PromptInput`。
+  - 做什么：终端视图（xterm 渲染 + FitAddon 自适应；输入/resize 只派发 intents，输出由 store 推送）。
+  - 依赖谁：`@xterm/xterm`、`@xterm/addon-fit`。
   - 由谁依赖：RightPanel。
 - `packages/ui-next/src/panels/right/ChatView.tsx` / `packages/ui-next/src/panels/right/ChatView.module.css`
   - 做什么：对话视图（消息列表 + `PromptInput`）。

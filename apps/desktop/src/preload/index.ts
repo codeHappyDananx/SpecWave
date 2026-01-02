@@ -20,6 +20,12 @@ export type RecentProjectDTO = {
   exists: boolean;
 };
 
+export type TerminalCreateResult = { ok: true } | { ok: false; error: string };
+export type TerminalEventDTO =
+  | { type: 'data'; id: string; data: string }
+  | { type: 'exit'; id: string; exitCode: number; signal?: number | null }
+  | { type: 'error'; id: string; error: string };
+
 contextBridge.exposeInMainWorld('specwave', {
   ping: () => 'pong',
   openMainWindow: (projectPath?: string | null) =>
@@ -36,7 +42,20 @@ contextBridge.exposeInMainWorld('specwave', {
   readTextFile: (filePath: string) =>
     ipcRenderer.invoke('specwave:readTextFile', { filePath }) as Promise<ReadTextFileResult>,
   saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) =>
-    ipcRenderer.invoke('specwave:saveTextFile', { filePath, text, ifMatchSha256 }) as Promise<SaveTextFileResult>
+    ipcRenderer.invoke('specwave:saveTextFile', { filePath, text, ifMatchSha256 }) as Promise<SaveTextFileResult>,
+
+  terminalCreateSession: (args: { id: string; cwd?: string | null; cols?: number | null; rows?: number | null }) =>
+    ipcRenderer.invoke('specwave:terminal:create', args) as Promise<TerminalCreateResult>,
+  terminalKillSession: (id: string) => ipcRenderer.invoke('specwave:terminal:kill', { id }) as Promise<void>,
+  terminalWrite: (id: string, data: string) => ipcRenderer.send('specwave:terminal:write', { id, data }),
+  terminalResize: (id: string, cols: number, rows: number) => ipcRenderer.send('specwave:terminal:resize', { id, cols, rows }),
+  onTerminalEvent: (cb: (evt: TerminalEventDTO) => void) => {
+    const listener = (_evt: unknown, payload: TerminalEventDTO) => cb(payload);
+    ipcRenderer.on('specwave:terminal:event', listener);
+    return () => {
+      ipcRenderer.off('specwave:terminal:event', listener);
+    };
+  }
 });
 
 declare global {
@@ -53,6 +72,12 @@ declare global {
       readDirectory: (dirPath: string) => Promise<ReadDirectoryResult>;
       readTextFile: (filePath: string) => Promise<ReadTextFileResult>;
       saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) => Promise<SaveTextFileResult>;
+
+      terminalCreateSession: (args: { id: string; cwd?: string | null; cols?: number | null; rows?: number | null }) => Promise<TerminalCreateResult>;
+      terminalKillSession: (id: string) => Promise<void>;
+      terminalWrite: (id: string, data: string) => void;
+      terminalResize: (id: string, cols: number, rows: number) => void;
+      onTerminalEvent: (cb: (evt: TerminalEventDTO) => void) => () => void;
     };
   }
 }

@@ -16,7 +16,8 @@ type RightIntent = Extract<
   | { type: 'TERMINAL_PANEL_CLOSE' }
   | { type: 'CHAT_SESSION_SET_ACTIVE' }
   | { type: 'CHAT_SESSION_CLOSE' }
-  | { type: 'TERMINAL_COMMAND_SUBMIT' }
+  | { type: 'TERMINAL_WRITE' }
+  | { type: 'TERMINAL_RESIZE' }
   | { type: 'CHAT_DRAFT_SET' }
   | { type: 'CHAT_MESSAGE_SUBMIT' }
 >;
@@ -112,4 +113,3 @@ export function RightPanel(props: RightPanelProps) {
     </Panel>
   );
 }
-

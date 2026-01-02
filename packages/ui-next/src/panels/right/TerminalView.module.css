@@ -1,5 +1,4 @@
-.root{min-height:0;height:100%;display:grid;gap:10px;grid-template-rows:1fr auto;}
-.termBox{border-radius:var(--sw-radius-lg);background:#111827;color:#fff;padding:12px;font-family:var(--sw-font-mono);line-height:1.55;overflow:auto;min-height:0;white-space:pre;}
+.root{min-height:0;height:100%;display:grid;gap:10px;grid-template-rows:1fr;}
+.xtermHost{border-radius:var(--sw-radius-lg);background:#0B1020;min-height:0;height:100%;overflow:hidden;}
 .emptyHint{border-radius:var(--sw-radius-lg);background:var(--sw-muted);padding:16px;display:grid;place-items:center;gap:6px;color:#374151;text-align:center;font-weight:800;letter-spacing:-.01em;}
 .emptyHintMuted{font-weight:700;color:#4B5563;}
-

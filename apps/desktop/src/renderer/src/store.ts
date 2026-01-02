@@ -19,13 +19,7 @@ type AppState = {
 
 const msg = (who: ChatMessageVM['who'], text: string): ChatMessageVM => ({ who, text });
 
-const initialTerminalLines = [
-  'PS C:> pnpm dev',
-  'VITE ready',
-  'Local: http://localhost:5173',
-  '✔ Electron main started',
-  '✔ Renderer connected'
-];
+const initialTerminalBootText = ['正在启动终端…\r\n'];
 
 type SpecwaveWindowKind = 'welcome' | 'main';
 
@@ -75,7 +69,7 @@ const initialVm: AppViewModel = {
   terminal: {
     activePanelId: 'terminal-1',
     panelIds: ['terminal-1'],
-    outputByPanel: { 'terminal-1': initialTerminalLines }
+    outputByPanel: { 'terminal-1': initialTerminalBootText }
   },
   chat: {
     sessionIds: ['chat-1', 'chat-2'],
@@ -103,6 +97,7 @@ const MIN_LEFT_PX = 240;
 const MAX_LEFT_PX = 720;
 const MIN_CENTER_PX = 320;
 const MIN_RIGHT_PX = 320;
+const MAX_TERMINAL_CHUNKS = 2000;
 
 type DragSnapshot = {
   handle: 'L' | 'R';
@@ -1029,6 +1024,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'THEME_TOGGLE':
           return { vm };
         case 'TERMINAL_PANEL_CLOSE': {
+          void (async () => {
+            const api = window.specwave;
+            if (!api?.terminalKillSession) return;
+            await api.terminalKillSession(intent.id);
+          })();
+
           const nextIds = vm.terminal.panelIds.filter((id) => id !== intent.id);
           const nextActive = vm.terminal.activePanelId === intent.id ? (nextIds[0] ?? '') : vm.terminal.activePanelId;
           const nextOutput = { ...vm.terminal.outputByPanel };
@@ -1093,23 +1094,43 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           };
         }
-        case 'TERMINAL_COMMAND_SUBMIT': {
-          const id = vm.terminal.activePanelId;
-          const existing = vm.terminal.outputByPanel[id] ?? [];
-          const next = [...existing, `PS C:> ${intent.command}`, '…（示意输出）'];
-          return { vm: { ...vm, terminal: { ...vm.terminal, outputByPanel: { ...vm.terminal.outputByPanel, [id]: next } } } };
+        case 'TERMINAL_WRITE': {
+          const api = window.specwave;
+          if (!api?.terminalWrite) return { vm };
+          api.terminalWrite(intent.id, intent.data);
+          return { vm };
+        }
+        case 'TERMINAL_RESIZE': {
+          const api = window.specwave;
+          if (!api?.terminalResize) return { vm };
+          api.terminalResize(intent.id, intent.cols, intent.rows);
+          return { vm };
         }
         case 'RIGHT_PANEL_ADD': {
           if (vm.rightMode === 'terminal') {
-            const nextNum = vm.terminal.panelIds.length + 1;
-            const nextId = `terminal-${nextNum}`;
+            const nextId = `terminal-${Date.now()}`;
+
+            void (async () => {
+              const api = window.specwave;
+              if (!api?.terminalCreateSession) return;
+              const cwd = get().vm.explorer.projectRoot ?? null;
+              const res = await api.terminalCreateSession({ id: nextId, cwd });
+              if (res.ok) return;
+              set((state) => {
+                const vm2 = state.vm;
+                const prev = vm2.terminal.outputByPanel[nextId] ?? [];
+                const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
+                return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: { ...vm2.terminal.outputByPanel, [nextId]: next } } } };
+              });
+            })();
+
             return {
               vm: {
                 ...vm,
                 terminal: {
                   panelIds: [...vm.terminal.panelIds, nextId],
                   activePanelId: nextId,
-                  outputByPanel: { ...vm.terminal.outputByPanel, [nextId]: ['PS C:> 新终端面板已创建（示意）'] }
+                  outputByPanel: { ...vm.terminal.outputByPanel, [nextId]: ['正在启动终端…\r\n'] }
                 },
                 rightVisible: true
               }
@@ -1242,6 +1263,90 @@ void (async () => {
       app: { ...state.vm.app, recentProjects }
     }
   }));
+})();
+
+let terminalBridgeSubscribed = false;
+void (async () => {
+  const api = window.specwave;
+  if (!api?.onTerminalEvent) return;
+  if (terminalBridgeSubscribed) return;
+  terminalBridgeSubscribed = true;
+
+  const pending: Record<string, string[]> = {};
+  let scheduled = false;
+
+  const flush = () => {
+    scheduled = false;
+    const ids = Object.keys(pending);
+    if (ids.length === 0) return;
+
+    useAppStore.setState((state) => {
+      const vm = state.vm;
+      let nextOutputByPanel = vm.terminal.outputByPanel;
+
+      for (const id of ids) {
+        const chunks = pending[id];
+        if (!chunks || chunks.length === 0) continue;
+        delete pending[id];
+
+        const prevRaw = nextOutputByPanel[id] ?? [];
+        const prev = prevRaw.length === 1 && prevRaw[0]?.startsWith('正在启动终端…') ? [] : prevRaw;
+        const merged = [...prev, ...chunks].slice(-MAX_TERMINAL_CHUNKS);
+        nextOutputByPanel = { ...nextOutputByPanel, [id]: merged };
+      }
+
+      return {
+        vm: {
+          ...vm,
+          terminal: {
+            ...vm.terminal,
+            outputByPanel: nextOutputByPanel
+          }
+        }
+      };
+    });
+  };
+
+  const scheduleFlush = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(flush);
+  };
+
+  api.onTerminalEvent((evt) => {
+    switch (evt.type) {
+      case 'data': {
+        (pending[evt.id] ||= []).push(evt.data);
+        scheduleFlush();
+        return;
+      }
+      case 'exit': {
+        const tail = `\r\n[进程已退出] exitCode=${evt.exitCode}${evt.signal ? ` signal=${evt.signal}` : ''}\r\n`;
+        (pending[evt.id] ||= []).push(tail);
+        scheduleFlush();
+        return;
+      }
+      case 'error': {
+        (pending[evt.id] ||= []).push(`\r\n[终端错误] ${evt.error}\r\n`);
+        scheduleFlush();
+        return;
+      }
+    }
+  });
+
+  if (specwaveWindowKind === 'main' && api.terminalCreateSession) {
+    const id = useAppStore.getState().vm.terminal.activePanelId;
+    const cwd = useAppStore.getState().vm.explorer.projectRoot ?? null;
+    const res = await api.terminalCreateSession({ id, cwd });
+    if (!res.ok) {
+      useAppStore.setState((state) => {
+        const vm = state.vm;
+        const prev = vm.terminal.outputByPanel[id] ?? [];
+        const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
+        return { vm: { ...vm, terminal: { ...vm.terminal, outputByPanel: { ...vm.terminal.outputByPanel, [id]: next } } } };
+      });
+    }
+  }
 })();
 
 if (specwaveWindowKind === 'main' && bootProjectPath) {

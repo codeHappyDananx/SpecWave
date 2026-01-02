@@ -111,7 +111,8 @@ export type UIIntent =
   | { type: "CHAT_SESSION_CLOSE"; id: string }
   | { type: "CHAT_SESSION_SET_ACTIVE"; id: string }
   | { type: "GLOBAL_SEARCH_SET"; query: string }
-  | { type: "TERMINAL_COMMAND_SUBMIT"; command: string }
+  | { type: "TERMINAL_WRITE"; id: string; data: string }
+  | { type: "TERMINAL_RESIZE"; id: string; cols: number; rows: number }
   | { type: "CHAT_DRAFT_SET"; id: string; text: string }
   | { type: "CHAT_MESSAGE_SUBMIT"; id: string; text: string }
   | { type: "LAYOUT_CONTAINER_SET"; widthPx: number }
