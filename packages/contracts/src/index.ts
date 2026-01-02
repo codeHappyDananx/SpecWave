@@ -75,6 +75,13 @@ export type TaskBoardVM = {
   items: TaskItemVM[];
 };
 
+export type ContentFindVM = {
+  isOpen: boolean;
+  query: string;
+  matchStarts: number[];
+  activeIndex: number;
+};
+
 export type ContentVM = {
   file: ContentFileVM | null;
   text: string;
@@ -84,6 +91,7 @@ export type ContentVM = {
   saveStatus: "idle" | "saving" | "saved" | "error" | "conflict";
   saveError: string | null;
   taskBoard: TaskBoardVM | null;
+  find: ContentFindVM;
 };
 
 export type UIIntent =
@@ -104,6 +112,10 @@ export type UIIntent =
   | { type: "CONTENT_TOGGLE_VIEW_MODE" }
   | { type: "CONTENT_DRAFT_SET"; text: string }
   | { type: "CONTENT_SAVE_REQUEST" }
+  | { type: "CONTENT_FIND_SET_QUERY"; query: string }
+  | { type: "CONTENT_FIND_NEXT" }
+  | { type: "CONTENT_FIND_PREV" }
+  | { type: "CONTENT_FIND_CLOSE" }
   | { type: "TASK_ITEM_TOGGLE"; taskId: string; source: TaskSourceVM }
   | { type: "THEME_TOGGLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
@@ -161,7 +173,13 @@ export type AppViewModel = {
     draftBySession: Record<string, string>;
   };
 
-  ui: { theme: "light" };
+  ui: { theme: "light"; skin: "blue" | "purple" | "green" | "amber" };
+
+  panelMinW: {
+    leftPx: number;
+    centerPx: number;
+    rightPx: number;
+  };
 
   layout: LayoutVM;
 };

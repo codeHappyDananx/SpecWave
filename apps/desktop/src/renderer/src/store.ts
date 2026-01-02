@@ -35,6 +35,15 @@ function getBootProjectPath(): string | null {
   return new URLSearchParams(window.location.search).get('projectPath');
 }
 
+function loadSkin(): AppViewModel['ui']['skin'] {
+  if (typeof window === 'undefined') return 'blue';
+  try {
+    const v = window.localStorage.getItem('specwave_skin');
+    if (v === 'blue' || v === 'purple' || v === 'green' || v === 'amber') return v;
+  } catch {}
+  return 'blue';
+}
+
 const specwaveWindowKind = getSpecwaveWindowKind();
 const bootProjectPath = getBootProjectPath();
 
@@ -59,7 +68,8 @@ const initialVm: AppViewModel = {
     isDirty: false,
     saveStatus: 'idle',
     saveError: null,
-    taskBoard: null
+    taskBoard: null,
+    find: { isOpen: false, query: '', matchStarts: [], activeIndex: 0 }
   },
   leftVisible: true,
   centerVisible: true,
@@ -86,7 +96,12 @@ const initialVm: AppViewModel = {
       'chat-2': ''
     }
   },
-  ui: { theme: 'light' },
+  ui: { theme: 'light', skin: loadSkin() },
+  panelMinW: {
+    leftPx: 240,
+    centerPx: Math.max(320, Math.round(1280 * 0.7)),
+    rightPx: 320
+  },
   layout: { containerWidthPx: 1280, isDragging: false, leftPx: 280, centerPx: 640, rightPx: 360 }
 };
 
@@ -375,6 +390,26 @@ function toggleCharAt(text: string, pos: number, nextChar: string) {
   return text.slice(0, pos) + nextChar + text.slice(pos + 1);
 }
 
+function effectiveContentText(content: AppViewModel['content']) {
+  return content.isDirty ? content.draftText : content.text;
+}
+
+function findMatchStarts(text: string, query: string) {
+  const q = query.trim();
+  if (!q) return [];
+  const lowerText = text.toLowerCase();
+  const lowerQuery = q.toLowerCase();
+  const hits: number[] = [];
+  let idx = 0;
+  while (idx <= lowerText.length - lowerQuery.length) {
+    const next = lowerText.indexOf(lowerQuery, idx);
+    if (next < 0) break;
+    hits.push(next);
+    idx = next + Math.max(1, lowerQuery.length);
+  }
+  return hits;
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   vm: initialVm,
   intentLog: [],
@@ -539,16 +574,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     isLoading: false,
                     error: workspaceError
                   },
-                  content: {
-                    file: null,
-                    text: '',
-                    draftText: '',
-                    mode: 'view',
-                    isDirty: false,
-                    saveStatus: 'idle',
-                    saveError: null,
-                    taskBoard: null
-                  }
+                  content: { ...initialVm.content }
                 }
               };
             });
@@ -640,16 +666,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     isLoading: false,
                     error: workspaceError
                   },
-                  content: {
-                    file: null,
-                    text: '',
-                    draftText: '',
-                    mode: 'view',
-                    isDirty: false,
-                    saveStatus: 'idle',
-                    saveError: null,
-                    taskBoard: null
-                  }
+                  content: { ...initialVm.content }
                 }
               };
             });
@@ -872,6 +889,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 vm: {
                   ...vm2,
                   content: {
+                    find: { ...initialVm.content.find },
                     file: { path: filePath, name: basename(filePath), kind, sha256: res.sha256 },
                     text: res.text,
                     draftText: res.text,
@@ -891,7 +909,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               ...vm,
               centerVisible: true,
               explorer: { ...vm.explorer, selectedPath: filePath },
-              content: { ...vm.content, saveStatus: 'idle', saveError: null }
+              content: { ...vm.content, saveStatus: 'idle', saveError: null, find: { ...initialVm.content.find } }
             }
           };
         }
@@ -923,7 +941,18 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (!file) return { vm };
           const nextDraft = intent.text;
           const isDirty = nextDraft !== vm.content.text;
-          return { vm: { ...vm, content: { ...vm.content, draftText: nextDraft, isDirty, saveStatus: 'idle', saveError: null } } };
+          const nextFind = (() => {
+            if (!vm.content.find.isOpen) return vm.content.find;
+            const hits = findMatchStarts(nextDraft, vm.content.find.query);
+            const nextActive = hits.length ? Math.min(vm.content.find.activeIndex, hits.length - 1) : 0;
+            return { ...vm.content.find, matchStarts: hits, activeIndex: nextActive };
+          })();
+          return {
+            vm: {
+              ...vm,
+              content: { ...vm.content, draftText: nextDraft, isDirty, saveStatus: 'idle', saveError: null, find: nextFind }
+            }
+          };
         }
         case 'CONTENT_SAVE_REQUEST': {
           const file = vm.content.file;
@@ -968,6 +997,42 @@ export const useAppStore = create<AppState>((set, get) => ({
           })();
 
           return { vm: { ...vm, content: { ...vm.content, saveStatus: 'saving', saveError: null } } };
+        }
+        case 'CONTENT_FIND_SET_QUERY': {
+          const file = vm.content.file;
+          if (!file) return { vm };
+          const text = effectiveContentText(vm.content);
+          const hits = findMatchStarts(text, intent.query);
+          return {
+            vm: {
+              ...vm,
+              centerVisible: true,
+              content: {
+                ...vm.content,
+                find: { isOpen: true, query: intent.query, matchStarts: hits, activeIndex: hits.length ? 0 : 0 }
+              }
+            }
+          };
+        }
+        case 'CONTENT_FIND_NEXT': {
+          const file = vm.content.file;
+          if (!file) return { vm };
+          const hits = vm.content.find.matchStarts;
+          if (!hits.length) return { vm };
+          const nextActive = (vm.content.find.activeIndex + 1) % hits.length;
+          return { vm: { ...vm, content: { ...vm.content, find: { ...vm.content.find, isOpen: true, activeIndex: nextActive } } } };
+        }
+        case 'CONTENT_FIND_PREV': {
+          const file = vm.content.file;
+          if (!file) return { vm };
+          const hits = vm.content.find.matchStarts;
+          if (!hits.length) return { vm };
+          const nextActive = (vm.content.find.activeIndex - 1 + hits.length) % hits.length;
+          return { vm: { ...vm, content: { ...vm.content, find: { ...vm.content.find, isOpen: true, activeIndex: nextActive } } } };
+        }
+        case 'CONTENT_FIND_CLOSE': {
+          if (!vm.content.file) return { vm };
+          return { vm: { ...vm, content: { ...vm.content, find: { ...initialVm.content.find } } } };
         }
         case 'TASK_ITEM_TOGGLE': {
           const file = vm.content.file;
@@ -1021,8 +1086,15 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           };
         }
-        case 'THEME_TOGGLE':
-          return { vm };
+        case 'THEME_TOGGLE': {
+          const skins: AppViewModel['ui']['skin'][] = ['blue', 'purple', 'green', 'amber'];
+          const idx = skins.indexOf(vm.ui.skin);
+          const nextSkin = skins[(idx < 0 ? 0 : idx + 1) % skins.length] ?? 'blue';
+          try {
+            window.localStorage.setItem('specwave_skin', nextSkin);
+          } catch {}
+          return { vm: { ...vm, ui: { ...vm.ui, skin: nextSkin } } };
+        }
         case 'TERMINAL_PANEL_CLOSE': {
           void (async () => {
             const api = window.specwave;
@@ -1161,8 +1233,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           // - 缩小窗口：只更新容器宽度（避免抖动）
           // - 放大窗口：让 centerPx 同步到当前可用宽度基准，保证拖拽阈值不失真
           const prev = vm.layout.containerWidthPx;
+          const nextPanelMinW = { ...vm.panelMinW, centerPx: Math.max(320, Math.round(intent.widthPx * 0.7)) };
           if (intent.widthPx <= prev) {
-            return { vm: { ...vm, layout: { ...vm.layout, containerWidthPx: intent.widthPx } } };
+            return { vm: { ...vm, panelMinW: nextPanelMinW, layout: { ...vm.layout, containerWidthPx: intent.widthPx } } };
           }
 
           const splitters = splitterCountFlags(vm) * SPLITTER_PX;
@@ -1171,7 +1244,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           const right = vm.rightVisible ? Math.max(MIN_RIGHT_PX, vm.layout.rightPx) : 0;
           const remainder = Math.max(MIN_CENTER_PX, available - left - right);
 
-          return { vm: { ...vm, layout: { ...vm.layout, containerWidthPx: intent.widthPx, centerPx: remainder } } };
+          return {
+            vm: {
+              ...vm,
+              panelMinW: nextPanelMinW,
+              layout: { ...vm.layout, containerWidthPx: intent.widthPx, centerPx: remainder }
+            }
+          };
         }
         case 'LAYOUT_DRAG_START': {
           const snap: DragSnapshot = {
@@ -1244,8 +1323,23 @@ export const useAppStore = create<AppState>((set, get) => ({
             });
           })();
           return { vm: { ...vm, content: { ...vm.content, saveStatus: 'saving', saveError: null } } };
-        case 'SHORTCUT_FIND':
-          return { vm };
+        case 'SHORTCUT_FIND': {
+          const file = vm.content.file;
+          if (!file) return { vm };
+          const text = effectiveContentText(vm.content);
+          const hits = findMatchStarts(text, vm.content.find.query);
+          const nextActive = hits.length ? Math.min(vm.content.find.activeIndex, hits.length - 1) : 0;
+          return {
+            vm: {
+              ...vm,
+              centerVisible: true,
+              content: {
+                ...vm.content,
+                find: { ...vm.content.find, isOpen: true, matchStarts: hits, activeIndex: nextActive }
+              }
+            }
+          };
+        }
         default:
           return { vm };
       }

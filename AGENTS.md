@@ -99,7 +99,7 @@
 ### contracts（交互契约层）
 
 - `packages/contracts/src/index.ts`
-  - 做什么：定义 `UIIntent`、`AppViewModel`（含 app/explorer/content/layout）以及任务/文件树等 UI 交互契约。
+  - 做什么：定义 `UIIntent`、`AppViewModel`（含 app/explorer/content/layout/panelMinW/ui.skin）以及任务/文件树/终端/文件内查找等 UI 交互契约。
   - 依赖谁：无（只做类型定义）。
   - 由谁依赖：`apps/desktop` store、`packages/ui-next` UI。
 
@@ -180,7 +180,7 @@
   - 依赖谁：`useAppStore`、`@specwave/ui-next`。
   - 由谁依赖：`main.tsx`。
 - `apps/desktop/src/renderer/src/store.ts`
-  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；按 `specwaveWindow=welcome|main` 决定启动形态；编排项目选择→文件树→打开/编辑/保存；维护布局拖拽；右区终端对接 `node-pty` 流式输出（preload 事件订阅 → store 聚合 → VM 输出），UI 不直接接触 Node 能力）。
+  - 做什么：Zustand store（**唯一** UIIntent 入口 `dispatch(intent)`；按 `specwaveWindow=welcome|main` 决定启动形态；编排项目选择→文件树→打开/编辑/保存；维护布局拖拽与 `panelMinW`（70% 口径由 store 统一输出，UI 不写死）；维护 `globalSearchQuery`（由 LeftPanel 消费做“已加载节点”搜索结果）；维护文件内查找状态（Ctrl+F）；右区终端对接 `node-pty` 流式输出（preload 事件订阅 → store 聚合 → VM 输出），UI 不直接接触 Node 能力；皮肤主色切换持久化（localStorage）。
   - 依赖谁：`@specwave/contracts`。
   - 由谁依赖：`App.tsx`。
 
@@ -193,7 +193,7 @@
   - 依赖谁：`./shell/SpecWaveApp`。
   - 由谁依赖：`apps/desktop` renderer。
 - `packages/ui-next/src/styles.css`
-  - 做什么：全局 tokens + reset（禁止写组件样式）。
+  - 做什么：全局 tokens + reset（禁止写组件样式）；支持 `data-skin` 主色切换（仍保持单一 Light/Flat 口径）。
   - 依赖谁：无。
   - 由谁依赖：`apps/desktop/src/renderer/src/main.tsx`。
 - `packages/ui-next/src/css.d.ts`
@@ -204,7 +204,7 @@
 #### ui-next / shell（组合层）
 
 - `packages/ui-next/src/shell/SpecWaveApp.tsx`
-  - 做什么：UI Shell（按 `vm.app.mode` 在 WelcomePage 与主工作区之间切换；主工作区组合 TopBar / LayoutGrid / StatusBar 与三栏 panels）。
+  - 做什么：UI Shell（按 `vm.app.mode` 在 WelcomePage 与主工作区之间切换；主工作区组合 TopBar / LayoutGrid / StatusBar 与三栏 panels；只消费 store 输出的 `vm.panelMinW`，不在 UI 内写死宽度常量；并在根节点挂 `data-skin` 供 tokens 切换主色）。
   - 依赖谁：`shell/*`、`panels/*`、`@specwave/contracts`。
   - 由谁依赖：`packages/ui-next/src/index.ts`。
 - `packages/ui-next/src/shell/SpecWaveApp.module.css`
@@ -329,11 +329,11 @@
 #### ui-next / panels（三栏内容）
 
 - `packages/ui-next/src/panels/left/LeftPanel.tsx` / `packages/ui-next/src/panels/left/LeftPanel.module.css`
-  - 做什么：左区（工作区树 + 项目文件树；点击目录展开，点击文件打开；用图标/颜色区分文件夹/文件/常见类型，且去掉冗余头部图标）。
+  - 做什么：左区（工作区树 + 项目文件树；点击目录展开，点击文件打开；当 `globalSearchQuery` 非空时，在顶部显示“搜索结果”（只匹配已加载节点，点击可跳转打开/展开）；用图标/颜色区分文件夹/文件/常见类型，且去掉冗余头部图标）。
   - 依赖谁：`Panel`、`Icons`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/center/CenterPanel.tsx` / `packages/ui-next/src/panels/center/CenterPanel.module.css`
-  - 做什么：中区（文件渲染/源码编辑/保存；task 文件支持任务看板勾选写回）。
+  - 做什么：中区（文件渲染/源码编辑/保存；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数），只派发 intents）。
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`

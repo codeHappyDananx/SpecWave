@@ -18,7 +18,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
 
   if (vm.app.mode === 'welcome') {
     return (
-      <div className={styles.root}>
+      <div className={styles.root} data-skin={vm.ui.skin}>
         <WelcomePage
           recentProjects={vm.app.recentProjects}
           isLoading={vm.explorer.isLoading}
@@ -31,15 +31,8 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
 
   const activeProject = vm.projects.activeTabId ? vm.projects.openTabs.find((t) => t.id === vm.projects.activeTabId) : null;
 
-  const panelMinW = {
-    left: 240,
-    // 中区内容宽度：按窗口宽度的 70% 计算；小于此宽度则中区内部横向滚动查看（内容不被挤压）。
-    center: Math.max(320, Math.round(vm.layout.containerWidthPx * 0.7)),
-    right: 320
-  };
-
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-skin={vm.ui.skin}>
       <div className={styles.app} aria-label="工作区">
         <TopBar
           projects={vm.projects}
@@ -57,9 +50,9 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           showCenter={vm.centerVisible}
           showRight={vm.rightVisible}
           dispatch={dispatch}
-          left={<LeftPanel explorer={vm.explorer} dispatch={dispatch} minwPx={panelMinW.left} />}
-          center={<CenterPanel content={vm.content} dispatch={dispatch} minwPx={panelMinW.center} />}
-          right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={dispatch} minwPx={panelMinW.right} />}
+          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} dispatch={dispatch} minwPx={vm.panelMinW.leftPx} />}
+          center={<CenterPanel content={vm.content} dispatch={dispatch} minwPx={vm.panelMinW.centerPx} />}
+          right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={dispatch} minwPx={vm.panelMinW.rightPx} />}
         />
 
         <StatusBar

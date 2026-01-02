@@ -11,6 +11,10 @@ type CenterIntent = Extract<
   | { type: 'CONTENT_TOGGLE_VIEW_MODE' }
   | { type: 'CONTENT_DRAFT_SET' }
   | { type: 'CONTENT_SAVE_REQUEST' }
+  | { type: 'CONTENT_FIND_SET_QUERY' }
+  | { type: 'CONTENT_FIND_NEXT' }
+  | { type: 'CONTENT_FIND_PREV' }
+  | { type: 'CONTENT_FIND_CLOSE' }
   | { type: 'TASK_ITEM_TOGGLE' }
 >;
 
@@ -23,6 +27,34 @@ export type CenterPanelProps = {
 export function CenterPanel(props: CenterPanelProps) {
   const file = props.content.file;
   const effectiveText = props.content.isDirty ? props.content.draftText : props.content.text;
+  const find = props.content.find;
+  const findInputRef = React.useRef<HTMLInputElement | null>(null);
+  const editorRef = React.useRef<HTMLTextAreaElement | null>(null);
+
+  React.useEffect(() => {
+    if (!file) return;
+    if (!find.isOpen) return;
+    const t = setTimeout(() => findInputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [file, find.isOpen]);
+
+  React.useEffect(() => {
+    if (!file) return;
+    if (!find.isOpen) return;
+    if (props.content.mode !== 'editor') return;
+    const q = find.query.trim();
+    if (!q) return;
+    const starts = find.matchStarts;
+    if (!starts.length) return;
+    const idx = Math.min(find.activeIndex, starts.length - 1);
+    const start = starts[idx] ?? 0;
+    const end = start + q.length;
+    const el = editorRef.current;
+    if (!el) return;
+    try {
+      el.setSelectionRange(start, end);
+    } catch {}
+  }, [file, find.activeIndex, find.isOpen, find.matchStarts, find.query, props.content.mode]);
 
   const modeLabel = (() => {
     if (!file) return '切换';
@@ -63,6 +95,42 @@ export function CenterPanel(props: CenterPanelProps) {
               {saveBadge}
             </div>
             <div className={styles.filePath}>{file ? file.path : '先点击顶部“打开项目”，再在左区选择文件。'}</div>
+            {file && find.isOpen ? (
+              <div className={styles.findBar} aria-label="文件内查找">
+                <input
+                  ref={findInputRef}
+                  className={styles.findInput}
+                  type="search"
+                  value={find.query}
+                  placeholder="查找…"
+                  onChange={(e) => props.dispatch({ type: 'CONTENT_FIND_SET_QUERY', query: e.currentTarget.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      props.dispatch({ type: 'CONTENT_FIND_CLOSE' });
+                      return;
+                    }
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (e.shiftKey) props.dispatch({ type: 'CONTENT_FIND_PREV' });
+                      else props.dispatch({ type: 'CONTENT_FIND_NEXT' });
+                    }
+                  }}
+                />
+                <div className={styles.findMeta} aria-label="匹配计数">
+                  {find.matchStarts.length ? `${find.activeIndex + 1}/${find.matchStarts.length}` : '0/0'}
+                </div>
+                <button className={styles.findButton} type="button" onClick={() => props.dispatch({ type: 'CONTENT_FIND_PREV' })}>
+                  上一个
+                </button>
+                <button className={styles.findButton} type="button" onClick={() => props.dispatch({ type: 'CONTENT_FIND_NEXT' })}>
+                  下一个
+                </button>
+                <button className={styles.findClose} type="button" aria-label="关闭查找" onClick={() => props.dispatch({ type: 'CONTENT_FIND_CLOSE' })}>
+                  <Icon name="close" />
+                </button>
+              </div>
+            ) : null}
           </div>
           {file ? (
             <div className={styles.headerActions}>
@@ -94,6 +162,7 @@ export function CenterPanel(props: CenterPanelProps) {
       ) : props.content.mode === 'editor' ? (
         <div className={styles.editorWrap} aria-label="源码编辑">
           <textarea
+            ref={editorRef}
             className={styles.editor}
             value={props.content.draftText}
             onChange={(e) => props.dispatch({ type: 'CONTENT_DRAFT_SET', text: e.currentTarget.value })}

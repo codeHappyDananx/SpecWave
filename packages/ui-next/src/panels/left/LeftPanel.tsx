@@ -8,6 +8,7 @@ type LeftIntent = Extract<UIIntent, | { type: 'EXPLORER_TOGGLE_DIR' } | { type: 
 
 export type LeftPanelProps = {
   explorer: AppViewModel['explorer'];
+  globalSearchQuery: string;
   dispatch: (intent: LeftIntent) => void;
   minwPx: number;
 };
@@ -78,6 +79,26 @@ export function LeftPanel(props: LeftPanelProps) {
     );
   };
 
+  const query = props.globalSearchQuery.trim();
+  const q = query.toLowerCase();
+
+  const collectMatches = (tree: 'workspace' | 'project', nodes: AppViewModel['explorer']['workspace'][number][]) => {
+    const hits: { tree: 'workspace' | 'project'; id: string; name: string; kind: 'dir' | 'file' }[] = [];
+    const walk = (ns: AppViewModel['explorer']['workspace'][number][]) => {
+      for (const n of ns) {
+        if (q && n.name.toLowerCase().includes(q)) hits.push({ tree, id: n.id, name: n.name, kind: n.kind });
+        if (n.kind === 'dir' && n.children) walk(n.children);
+      }
+    };
+    walk(nodes);
+    return hits;
+  };
+
+  const matches =
+    q && props.explorer.projectRoot
+      ? [...collectMatches('workspace', props.explorer.workspace), ...collectMatches('project', props.explorer.project)]
+      : [];
+
   return (
     <Panel
       as="aside"
@@ -92,6 +113,45 @@ export function LeftPanel(props: LeftPanelProps) {
           </div>
         ) : (
           <>
+            {q ? (
+              <details className={styles.group} open>
+                <summary className={styles.groupSummary}>
+                  搜索结果
+                  <span className={styles.meta}>（仅已加载节点，{matches.length} 条）</span>
+                </summary>
+                {matches.length ? (
+                  <ul className={styles.tree} aria-label="搜索结果列表">
+                    {matches.slice(0, 200).map((m) => {
+                      const kind = m.kind === 'dir' ? ('dir' as const) : fileKindFromName(m.name);
+                      return (
+                        <li key={`${m.tree}:${m.id}`} className={styles.node}>
+                          <button
+                            className={styles.nodeButton}
+                            type="button"
+                            aria-label={`${m.kind === 'dir' ? '目录' : '文件'}：${m.name}`}
+                            onClick={() => {
+                              if (m.kind === 'dir') props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree: m.tree, id: m.id });
+                              else props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: m.id });
+                            }}
+                          >
+                            <span className={styles.twist} aria-hidden="true" />
+                            <span className={styles.kindIcon} data-kind={kind} aria-hidden="true">
+                              <Icon name={m.kind === 'dir' ? 'folder' : 'file'} size={16} />
+                            </span>
+                            <span className={styles.name}>{m.name}</span>
+                            <span className={styles.meta}>{m.tree === 'workspace' ? '工作区' : '项目'}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                    {matches.length > 200 ? <li className={styles.muted}>结果过多，仅展示前 200 条。</li> : null}
+                  </ul>
+                ) : (
+                  <div className={styles.muted}>没有匹配结果。</div>
+                )}
+              </details>
+            ) : null}
+
             <details className={styles.group} open>
               <summary className={styles.groupSummary}>SpecWave 工作区</summary>
               {props.explorer.workspaceRoot ? (

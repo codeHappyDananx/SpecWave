@@ -18,6 +18,30 @@
     "Courier New", monospace;
 }
 
+[data-skin="blue"] {
+  --sw-primary: #3b82f6;
+  --sw-secondary: #10b981;
+  --sw-accent: #f59e0b;
+}
+
+[data-skin="purple"] {
+  --sw-primary: #8b5cf6;
+  --sw-secondary: #10b981;
+  --sw-accent: #f59e0b;
+}
+
+[data-skin="green"] {
+  --sw-primary: #10b981;
+  --sw-secondary: #3b82f6;
+  --sw-accent: #f59e0b;
+}
+
+[data-skin="amber"] {
+  --sw-primary: #f59e0b;
+  --sw-secondary: #3b82f6;
+  --sw-accent: #10b981;
+}
+
 *,
 *::before,
 *::after {

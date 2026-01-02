@@ -3,6 +3,16 @@
 .titleRow{display:flex;align-items:center;gap:10px;min-width:0;}
 .fileName{font-weight:900;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .filePath{font-family:var(--sw-font-mono);font-size:.86rem;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.findBar{display:flex;align-items:center;gap:10px;min-width:0;background:var(--sw-muted);border-radius:var(--sw-radius-md);padding:8px 10px;}
+.findInput{min-width:0;flex:1;border:0;background:transparent;font:inherit;font-weight:800;outline:none;}
+.findInput::-webkit-search-cancel-button{display:none;}
+.findMeta{font-family:var(--sw-font-mono);font-size:.82rem;font-weight:900;color:#374151;white-space:nowrap;flex:0 0 auto;}
+.findButton{border:0;border-radius:var(--sw-radius-md);padding:8px 10px;background:#fff;color:var(--sw-fg);cursor:pointer;font:inherit;font-weight:800;transition:transform var(--t-quick),background var(--t-quick);white-space:nowrap;flex:0 0 auto;}
+.findButton:hover{background:#E5E7EB;transform:scale(1.02);}
+.findButton:active{transform:scale(.98);}
+.findClose{width:36px;height:36px;border-radius:999px;border:0;background:#fff;color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);flex:0 0 auto;}
+.findClose:hover{background:#E5E7EB;transform:scale(1.02);}
+.findClose:active{transform:scale(.98);}
 .headerActions{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
 .modeButton{border:0;border-radius:var(--sw-radius-md);padding:10px 12px;background:var(--sw-muted);cursor:pointer;font:inherit;font-weight:800;transition:transform var(--t-quick),background var(--t-quick);white-space:nowrap;}
 .modeButton:hover{background:#E5E7EB;transform:scale(1.02);}
