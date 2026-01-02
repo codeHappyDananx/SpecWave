@@ -1145,7 +1145,7 @@ export function Hyperspeed({
         appRef.current.dispose();
       }
     };
-  }, [effectOptions]);
+  }, [effectOptions, dpr]);
 
   return (
     <div

@@ -450,7 +450,7 @@ export function PrismaticBurst({
       return;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dpr]);
 
   useEffect(() => {
     const canvas = rendererRef.current?.gl?.canvas;

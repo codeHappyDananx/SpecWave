@@ -44,19 +44,29 @@ function canUseWebgl() {
   }
 }
 
-function clampDpr(value: number, max = 2) {
+const WELCOME_DPR_MIN = 2;
+const WELCOME_DPR_MAX = 3;
+
+function clampDpr(value: number, min = 1, max = 2) {
   const v = Number.isFinite(value) && value > 0 ? value : 1;
-  return Math.min(max, Math.max(1, v));
+  return Math.min(max, Math.max(min, v));
+}
+
+function computeWelcomeDpr() {
+  if (typeof window === 'undefined') return WELCOME_DPR_MIN;
+  const base = window.devicePixelRatio || 1;
+  // 欢迎页背景以“更清晰”为优先：即使在 100% 缩放（DPR=1），也至少按 2 倍渲染。
+  return clampDpr(base, WELCOME_DPR_MIN, WELCOME_DPR_MAX);
 }
 
 export function WelcomePage(props: WelcomePageProps) {
   const { recentProjects, isLoading, error, dispatch } = props;
   const [dismissWebglNotice, setDismissWebglNotice] = useState(false);
   const webglOk = useMemo(() => canUseWebgl(), []);
-  const [dpr, setDpr] = useState(() => clampDpr(typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1));
+  const [dpr, setDpr] = useState(() => computeWelcomeDpr());
 
   useEffect(() => {
-    const update = () => setDpr(clampDpr(window.devicePixelRatio || 1));
+    const update = () => setDpr(computeWelcomeDpr());
     update();
     window.addEventListener('resize', update, { passive: true });
     window.visualViewport?.addEventListener('resize', update, { passive: true });

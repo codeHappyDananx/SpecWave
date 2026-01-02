@@ -450,6 +450,7 @@ export function Prism({
     height,
     baseWidth,
     animationType,
+    dpr,
     glow,
     noise,
     offset?.x,
