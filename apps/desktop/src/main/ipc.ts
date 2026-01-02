@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -19,6 +19,7 @@ type SaveTextFileResult =
 
 export type AppShellBridge = {
   openMainWindow: (args: { projectPath?: string | null }) => Promise<void> | void;
+  openWelcomeWindow: (args: { fromWindowId?: number | null }) => Promise<void> | void;
   quitApp: () => void;
 };
 
@@ -53,6 +54,11 @@ async function readDirectoryEntries(dirPath: string): Promise<DirEntryDTO[]> {
 export function registerIpcHandlers(appShell: AppShellBridge) {
   ipcMain.handle('specwave:openMainWindow', async (_evt, args: { projectPath?: string | null }) => {
     await appShell.openMainWindow({ projectPath: args?.projectPath ?? null });
+  });
+
+  ipcMain.handle('specwave:openWelcomeWindow', async (evt) => {
+    const fromWin = BrowserWindow.fromWebContents(evt.sender);
+    await appShell.openWelcomeWindow({ fromWindowId: fromWin?.id ?? null });
   });
 
   ipcMain.handle('specwave:quitApp', async () => {

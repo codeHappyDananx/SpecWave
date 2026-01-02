@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type IconName = 'folder' | 'tasks' | 'terminal' | 'chat' | 'theme' | 'plus' | 'close' | 'warning';
+export type IconName = 'folder' | 'file' | 'tasks' | 'terminal' | 'chat' | 'theme' | 'plus' | 'close' | 'warning' | 'search';
 
 type IconProps = {
   name: IconName;
@@ -28,6 +28,13 @@ export function Icon(props: IconProps) {
       return (
         <svg {...common}>
           <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2H18.5A2.5 2.5 0 0 1 21 9.5v7A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5v-9Z" />
+        </svg>
+      );
+    case 'file':
+      return (
+        <svg {...common}>
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <path d="M14 2v6h6" />
         </svg>
       );
     case 'tasks':
@@ -92,6 +99,13 @@ export function Icon(props: IconProps) {
           <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           <path d="M12 9v4" />
           <path d="M12 17h.01" />
+        </svg>
+      );
+    case 'search':
+      return (
+        <svg {...common}>
+          <path d="M10.5 18a7.5 7.5 0 1 1 0-15a7.5 7.5 0 0 1 0 15Z" />
+          <path d="M21 21l-4.2-4.2" />
         </svg>
       );
     default:

@@ -170,27 +170,31 @@ function createWelcomeWindow() {
     }
   });
 
-  attachWelcomeLogForwarding(welcomeWindow);
+  const win = welcomeWindow;
 
-  welcomeWindow.on('ready-to-show', () => {
-    welcomeWindow?.show();
+  attachWelcomeLogForwarding(win);
+
+  win.on('ready-to-show', () => {
+    win.show();
   });
 
-  welcomeWindow.webContents.setWindowOpenHandler((details) => {
+  win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: 'deny' };
   });
 
-  loadRenderer(welcomeWindow, { specwaveWindow: 'welcome' });
+  loadRenderer(win, { specwaveWindow: 'welcome' });
 
   // DevTools 默认不自动打开（它会显著拖慢 WebGL 背景帧率）；需要时手动打开即可。
   if (process.env.ELECTRON_RENDERER_URL && openDevTools) {
-    welcomeWindow.webContents.openDevTools({ mode: 'detach' });
+    win.webContents.openDevTools({ mode: 'detach' });
   }
 
-  welcomeWindow.on('closed', () => {
+  win.on('closed', () => {
     welcomeWindow = null;
   });
+
+  return win;
 }
 
 async function openMainWindow(args: { projectPath?: string | null }) {
@@ -211,8 +215,32 @@ async function openMainWindow(args: { projectPath?: string | null }) {
   });
 }
 
+async function openWelcomeWindow(args?: { fromWindowId?: number | null }) {
+  const fromWin = args?.fromWindowId != null ? BrowserWindow.fromId(args.fromWindowId) : null;
+  if (welcomeWindow) {
+    welcomeWindow.show();
+    welcomeWindow.focus();
+    if (fromWin && fromWin.id !== welcomeWindow.id) fromWin.close();
+    return;
+  }
+
+  // Main → Welcome：避免用户看到“窗口空白/闪一下”，先隐藏来源窗口，Welcome 准备好再关掉。
+  fromWin?.hide();
+
+  const win = createWelcomeWindow();
+
+  if (fromWin) {
+    win.once('ready-to-show', () => {
+      try {
+        fromWin.close();
+      } catch {}
+    });
+  }
+}
+
 registerIpcHandlers({
   openMainWindow,
+  openWelcomeWindow,
   quitApp: () => app.quit()
 });
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { Icon } from '../../primitives/Icons';
-import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
+import { Panel } from '../../primitives/Panel';
 import styles from './LeftPanel.module.css';
 
 type LeftIntent = Extract<UIIntent, | { type: 'EXPLORER_TOGGLE_DIR' } | { type: 'EXPLORER_OPEN_FILE' }>;
@@ -13,10 +13,22 @@ export type LeftPanelProps = {
 };
 
 export function LeftPanel(props: LeftPanelProps) {
+  const fileKindFromName = (name: string) => {
+    const dot = name.lastIndexOf('.');
+    const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : '';
+    if (ext === 'md') return 'markdown' as const;
+    if (ext === 'ts' || ext === 'tsx' || ext === 'js' || ext === 'jsx') return 'code' as const;
+    if (ext === 'json' || ext === 'yaml' || ext === 'yml' || ext === 'toml') return 'data' as const;
+    if (ext === 'css' || ext === 'scss' || ext === 'less') return 'style' as const;
+    if (ext === 'png' || ext === 'jpg' || ext === 'jpeg' || ext === 'gif' || ext === 'webp' || ext === 'svg') return 'image' as const;
+    return 'text' as const;
+  };
+
   const renderNode = (tree: 'workspace' | 'project', node: AppViewModel['explorer']['workspace'][number], depth: number) => {
     const isExpanded = props.explorer.expanded[tree].includes(node.id);
     const isSelected = props.explorer.selectedPath === node.id;
     const rowStyle = { paddingLeft: `${10 + depth * 18}px` };
+    const kind = node.kind === 'dir' ? ('dir' as const) : fileKindFromName(node.name);
 
     if (node.kind === 'dir') {
       return (
@@ -28,8 +40,11 @@ export function LeftPanel(props: LeftPanelProps) {
             aria-current={isSelected ? 'true' : 'false'}
             onClick={() => props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree, id: node.id })}
           >
-            <span className={styles.caret} aria-hidden="true">
+            <span className={styles.twist} aria-hidden="true">
               {isExpanded ? '▾' : '▸'}
+            </span>
+            <span className={styles.kindIcon} data-kind={kind} aria-hidden="true">
+              <Icon name="folder" size={16} />
             </span>
             <span className={styles.name}>{node.name}</span>
             {node.isLoading ? <span className={styles.meta}>加载中…</span> : null}
@@ -53,8 +68,9 @@ export function LeftPanel(props: LeftPanelProps) {
           aria-current={isSelected ? 'true' : 'false'}
           onClick={() => props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: node.id })}
         >
-          <span className={styles.caret} aria-hidden="true">
-            •
+          <span className={styles.twist} aria-hidden="true" />
+          <span className={styles.kindIcon} data-kind={kind} aria-hidden="true">
+            <Icon name="file" size={16} />
           </span>
           <span className={styles.name}>{node.name}</span>
         </button>
@@ -66,14 +82,8 @@ export function LeftPanel(props: LeftPanelProps) {
     <Panel
       as="aside"
       ariaLabel="左区"
-      headerAriaLabel="左区头部"
       bodyAriaLabel="左区滚动区"
       minwPx={props.minwPx}
-      header={
-        <PanelHeaderIcon ariaLabel="文件">
-          <Icon name="folder" />
-        </PanelHeaderIcon>
-      }
     >
       <div className={styles.content}>
         {!props.explorer.projectRoot ? (

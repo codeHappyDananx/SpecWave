@@ -41,9 +41,13 @@
 ### 根目录
 
 - `整改文档.md`
-  - 做什么：记录 UI 解耦评审点、整改顺序与验收口径。
-  - 依赖谁：无。
+  - 做什么：整改总览（当前结论/未关闭项/V1.x 待办/V2.0 规划），保持短而可维护。
+  - 依赖谁：`docs/archive/整改文档-归档-2026-01-02.md`（历史归档，只读）。
   - 由谁依赖：人（评审/改造/回归时对照）。
+- `docs/archive/整改文档-归档-2026-01-02.md`
+  - 做什么：整改文档历史快照（只读归档），保留当时的问题清单与执行记录。
+  - 依赖谁：无。
+  - 由谁依赖：`整改文档.md`（历史引用）、人。
 - `.gitignore`
   - 做什么：忽略依赖与构建产物；阻断 `tsc` 误输出污染源码目录。
   - 依赖谁：无。
@@ -85,6 +89,7 @@
     - 设置开发环境 `SPECWAVE_USER_DATA_DIR=.tmp-specwave-userdata/`（可回收）。
     - 默认使用 `SPECWAVE_ANGLE=d3d11`（优先硬件加速 + WebGL2）。
     - 默认静默（不输出启动诊断日志）；需要时用 `--verbose` 打开。
+    - 启动失败时会保留窗口并提示（避免双击“一闪而过”但无报错）。
   - 参数：
     - `start.bat d3d9|d3d11|warp|swiftshader|nogpu`
     - `start.bat --no-clean`
@@ -211,7 +216,7 @@
   - 依赖谁：`primitives/*`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/TopBar.module.css`
-  - 做什么：TopBar 样式（布局 + 搜索输入 + 打开项目按钮）。
+  - 做什么：TopBar 样式（布局 + 项目 tabs 区 + 打开项目按钮；搜索输入样式在 `primitives/SearchInput`）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`TopBar.tsx`。
 - `packages/ui-next/src/shell/LayoutGrid.tsx`
@@ -308,11 +313,15 @@
   - 做什么：统一输入框（终端/对话共用）：Enter 提交、Shift+Enter 不提交。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：TerminalView、ChatView。
+- `packages/ui-next/src/primitives/SearchInput.tsx` / `packages/ui-next/src/primitives/SearchInput.module.css`
+  - 做什么：顶部搜索输入（带图标与清空），只负责输入展示与事件上报；样式局部化，避免影响其它区域。
+  - 依赖谁：`Icons`、tokens（CSS variables）。
+  - 由谁依赖：TopBar。
 
 #### ui-next / panels（三栏内容）
 
 - `packages/ui-next/src/panels/left/LeftPanel.tsx` / `packages/ui-next/src/panels/left/LeftPanel.module.css`
-  - 做什么：左区（工作区树 + 项目文件树；点击目录展开，点击文件打开）。
+  - 做什么：左区（工作区树 + 项目文件树；点击目录展开，点击文件打开；用图标/颜色区分文件夹/文件/常见类型，且去掉冗余头部图标）。
   - 依赖谁：`Panel`、`Icons`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/center/CenterPanel.tsx` / `packages/ui-next/src/panels/center/CenterPanel.module.css`

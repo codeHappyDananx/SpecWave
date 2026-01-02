@@ -1,8 +1,7 @@
 .body{display:grid;gap:0;padding:0;background:#fff;min-height:0;height:100%;align-items:stretch;overflow:hidden;}
 .dragging{transition:none;user-select:none;}
-.pane{min-height:0;height:100%;overflow:hidden;}
+.pane{min-height:0;height:100%;min-width:0;overflow:hidden;}
 .pane[data-hidden="true"]{pointer-events:none;opacity:0;}
 .splitter{height:100%;cursor:col-resize;background:linear-gradient(to right, transparent 0, transparent calc(50% - 1px), var(--sw-border) calc(50% - 1px), var(--sw-border) calc(50% + 1px), transparent calc(50% + 1px), transparent 100%);}
 .splitter:hover{background:linear-gradient(to right, transparent 0, var(--sw-muted) 15%, var(--sw-border) 50%, var(--sw-muted) 85%, transparent 100%);}
 .inactive{cursor:default;pointer-events:none;background:transparent;}
-

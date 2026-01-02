@@ -440,6 +440,21 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         case 'GLOBAL_SEARCH_SET':
           return { vm: { ...vm, globalSearchQuery: intent.query } };
+        case 'PROJECT_TAB_ADD_EMPTY': {
+          const tabId = `proj-empty-${Date.now()}`;
+          return {
+            vm: {
+              ...vm,
+              app: { ...vm.app, mode: 'main' },
+              projects: {
+                openTabs: [...vm.projects.openTabs, { id: tabId, folderName: '未打开', path: null }],
+                activeTabId: tabId
+              },
+              explorer: { ...initialVm.explorer },
+              content: { ...initialVm.content }
+            }
+          };
+        }
         case 'PROJECT_SELECT': {
           const seq = ++openProjectSeq;
           void (async () => {
@@ -452,32 +467,38 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
 
             const dirPath = await api.selectDirectory();
-             if (!dirPath) {
-               set((s) => ({ vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false } } }));
-               return;
-             }
+            if (!dirPath) {
+              set((s) => ({ vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false } } }));
+              return;
+            }
 
-             if (specwaveWindowKind === 'welcome' && api.openMainWindow) {
-               try {
-                 await api.openMainWindow(dirPath);
-               } catch (err) {
-                 set((s) => ({
-                   vm: {
-                     ...s.vm,
-                     explorer: {
-                       ...s.vm.explorer,
-                       isLoading: false,
-                       error: `打开主窗口失败：${err instanceof Error ? err.message : String(err)}`
-                     }
-                   }
-                 }));
-               }
-               return;
-             }
+            if (specwaveWindowKind === 'welcome' && api.openMainWindow) {
+              try {
+                await api.openMainWindow(dirPath);
+              } catch (err) {
+                set((s) => ({
+                  vm: {
+                    ...s.vm,
+                    explorer: {
+                      ...s.vm.explorer,
+                      isLoading: false,
+                      error: `打开主窗口失败：${err instanceof Error ? err.message : String(err)}`
+                    }
+                  }
+                }));
+              }
+              return;
+            }
 
-             const projectName = basename(dirPath);
-             const tabId = `proj-${Date.now()}`;
-             const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+            const projectName = basename(dirPath);
+            const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+
+            const tabId = (() => {
+              const current = get().vm.projects;
+              const active = current.activeTabId ? current.openTabs.find((t) => t.id === current.activeTabId) : null;
+              if (active && active.path == null) return active.id;
+              return `proj-${Date.now()}`;
+            })();
 
             const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
             if (seq !== openProjectSeq) return;
@@ -501,33 +522,41 @@ export const useAppStore = create<AppState>((set, get) => ({
             const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
             if (seq !== openProjectSeq) return;
 
-            set((state) => ({
-              vm: {
-                ...state.vm,
-                app: { mode: 'main', recentProjects },
-                projects: { openTabs: [{ id: tabId, folderName: projectName, path: dirPath }], activeTabId: tabId },
-                explorer: {
-                  workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
-                  projectRoot: dirPath,
-                  workspace: workspaceNodes,
-                  project: projectNodes,
-                  expanded: { workspace: [], project: [] },
-                  selectedPath: null,
-                  isLoading: false,
-                  error: workspaceError
-                },
-                content: {
-                  file: null,
-                  text: '',
-                  draftText: '',
-                  mode: 'view',
-                  isDirty: false,
-                  saveStatus: 'idle',
-                  saveError: null,
-                  taskBoard: null
+            set((state) => {
+              const vm2 = state.vm;
+              const existing = vm2.projects.openTabs.find((t) => t.id === tabId);
+              const nextTabs = existing
+                ? vm2.projects.openTabs.map((t) => (t.id === tabId ? { ...t, folderName: projectName, path: dirPath } : t))
+                : [...vm2.projects.openTabs, { id: tabId, folderName: projectName, path: dirPath }];
+
+              return {
+                vm: {
+                  ...vm2,
+                  app: { mode: 'main', recentProjects },
+                  projects: { openTabs: nextTabs, activeTabId: tabId },
+                  explorer: {
+                    workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
+                    projectRoot: dirPath,
+                    workspace: workspaceNodes,
+                    project: projectNodes,
+                    expanded: { workspace: [], project: [] },
+                    selectedPath: null,
+                    isLoading: false,
+                    error: workspaceError
+                  },
+                  content: {
+                    file: null,
+                    text: '',
+                    draftText: '',
+                    mode: 'view',
+                    isDirty: false,
+                    saveStatus: 'idle',
+                    saveError: null,
+                    taskBoard: null
+                  }
                 }
-              }
-            }));
+              };
+            });
           })();
 
           return { vm: { ...vm, explorer: { ...vm.explorer, isLoading: true, error: null } } };
@@ -563,8 +592,14 @@ export const useAppStore = create<AppState>((set, get) => ({
              }
 
              const projectName = basename(dirPath);
-             const tabId = `proj-${Date.now()}`;
              const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+
+             const tabId = (() => {
+               const current = get().vm.projects;
+               const active = current.activeTabId ? current.openTabs.find((t) => t.id === current.activeTabId) : null;
+               if (active && active.path == null) return active.id;
+               return `proj-${Date.now()}`;
+             })();
 
             const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
             if (seq !== openProjectSeq) return;
@@ -588,33 +623,41 @@ export const useAppStore = create<AppState>((set, get) => ({
             const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
             if (seq !== openProjectSeq) return;
 
-            set((state) => ({
-              vm: {
-                ...state.vm,
-                app: { mode: 'main', recentProjects },
-                projects: { openTabs: [{ id: tabId, folderName: projectName, path: dirPath }], activeTabId: tabId },
-                explorer: {
-                  workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
-                  projectRoot: dirPath,
-                  workspace: workspaceNodes,
-                  project: projectNodes,
-                  expanded: { workspace: [], project: [] },
-                  selectedPath: null,
-                  isLoading: false,
-                  error: workspaceError
-                },
-                content: {
-                  file: null,
-                  text: '',
-                  draftText: '',
-                  mode: 'view',
-                  isDirty: false,
-                  saveStatus: 'idle',
-                  saveError: null,
-                  taskBoard: null
+            set((state) => {
+              const vm2 = state.vm;
+              const existing = vm2.projects.openTabs.find((t) => t.id === tabId);
+              const nextTabs = existing
+                ? vm2.projects.openTabs.map((t) => (t.id === tabId ? { ...t, folderName: projectName, path: dirPath } : t))
+                : [...vm2.projects.openTabs, { id: tabId, folderName: projectName, path: dirPath }];
+
+              return {
+                vm: {
+                  ...vm2,
+                  app: { mode: 'main', recentProjects },
+                  projects: { openTabs: nextTabs, activeTabId: tabId },
+                  explorer: {
+                    workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
+                    projectRoot: dirPath,
+                    workspace: workspaceNodes,
+                    project: projectNodes,
+                    expanded: { workspace: [], project: [] },
+                    selectedPath: null,
+                    isLoading: false,
+                    error: workspaceError
+                  },
+                  content: {
+                    file: null,
+                    text: '',
+                    draftText: '',
+                    mode: 'view',
+                    isDirty: false,
+                    saveStatus: 'idle',
+                    saveError: null,
+                    taskBoard: null
+                  }
                 }
-              }
-            }));
+              };
+            });
           })();
 
           return { vm: { ...vm, explorer: { ...vm.explorer, isLoading: true, error: null } } };
@@ -628,13 +671,124 @@ export const useAppStore = create<AppState>((set, get) => ({
           })();
           return { vm };
         }
-        case 'PROJECT_TAB_SET_ACTIVE':
-          return { vm: { ...vm, projects: { ...vm.projects, activeTabId: intent.id } } };
+        case 'PROJECT_TAB_SET_ACTIVE': {
+          if (intent.id === vm.projects.activeTabId) return { vm };
+          const targetTab = vm.projects.openTabs.find((t) => t.id === intent.id);
+          if (!targetTab) return { vm };
+
+          if (targetTab.path == null) {
+            return {
+              vm: {
+                ...vm,
+                app: { ...vm.app, mode: 'main' },
+                projects: { ...vm.projects, activeTabId: targetTab.id },
+                explorer: { ...initialVm.explorer },
+                content: { ...initialVm.content }
+              }
+            };
+          }
+
+          const seq = ++openProjectSeq;
+          const dirPath = targetTab.path;
+          const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+
+            const [workspaceRes, projectRes] = await Promise.all([api.readDirectory(workspaceRoot), api.readDirectory(dirPath)]);
+            if (seq !== openProjectSeq) return;
+            if (!projectRes.ok) {
+              set((s) => ({
+                vm: { ...s.vm, explorer: { ...s.vm.explorer, isLoading: false, error: `项目目录读取失败：${projectRes.error}` } }
+              }));
+              return;
+            }
+
+            const workspaceNodes = workspaceRes.ok ? toExplorerNodes(workspaceRes.entries) : [];
+            const projectNodes = toExplorerNodes(projectRes.entries);
+            const workspaceError = workspaceRes.ok
+              ? null
+              : workspaceRes.error.includes('ENOENT')
+                ? null
+                : `工作区读取失败：${workspaceRes.error}`;
+
+            const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
+            if (seq !== openProjectSeq) return;
+
+            set((state) => {
+              const vm2 = state.vm;
+              if (vm2.projects.activeTabId !== targetTab.id) return { vm: vm2 };
+              return {
+                vm: {
+                  ...vm2,
+                  app: { mode: 'main', recentProjects },
+                  explorer: {
+                    workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
+                    projectRoot: dirPath,
+                    workspace: workspaceNodes,
+                    project: projectNodes,
+                    expanded: { workspace: [], project: [] },
+                    selectedPath: null,
+                    isLoading: false,
+                    error: workspaceError
+                  },
+                  content: { ...initialVm.content }
+                }
+              };
+            });
+          })();
+
+          return {
+            vm: {
+              ...vm,
+              app: { ...vm.app, mode: 'main' },
+              projects: { ...vm.projects, activeTabId: targetTab.id },
+              explorer: {
+                ...initialVm.explorer,
+                workspaceRoot,
+                projectRoot: dirPath,
+                isLoading: true,
+                error: null
+              },
+              content: { ...initialVm.content }
+            }
+          };
+        }
         case 'PROJECT_TAB_CLOSE': {
           const nextTabs = vm.projects.openTabs.filter((t) => t.id !== intent.id);
           const nextActive = vm.projects.activeTabId === intent.id ? (nextTabs[0]?.id ?? null) : vm.projects.activeTabId;
           const isEmpty = nextTabs.length === 0;
-          if (!isEmpty) return { vm: { ...vm, projects: { openTabs: nextTabs, activeTabId: nextActive } } };
+          if (!isEmpty) {
+            const nextVm = { ...vm, projects: { openTabs: nextTabs, activeTabId: nextActive } };
+            if (nextActive && nextActive !== vm.projects.activeTabId) {
+              queueMicrotask(() => get().dispatch({ type: 'PROJECT_TAB_SET_ACTIVE', id: nextActive }));
+            }
+            return { vm: nextVm };
+          }
+
+          if (specwaveWindowKind === 'main') {
+            void (async () => {
+              const api = window.specwave;
+              if (api?.openWelcomeWindow) {
+                try {
+                  await api.openWelcomeWindow();
+                  return;
+                } catch {}
+              }
+
+              set((s) => ({
+                vm: {
+                  ...s.vm,
+                  app: { ...s.vm.app, mode: 'welcome' },
+                  projects: { openTabs: [], activeTabId: null },
+                  explorer: { ...initialVm.explorer },
+                  content: { ...initialVm.content }
+                }
+              }));
+            })();
+            return { vm };
+          }
+
           return {
             vm: {
               ...vm,

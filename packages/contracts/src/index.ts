@@ -3,7 +3,8 @@ export type RightMode = "terminal" | "chat";
 export type ProjectTabVM = {
   id: string;
   folderName: string;
-  path: string;
+  // `null` 表示“空项目页签”：已占位但尚未选择目录。
+  path: string | null;
 };
 
 export type RecentProjectVM = {
@@ -92,6 +93,7 @@ export type UIIntent =
   | { type: "PANEL_TOGGLE_RIGHT" }
   | { type: "RIGHT_MODE_SET"; mode: RightMode }
   | { type: "RIGHT_PANEL_ADD" }
+  | { type: "PROJECT_TAB_ADD_EMPTY" }
   | { type: "PROJECT_SELECT" }
   | { type: "PROJECT_OPEN_RECENT"; path: string }
   | { type: "RECENT_PROJECT_REMOVE"; path: string }

@@ -3,12 +3,14 @@ import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { Icon } from '../primitives/Icons';
 import { IconButton } from '../primitives/IconButton';
 import { ProjectTab } from '../primitives/ProjectTab';
+import { SearchInput } from '../primitives/SearchInput';
 import styles from './TopBar.module.css';
 
 type TopBarIntent = Extract<
   UIIntent,
   | { type: 'PROJECT_TAB_SET_ACTIVE' }
   | { type: 'PROJECT_TAB_CLOSE' }
+  | { type: 'PROJECT_TAB_ADD_EMPTY' }
   | { type: 'PROJECT_SELECT' }
   | { type: 'GLOBAL_SEARCH_SET' }
   | { type: 'PANEL_TOGGLE_LEFT' }
@@ -29,6 +31,8 @@ export type TopBarProps = {
 };
 
 export function TopBar(props: TopBarProps) {
+  const activeTab = props.projects.activeTabId ? props.projects.openTabs.find((t) => t.id === props.projects.activeTabId) : null;
+
   return (
     <header className={styles.topBar} aria-label="TopBar">
       <div className={styles.left} aria-label="项目页签">
@@ -43,12 +47,21 @@ export function TopBar(props: TopBarProps) {
                 onClose={() => props.dispatch({ type: 'PROJECT_TAB_CLOSE', id: t.id })}
               />
             ))}
+            {activeTab?.path == null ? (
+              <button
+                className={styles.openProjectButton}
+                type="button"
+                onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
+              >
+                打开项目
+              </button>
+            ) : null}
             <IconButton
               active
-              title="打开项目"
-              ariaLabel="打开项目"
+              title="新建项目页签"
+              ariaLabel="新建项目页签"
               icon={<Icon name="plus" />}
-              onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
+              onClick={() => props.dispatch({ type: 'PROJECT_TAB_ADD_EMPTY' })}
             />
           </div>
         ) : (
@@ -68,12 +81,11 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div className={styles.center} aria-label="搜索">
-        <input
-          className={styles.searchInput}
-          type="search"
-          placeholder="搜索文件…"
+        <SearchInput
           value={props.globalSearchQuery}
-          onChange={(e) => props.dispatch({ type: 'GLOBAL_SEARCH_SET', query: e.target.value })}
+          placeholder="搜索文件…"
+          ariaLabel="搜索文件"
+          onChangeText={(text) => props.dispatch({ type: 'GLOBAL_SEARCH_SET', query: text })}
         />
       </div>
 

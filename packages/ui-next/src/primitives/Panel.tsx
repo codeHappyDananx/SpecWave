@@ -13,9 +13,10 @@ export type PanelProps = {
 
 export function Panel(props: PanelProps) {
   const Tag = props.as ?? 'section';
+  const hasHeader = Boolean(props.header);
 
   return (
-    <Tag className={styles.panel} aria-label={props.ariaLabel}>
+    <Tag className={styles.panel} aria-label={props.ariaLabel} data-has-header={hasHeader ? 'true' : 'false'}>
       {props.header ? (
         <div className={styles.header} aria-label={props.headerAriaLabel}>
           {props.header}
@@ -42,4 +43,3 @@ export function PanelHeaderIcon(props: PanelHeaderIconProps) {
     </div>
   );
 }
-
