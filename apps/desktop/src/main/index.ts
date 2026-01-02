@@ -71,6 +71,7 @@ function createMainWindow() {
 app.setAppUserModelId('ai.specwave');
 
 app.whenReady().then(() => {
+  const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
   let crashWindowStartMs = 0;
   let crashCount = 0;
 
@@ -92,6 +93,14 @@ app.whenReady().then(() => {
   app.on('child-process-gone', (_event, details) => {
     if (details.type !== 'GPU') return;
     if (disableGpu) return;
+    if (isDev) {
+      // 开发模式不要自动重启：electron-vite 会跟着退出，导致 renderer URL 失效并出现“白屏无报错”。
+      // 开发时请用环境变量/启动参数手动切换 ANGLE 后再重启：
+      // - PowerShell：$env:SPECWAVE_ANGLE='d3d9'; pnpm dev
+      // - 或：.\start.bat（先 cd 到仓库根目录）
+      console.error('[SpecWave] GPU 进程异常退出：开发模式不会自动重启，请手动切换 ANGLE 后重启。');
+      return;
+    }
 
     const now = Date.now();
     if (!crashWindowStartMs || now - crashWindowStartMs > 12_000) {
