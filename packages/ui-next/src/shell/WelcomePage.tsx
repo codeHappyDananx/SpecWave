@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { RecentProjectVM, UIIntent } from '@specwave/contracts';
 import { ColorBends } from '../vendor/react-bits/ColorBends';
 import { FaultyTerminal } from '../vendor/react-bits/FaultyTerminal';
@@ -44,10 +44,27 @@ function canUseWebgl() {
   }
 }
 
+function clampDpr(value: number, max = 2) {
+  const v = Number.isFinite(value) && value > 0 ? value : 1;
+  return Math.min(max, Math.max(1, v));
+}
+
 export function WelcomePage(props: WelcomePageProps) {
   const { recentProjects, isLoading, error, dispatch } = props;
   const [dismissWebglNotice, setDismissWebglNotice] = useState(false);
   const webglOk = useMemo(() => canUseWebgl(), []);
+  const [dpr, setDpr] = useState(() => clampDpr(typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1));
+
+  useEffect(() => {
+    const update = () => setDpr(clampDpr(window.devicePixelRatio || 1));
+    update();
+    window.addEventListener('resize', update, { passive: true });
+    window.visualViewport?.addEventListener('resize', update, { passive: true });
+    return () => {
+      window.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('resize', update);
+    };
+  }, []);
 
   const bgKey: WelcomeBgKey = useMemo(() => {
     const idx = Math.floor(Math.random() * WELCOME_BG_KEYS.length);
@@ -61,7 +78,7 @@ export function WelcomePage(props: WelcomePageProps) {
           <FaultyTerminal
             className={styles.bgFx}
             mouseReact={false}
-            dpr={1}
+            dpr={dpr}
             scale={1.05}
             gridMul={[3, 2]}
             digitSize={1.25}
@@ -80,7 +97,7 @@ export function WelcomePage(props: WelcomePageProps) {
         {webglOk && bgKey === 'prismatic-burst' ? (
           <PrismaticBurst
             className={styles.bgFx}
-            dpr={1}
+            dpr={dpr}
             intensity={1.35}
             speed={0.45}
             animationType="rotate3d"
@@ -94,13 +111,13 @@ export function WelcomePage(props: WelcomePageProps) {
         ) : null}
 
         {webglOk && bgKey === 'hyperspeed' ? (
-          <Hyperspeed className={styles.bgFx} dpr={1} effectOptions={HYPERSPEED_EFFECT} />
+          <Hyperspeed className={styles.bgFx} dpr={dpr} effectOptions={HYPERSPEED_EFFECT} />
         ) : null}
 
         {webglOk && bgKey === 'color-bends' ? (
           <ColorBends
             className={styles.bgFx}
-            dpr={1}
+            dpr={dpr}
             rotation={42}
             speed={0.22}
             colors={COLOR_BENDS_COLORS}
@@ -118,7 +135,7 @@ export function WelcomePage(props: WelcomePageProps) {
         {webglOk && bgKey === 'prism' ? (
           <Prism
             className={styles.bgFx}
-            dpr={1}
+            dpr={dpr}
             animationType="rotate"
             transparent={true}
             noise={0.25}

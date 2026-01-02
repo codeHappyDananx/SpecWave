@@ -346,6 +346,11 @@ export function FaultyTerminal({
     resizeObserver.observe(ctn);
     resize();
 
+    // 高 DPI 下如果只改 drawingBuffer 不改 CSS 尺寸，canvas 会溢出容器，表现为“只显示一部分/发糊”。
+    gl.canvas.style.width = '100%';
+    gl.canvas.style.height = '100%';
+    gl.canvas.style.display = 'block';
+
     const detachContextLoss = attachWebglContextLoss(gl.canvas, 'FaultyTerminal', () => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
