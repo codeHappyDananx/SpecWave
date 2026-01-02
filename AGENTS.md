@@ -206,9 +206,25 @@
   - 依赖谁：无。
   - 由谁依赖：人（合规审阅）。
 - `packages/ui-next/src/vendor/react-bits/FaultyTerminal.tsx` / `packages/ui-next/src/vendor/react-bits/FaultyTerminal.module.css`
-  - 做什么：WelcomePage 背景动效（WebGL/OGL）；只允许 WelcomePage 引用，避免把动效扩散到主工作区。
+  - 做什么：WelcomePage 背景动效（WebGL/OGL）。
   - 依赖谁：`ogl`、React。
-  - 由谁依赖：`WelcomePage.tsx`。
+  - 由谁依赖：`WelcomePage.tsx`（随机背景池之一）。
+- `packages/ui-next/src/vendor/react-bits/PrismaticBurst.tsx` / `packages/ui-next/src/vendor/react-bits/PrismaticBurst.module.css`
+  - 做什么：WelcomePage 背景动效（WebGL/OGL）。
+  - 依赖谁：`ogl`、React。
+  - 由谁依赖：`WelcomePage.tsx`（随机背景池之一）。
+- `packages/ui-next/src/vendor/react-bits/Prism.tsx` / `packages/ui-next/src/vendor/react-bits/Prism.module.css`
+  - 做什么：WelcomePage 背景动效（WebGL/OGL）。
+  - 依赖谁：`ogl`、React。
+  - 由谁依赖：`WelcomePage.tsx`（随机背景池之一）。
+- `packages/ui-next/src/vendor/react-bits/ColorBends.tsx` / `packages/ui-next/src/vendor/react-bits/ColorBends.module.css`
+  - 做什么：WelcomePage 背景动效（WebGL/Three.js shader）。
+  - 依赖谁：`three`、React。
+  - 由谁依赖：`WelcomePage.tsx`（随机背景池之一）。
+- `packages/ui-next/src/vendor/react-bits/Hyperspeed.tsx` / `packages/ui-next/src/vendor/react-bits/Hyperspeed.module.css` / `packages/ui-next/src/vendor/react-bits/HyperSpeedPresets.ts`
+  - 做什么：WelcomePage 背景动效（Three.js + postprocessing）。
+  - 依赖谁：`three`、`postprocessing`、React。
+  - 由谁依赖：`WelcomePage.tsx`（随机背景池之一）。
 
 #### ui-next / primitives（可复用组件）
 

@@ -6,9 +6,12 @@ import { registerIpcHandlers } from './ipc';
 let mainWindow: BrowserWindow | null = null;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Windows 环境下 GPU 进程偶发崩溃时，先用软渲染保证可用性（后续可做成可配置项）。
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
+// WelcomePage 背景动效依赖 WebGL：默认启用硬件加速以保证帧率。
+// 如果遇到显卡驱动/兼容问题，可临时设置环境变量 `SPECWAVE_DISABLE_GPU=1` 再禁用 GPU 排查。
+if (process.env.SPECWAVE_DISABLE_GPU === '1') {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch('disable-gpu');
+}
 
 registerIpcHandlers();
 

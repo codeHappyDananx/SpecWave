@@ -11,6 +11,8 @@
   "dependencies": {
     "@specwave/contracts": "workspace:*",
     "ogl": "^1.0.11",
+    "postprocessing": "^6.36.0",
+    "three": "^0.167.1",
     "react-markdown": "^10.1.0"
   },
   "peerDependencies": {

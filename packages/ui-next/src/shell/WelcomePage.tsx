@@ -1,7 +1,31 @@
+import { useMemo } from 'react';
 import type { RecentProjectVM, UIIntent } from '@specwave/contracts';
+import { ColorBends } from '../vendor/react-bits/ColorBends';
 import { FaultyTerminal } from '../vendor/react-bits/FaultyTerminal';
+import { hyperspeedPresets } from '../vendor/react-bits/HyperSpeedPresets';
+import { Hyperspeed } from '../vendor/react-bits/Hyperspeed';
+import { Prism } from '../vendor/react-bits/Prism';
+import { PrismaticBurst } from '../vendor/react-bits/PrismaticBurst';
 import { Icon } from '../primitives/Icons';
 import styles from './WelcomePage.module.css';
+
+const WELCOME_BG_KEYS = ['faulty-terminal', 'prismatic-burst', 'hyperspeed', 'color-bends', 'prism'] as const;
+type WelcomeBgKey = (typeof WELCOME_BG_KEYS)[number];
+
+const PRISMATIC_COLORS = ['#8be9fd', '#a78bfa', '#22c55e', '#fbbf24', '#fb7185'];
+const COLOR_BENDS_COLORS = ['#8be9fd', '#a78bfa', '#22c55e', '#fbbf24', '#60a5fa', '#fb7185'];
+
+const HYPERSPEED_EFFECT = {
+  ...hyperspeedPresets.two,
+  colors: {
+    ...hyperspeedPresets.two.colors,
+    leftCars: [0xa78bfa, 0x7c3aed, 0xfb7185],
+    rightCars: [0x8be9fd, 0x22d3ee, 0x60a5fa],
+    sticks: 0x8be9fd,
+    shoulderLines: 0x111827,
+    brokenLines: 0x111827
+  }
+};
 
 export type WelcomePageProps = {
   recentProjects: RecentProjectVM[];
@@ -13,26 +37,88 @@ export type WelcomePageProps = {
 export function WelcomePage(props: WelcomePageProps) {
   const { recentProjects, isLoading, error, dispatch } = props;
 
+  const bgKey: WelcomeBgKey = useMemo(() => {
+    const idx = Math.floor(Math.random() * WELCOME_BG_KEYS.length);
+    return WELCOME_BG_KEYS[idx] ?? 'faulty-terminal';
+  }, []);
+
   return (
     <div className={styles.root} aria-label="欢迎页">
       <div className={styles.bg} aria-hidden="true">
-        <FaultyTerminal
-          className={styles.bgFx}
-          mouseReact={false}
-          dpr={1}
-          scale={1.05}
-          gridMul={[3, 2]}
-          digitSize={1.25}
-          timeScale={0.25}
-          scanlineIntensity={0.45}
-          glitchAmount={1.06}
-          noiseAmp={0.95}
-          curvature={0.12}
-          chromaticAberration={0.9}
-          dither={1}
-          tint="#8be9fd"
-          brightness={0.95}
-        />
+        {bgKey === 'faulty-terminal' ? (
+          <FaultyTerminal
+            className={styles.bgFx}
+            mouseReact={false}
+            dpr={1}
+            scale={1.05}
+            gridMul={[3, 2]}
+            digitSize={1.25}
+            timeScale={0.25}
+            scanlineIntensity={0.32}
+            glitchAmount={1.04}
+            noiseAmp={0.9}
+            curvature={0.12}
+            chromaticAberration={0.22}
+            dither={1}
+            tint="#8be9fd"
+            brightness={0.92}
+          />
+        ) : null}
+
+        {bgKey === 'prismatic-burst' ? (
+          <PrismaticBurst
+            className={styles.bgFx}
+            dpr={1}
+            intensity={1.35}
+            speed={0.45}
+            animationType="rotate3d"
+            colors={PRISMATIC_COLORS}
+            distort={0.55}
+            paused={false}
+            hoverDampness={0}
+            rayCount={16}
+            mixBlendMode="screen"
+          />
+        ) : null}
+
+        {bgKey === 'hyperspeed' ? (
+          <Hyperspeed className={styles.bgFx} dpr={1} effectOptions={HYPERSPEED_EFFECT} />
+        ) : null}
+
+        {bgKey === 'color-bends' ? (
+          <ColorBends
+            className={styles.bgFx}
+            dpr={1}
+            rotation={42}
+            speed={0.22}
+            colors={COLOR_BENDS_COLORS}
+            transparent={true}
+            autoRotate={0.08}
+            scale={1}
+            frequency={1}
+            warpStrength={0.95}
+            mouseInfluence={0.2}
+            parallax={0.28}
+            noise={0.05}
+          />
+        ) : null}
+
+        {bgKey === 'prism' ? (
+          <Prism
+            className={styles.bgFx}
+            dpr={1}
+            animationType="rotate"
+            transparent={true}
+            noise={0.25}
+            glow={0.8}
+            bloom={0.9}
+            scale={3.2}
+            hueShift={200}
+            colorFrequency={0.8}
+            timeScale={0.45}
+          />
+        ) : null}
+
         <div className={styles.backdrop} />
         <div className={styles.vignette} />
       </div>
