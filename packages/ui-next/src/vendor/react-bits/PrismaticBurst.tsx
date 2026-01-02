@@ -350,7 +350,7 @@ export function PrismaticBurst({
         const y = (e.clientY - rect.top) / Math.max(rect.height, 1);
         mouseTargetRef.current = [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)];
       };
-      container.addEventListener('pointermove', onPointer, { passive: true });
+      window.addEventListener('pointermove', onPointer, { passive: true });
 
       let io = null;
       if ('IntersectionObserver' in window) {
@@ -400,7 +400,7 @@ export function PrismaticBurst({
       return () => {
         cancelAnimationFrame(raf);
         detachContextLoss();
-        container.removeEventListener('pointermove', onPointer);
+        window.removeEventListener('pointermove', onPointer);
         ro?.disconnect();
         if (!ro) window.removeEventListener('resize', resize);
         io?.disconnect();

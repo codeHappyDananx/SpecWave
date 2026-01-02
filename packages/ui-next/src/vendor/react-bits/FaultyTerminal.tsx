@@ -280,7 +280,7 @@ export function FaultyTerminal({
 
   const gridMulArr = useMemo(() => new Float32Array(gridMul), [gridMul[0], gridMul[1]]);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handlePointerMove = useCallback((e: PointerEvent | MouseEvent) => {
     const ctn = containerRef.current;
     if (!ctn) return;
     const rect = ctn.getBoundingClientRect();
@@ -396,13 +396,13 @@ export function FaultyTerminal({
     rafRef.current = requestAnimationFrame(update);
     ctn.appendChild(gl.canvas);
 
-    if (mouseReact) ctn.addEventListener('mousemove', handleMouseMove);
+    if (mouseReact) window.addEventListener('pointermove', handlePointerMove, { passive: true });
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       detachContextLoss();
       resizeObserver.disconnect();
-      if (mouseReact) ctn.removeEventListener('mousemove', handleMouseMove);
+      if (mouseReact) window.removeEventListener('pointermove', handlePointerMove);
       if (gl.canvas.parentElement === ctn) ctn.removeChild(gl.canvas);
       loadAnimationStartRef.current = 0;
       timeOffsetRef.current = Math.random() * 100;
@@ -426,7 +426,7 @@ export function FaultyTerminal({
     mouseStrength,
     pageLoadAnimation,
     brightness,
-    handleMouseMove
+    handlePointerMove
   ]);
 
   return (

@@ -77,7 +77,8 @@ export function WelcomePage(props: WelcomePageProps) {
         {webglOk && bgKey === 'faulty-terminal' ? (
           <FaultyTerminal
             className={styles.bgFx}
-            mouseReact={false}
+            mouseReact={true}
+            mouseStrength={0.18}
             dpr={dpr}
             scale={1.05}
             gridMul={[3, 2]}
@@ -100,11 +101,11 @@ export function WelcomePage(props: WelcomePageProps) {
             dpr={dpr}
             intensity={1.35}
             speed={0.45}
-            animationType="rotate3d"
+            animationType="hover"
             colors={PRISMATIC_COLORS}
             distort={0.55}
             paused={false}
-            hoverDampness={0}
+            hoverDampness={0.22}
             rayCount={16}
             mixBlendMode="screen"
           />
@@ -136,7 +137,7 @@ export function WelcomePage(props: WelcomePageProps) {
           <Prism
             className={styles.bgFx}
             dpr={dpr}
-            animationType="rotate"
+            animationType="hover"
             transparent={true}
             noise={0.25}
             glow={0.8}
