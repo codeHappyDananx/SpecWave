@@ -95,7 +95,7 @@
   - 依赖谁：`tsconfig.base.json`。
   - 由谁依赖：根 `typecheck`、`apps/desktop` 的 `typecheck` script。
 - `apps/desktop/src/main/index.ts`
-  - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链）。
+  - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链；并负责 GPU/ANGLE/DevTools 的启动策略）。
   - 依赖谁：Electron API。
   - 由谁依赖：electron-vite main entry。
 - `apps/desktop/src/main/recentProjects.ts`
