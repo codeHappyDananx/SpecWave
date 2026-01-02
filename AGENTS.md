@@ -84,10 +84,12 @@
     - 清理本仓库残留的 `electron/node/esbuild` 进程（避免端口占用与 cache 锁冲突）。
     - 设置开发环境 `SPECWAVE_USER_DATA_DIR=.tmp-specwave-userdata/`（可回收）。
     - 默认使用 `SPECWAVE_ANGLE=d3d11`（优先硬件加速 + WebGL2）。
+    - 默认静默（不输出启动诊断日志）；需要时用 `--verbose` 打开。
   - 参数：
     - `start.bat d3d9|d3d11|warp|swiftshader|nogpu`
     - `start.bat --no-clean`
     - `start.bat --devtools`
+    - `start.bat --verbose`
 
 ### contracts（交互契约层）
 
