@@ -73,9 +73,16 @@
   - 依赖谁：无。
   - 由谁依赖：人。
 - `start.bat`
-  - 做什么：Windows 一键启动（执行 `pnpm dev`）。
+  - 做什么：Windows 一键启动（执行 `pnpm dev`），并提供常用排障开关（ANGLE/WebGL/GPU）与残留进程清理。
   - 依赖谁：`pnpm`。
   - 由谁依赖：人。
+  - 默认行为：
+    - 清理本仓库残留的 `electron/node/esbuild` 进程（避免端口占用与 cache 锁冲突）。
+    - 设置开发环境 `SPECWAVE_USER_DATA_DIR=.tmp-specwave-userdata/`（可回收）。
+  - 参数：
+    - `start.bat d3d9|d3d11|warp|swiftshader|nogpu`
+    - `start.bat --no-clean`
+    - `start.bat --devtools`
 
 ### contracts（交互契约层）
 
@@ -95,9 +102,22 @@
   - 依赖谁：`tsconfig.base.json`。
   - 由谁依赖：根 `typecheck`、`apps/desktop` 的 `typecheck` script。
 - `apps/desktop/src/main/index.ts`
-  - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链；并负责 GPU/ANGLE/DevTools 的启动策略）。
+  - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链；并负责 GPU/ANGLE/DevTools 的启动策略，且在生产模式 GPU 自救后持久化稳定配置）。
   - 依赖谁：Electron API。
   - 由谁依赖：electron-vite main entry。
+  - 启动开关（环境变量或同名 `--specwave-*` 参数）：
+    - `SPECWAVE_ANGLE`：`d3d11`/`d3d9`/`warp`（Windows ANGLE 后端）。
+    - `SPECWAVE_USE_GL`：`swiftshader-webgl`（软件 WebGL，用于 GPU 进程崩溃排查）。
+    - `SPECWAVE_USER_DATA_DIR`：覆盖 Electron `userData` 目录（开发环境用于隔离 profile，避免 cache 锁冲突）。
+    - `SPECWAVE_DISABLE_GPU`：`1` 时禁用 GPU（只用于排查/兜底）。
+    - `SPECWAVE_DISABLE_GPU_SANDBOX`：`1` 时关闭 GPU sandbox（仅排查，存在安全权衡）。
+    - `SPECWAVE_OPEN_DEVTOOLS`：`1` 时开发模式自动打开 DevTools。
+    - `SPECWAVE_RESET_GPU_PREFS`：`1` 时清空 `userData/gpu-preferences.json`（重置自动自救的稳定 GPU 配置）。
+  - 默认值：开发模式（Windows）默认 `ANGLE=d3d9`，避免部分环境 `d3d11` 直接崩溃。
+- `apps/desktop/src/main/gpuPrefs.ts`
+  - 做什么：GPU 配置持久化（读写 `userData/gpu-preferences.json`），用于记住“自动自救”后的稳定 ANGLE/WebGL 策略，避免用户每次启动都要手动切换。
+  - 依赖谁：Electron `app.getPath('userData')`、Node `fs/path`。
+  - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/main/recentProjects.ts`
   - 做什么：最近项目持久化（读写 `userData/recent-projects.json`；默认最多 10 条、去重按最近打开排序；返回时补 `exists`）。
   - 依赖谁：Electron `app.getPath('userData')`、Node `fs/path`。
@@ -205,6 +225,10 @@
   - 做什么：react-bits 的许可证（MIT + Commons Clause）。
   - 依赖谁：无。
   - 由谁依赖：人（合规审阅）。
+- `packages/ui-next/src/vendor/react-bits/webglDiagnostics.ts`
+  - 做什么：WebGL 初始化/丢上下文诊断（中文日志）+ 统一停帧，避免 GPU 崩溃时 rAF 打满导致全局卡顿。
+  - 依赖谁：DOM canvas、console。
+  - 由谁依赖：`FaultyTerminal` / `PrismaticBurst` / `Prism` / `ColorBends` / `Hyperspeed`。
 - `packages/ui-next/src/vendor/react-bits/FaultyTerminal.tsx` / `packages/ui-next/src/vendor/react-bits/FaultyTerminal.module.css`
   - 做什么：WelcomePage 背景动效（WebGL/OGL）。
   - 依赖谁：`ogl`、React。

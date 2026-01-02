@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerIpcHandlers } from './ipc';
+import { clearGpuPrefsSync, loadGpuPrefsSync, saveGpuPrefsSync } from './gpuPrefs';
 
 let mainWindow: BrowserWindow | null = null;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,10 +21,59 @@ function readCliArg(name: string) {
 //
 // Windows 上 GPU 进程偶发崩溃时，会导致 WebGL 反复丢上下文并出现明显卡顿；这里提供“自动自救”：
 // - 默认用 ANGLE D3D11；若 GPU 进程连续崩溃，会自动重启并切换到 D3D9；再不行才禁用 GPU。
-const gpuFallbackStage = Number(readCliArg('--specwave-gpu-fallback-stage') || process.env.SPECWAVE_GPU_FALLBACK_STAGE || '0');
-const disableGpu = (readCliArg('--specwave-disable-gpu') || process.env.SPECWAVE_DISABLE_GPU || '0') === '1';
-const angle = (readCliArg('--specwave-angle') || process.env.SPECWAVE_ANGLE || 'd3d11').toLowerCase();
+//
+// 注意：Chromium 默认会在 GPU 崩溃频繁时，按 domain 封禁 3D APIs（WebGL），会让人误以为“CSS/动效没生效”。
+// 这里显式关闭该行为，避免一次崩溃后“直到重启都没法创建 WebGL”。
+const isDevAtBoot = Boolean(process.env.ELECTRON_RENDERER_URL);
+const userDataDir = readCliArg('--specwave-user-data-dir') || process.env.SPECWAVE_USER_DATA_DIR || null;
+
+if (userDataDir) {
+  try {
+    // 开发环境建议使用独立 userData，避免多实例/锁文件导致 Chromium cache “拒绝访问”。（见 `start.bat`）
+    app.setPath('userData', userDataDir);
+  } catch (err) {
+    console.error(`[SpecWave] 设置 userData 目录失败：${userDataDir}`);
+    console.error(err);
+  }
+}
+
+const resetGpuPrefs = (readCliArg('--specwave-reset-gpu-prefs') || process.env.SPECWAVE_RESET_GPU_PREFS || '0') === '1';
+if (resetGpuPrefs) clearGpuPrefsSync();
+const persistedGpuPrefs = loadGpuPrefsSync();
+
+const gpuFallbackStage = Number(
+  readCliArg('--specwave-gpu-fallback-stage') ||
+    process.env.SPECWAVE_GPU_FALLBACK_STAGE ||
+    (persistedGpuPrefs?.fallbackStage != null ? String(persistedGpuPrefs.fallbackStage) : '') ||
+    '0'
+);
+const disableGpu =
+  (readCliArg('--specwave-disable-gpu') ||
+    process.env.SPECWAVE_DISABLE_GPU ||
+    (persistedGpuPrefs?.disableGpu ? '1' : '0') ||
+    '0') === '1';
+const angle = (
+  readCliArg('--specwave-angle') ||
+  process.env.SPECWAVE_ANGLE ||
+  persistedGpuPrefs?.angle ||
+  // 开发期优先“能跑起来”：部分 Windows 环境 D3D11 会直接把 GPU 进程打崩，导致 WebGL 全黑。
+  // 正式包仍会默认走 d3d11（并有自动自救）。
+  (isDevAtBoot && process.platform === 'win32' ? 'd3d9' : 'd3d11')
+).toLowerCase();
+const useGl = (readCliArg('--specwave-use-gl') || process.env.SPECWAVE_USE_GL || persistedGpuPrefs?.useGl || '').toLowerCase();
 const openDevTools = (readCliArg('--specwave-open-devtools') || process.env.SPECWAVE_OPEN_DEVTOOLS || '0') === '1';
+const disableGpuSandbox =
+  (readCliArg('--specwave-disable-gpu-sandbox') || process.env.SPECWAVE_DISABLE_GPU_SANDBOX || '0') === '1';
+
+app.disableDomainBlockingFor3DAPIs();
+
+if (disableGpuSandbox) {
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
+
+if (useGl) {
+  app.commandLine.appendSwitch('use-gl', useGl);
+}
 
 if (disableGpu) {
   app.disableHardwareAcceleration();
@@ -31,6 +81,10 @@ if (disableGpu) {
 } else {
   app.commandLine.appendSwitch('use-angle', angle);
 }
+
+console.log(
+  `[SpecWave] GPU 启动参数：disableGpu=${disableGpu ? '1' : '0'} angle=${angle} useGl=${useGl || 'default'} disableGpuSandbox=${disableGpuSandbox ? '1' : '0'} stage=${gpuFallbackStage} userData=${app.getPath('userData')}`
+);
 
 registerIpcHandlers();
 
@@ -74,6 +128,13 @@ app.whenReady().then(() => {
   const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
   let crashWindowStartMs = 0;
   let crashCount = 0;
+  const persistGpuPrefs = (next: { angle?: string; useGl?: string; disableGpu?: boolean; fallbackStage: number }) => {
+    saveGpuPrefsSync({
+      ...persistedGpuPrefs,
+      ...next,
+      updatedAt: Date.now()
+    });
+  };
 
   const relaunchWithArgs = (patch: Record<string, string>) => {
     const nextArgs = [...process.argv.slice(1)];
@@ -97,6 +158,8 @@ app.whenReady().then(() => {
       // 开发模式不要自动重启：electron-vite 会跟着退出，导致 renderer URL 失效并出现“白屏无报错”。
       // 开发时请用环境变量/启动参数手动切换 ANGLE 后再重启：
       // - PowerShell：$env:SPECWAVE_ANGLE='d3d9'; pnpm dev
+      // - 或：$env:SPECWAVE_ANGLE='warp'; pnpm dev
+      // - 或：$env:SPECWAVE_USE_GL='swiftshader-webgl'; pnpm dev
       // - 或：.\start.bat（先 cd 到仓库根目录）
       console.error('[SpecWave] GPU 进程异常退出：开发模式不会自动重启，请手动切换 ANGLE 后重启。');
       return;
@@ -112,13 +175,29 @@ app.whenReady().then(() => {
 
     // stage 0: D3D11 → D3D9
     if (gpuFallbackStage <= 0) {
+      persistGpuPrefs({ angle: 'd3d9', useGl: '', disableGpu: false, fallbackStage: 1 });
       relaunchWithArgs({ '--specwave-angle': 'd3d9', '--specwave-gpu-fallback-stage': '1' });
       return;
     }
 
-    // stage 1: 仍然崩溃 → 禁用 GPU
+    // stage 1: 仍然崩溃 → WARP（软件 D3D11）
     if (gpuFallbackStage === 1) {
-      relaunchWithArgs({ '--specwave-disable-gpu': '1', '--specwave-gpu-fallback-stage': '2' });
+      persistGpuPrefs({ angle: 'warp', useGl: '', disableGpu: false, fallbackStage: 2 });
+      relaunchWithArgs({ '--specwave-angle': 'warp', '--specwave-gpu-fallback-stage': '2' });
+      return;
+    }
+
+    // stage 2: 仍然崩溃 → SwiftShader（软件 WebGL）
+    if (gpuFallbackStage === 2) {
+      persistGpuPrefs({ useGl: 'swiftshader-webgl', disableGpu: false, fallbackStage: 3 });
+      relaunchWithArgs({ '--specwave-use-gl': 'swiftshader-webgl', '--specwave-gpu-fallback-stage': '3' });
+      return;
+    }
+
+    // stage 3: 仍然崩溃 → 禁用 GPU（保证窗口可用）
+    if (gpuFallbackStage === 3) {
+      persistGpuPrefs({ disableGpu: true, fallbackStage: 4 });
+      relaunchWithArgs({ '--specwave-disable-gpu': '1', '--specwave-gpu-fallback-stage': '4' });
     }
   });
 

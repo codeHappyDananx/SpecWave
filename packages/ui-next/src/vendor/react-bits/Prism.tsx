@@ -2,6 +2,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { Renderer, Triangle, Program, Mesh } from 'ogl';
 import styles from './Prism.module.css';
+import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
 
 export type PrismProps = {
   className?: string;
@@ -70,11 +71,17 @@ export function Prism({
     const INERT = Math.max(0, Math.min(1, inertia || 0.12));
 
     const dprValue = Math.min(2, dpr || window.devicePixelRatio || 1);
-    const renderer = new Renderer({
-      dpr: dprValue,
-      alpha: transparent,
-      antialias: false
-    });
+    let renderer: Renderer;
+    try {
+      renderer = new Renderer({
+        dpr: dprValue,
+        alpha: transparent,
+        antialias: false
+      });
+    } catch (err) {
+      logWebglInitFailed('Prism', err);
+      return;
+    }
     const gl = renderer.gl;
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -306,6 +313,8 @@ export function Prism({
       raf = 0;
     };
 
+    const detachContextLoss = attachWebglContextLoss(gl.canvas, 'Prism', stopRAF);
+
     const rnd = () => Math.random();
     const wX = (0.3 + rnd() * 0.6) * RSX;
     const wY = (0.2 + rnd() * 0.7) * RSY;
@@ -423,6 +432,7 @@ export function Prism({
 
     return () => {
       stopRAF();
+      detachContextLoss();
       ro.disconnect();
       if (animationType === 'hover') {
         if (onPointerMove) window.removeEventListener('pointermove', onPointerMove);

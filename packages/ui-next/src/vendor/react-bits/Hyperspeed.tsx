@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, SMAAEffect, SMAAPreset } from 'postprocessing';
 
 import styles from './Hyperspeed.module.css';
+import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
 
 export type HyperspeedProps = {
   className?: string;
@@ -369,6 +370,10 @@ export function Hyperspeed({
         this.renderer.setPixelRatio(Math.min(options.dpr ?? window.devicePixelRatio ?? 1, 2));
         this.composer = new EffectComposer(this.renderer);
         container.append(this.renderer.domElement);
+        this.__detachContextLoss = attachWebglContextLoss(this.renderer.domElement, 'Hyperspeed', () => {
+          // WebGL 上下文丢失时，继续渲染只会让 CPU/GPU 打满并导致“全局很卡”。
+          this.disposed = true;
+        });
 
         this.camera = new THREE.PerspectiveCamera(
           options.fov,
@@ -590,6 +595,11 @@ export function Hyperspeed({
 
       dispose() {
         this.disposed = true;
+
+        if (this.__detachContextLoss) {
+          this.__detachContextLoss();
+          this.__detachContextLoss = null;
+        }
 
         if (this.renderer) {
           this.renderer.dispose();
@@ -1114,12 +1124,20 @@ export function Hyperspeed({
 
     (function () {
       const container = hyperspeed.current;
+      if (!container) return;
       const options = { ...effectOptions, dpr };
       options.distortion = distortions[options.distortion];
 
-      const myApp = new App(container, options);
-      appRef.current = myApp;
-      myApp.loadAssets().then(myApp.init);
+      try {
+        const myApp = new App(container, options);
+        appRef.current = myApp;
+        myApp
+          .loadAssets()
+          .then(myApp.init)
+          .catch((err) => logWebglInitFailed('Hyperspeed', err));
+      } catch (err) {
+        logWebglInitFailed('Hyperspeed', err);
+      }
     })();
 
     return () => {

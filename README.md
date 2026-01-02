@@ -12,8 +12,22 @@
 ## 开发
 
 - 安装依赖：`pnpm install`
-- 启动开发：`pnpm dev`
+- 启动开发：`pnpm dev`（Windows 推荐直接双击/运行 `start.bat`，它会自动 `cd` 到仓库根目录，并默认清理残留进程）
 - 类型检查：`pnpm typecheck`
+
+### WelcomePage 背景动效（WebGL）排查
+
+如果你在 Windows 上遇到 `GPU process exited unexpectedly` 或 WelcomePage 动效黑屏/卡顿，优先尝试切换 ANGLE：  
+- 开发模式默认使用 `d3d9`（避免部分环境 `d3d11` 直接崩溃）；需要手动指定时按下面方式覆盖即可。  
+- 直接用启动脚本参数：`start.bat d3d9` / `start.bat warp` / `start.bat swiftshader` / `start.bat nogpu`  
+- PowerShell：`$env:SPECWAVE_ANGLE='d3d9'; .\start.bat`  
+- 仍不行：`$env:SPECWAVE_ANGLE='warp'; .\start.bat`  
+- 仍不行（软件 WebGL）：`$env:SPECWAVE_USE_GL='swiftshader-webgl'; .\start.bat`  
+- 彻底禁用 GPU 排查：`$env:SPECWAVE_DISABLE_GPU='1'; .\start.bat`
+
+备注：
+- `start.bat` 会把开发环境的 `userData` 指到仓库内的 `.tmp-specwave-userdata/`，它是可回收的（删掉即可重置）。
+- 生产模式下，GPU 自救结果会写入 `userData/gpu-preferences.json`，后续启动会沿用稳定配置；如需重置，可删除该文件或设置 `SPECWAVE_RESET_GPU_PREFS=1` 再启动一次。
 
 ## 快捷键（MVP）
 

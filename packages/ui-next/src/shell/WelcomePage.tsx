@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { RecentProjectVM, UIIntent } from '@specwave/contracts';
 import { ColorBends } from '../vendor/react-bits/ColorBends';
 import { FaultyTerminal } from '../vendor/react-bits/FaultyTerminal';
@@ -34,8 +34,20 @@ export type WelcomePageProps = {
   dispatch: (intent: UIIntent) => void;
 };
 
+function canUseWebgl() {
+  if (typeof document === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
 export function WelcomePage(props: WelcomePageProps) {
   const { recentProjects, isLoading, error, dispatch } = props;
+  const [dismissWebglNotice, setDismissWebglNotice] = useState(false);
+  const webglOk = useMemo(() => canUseWebgl(), []);
 
   const bgKey: WelcomeBgKey = useMemo(() => {
     const idx = Math.floor(Math.random() * WELCOME_BG_KEYS.length);
@@ -45,7 +57,7 @@ export function WelcomePage(props: WelcomePageProps) {
   return (
     <div className={styles.root} aria-label="欢迎页">
       <div className={styles.bg} aria-hidden="true">
-        {bgKey === 'faulty-terminal' ? (
+        {webglOk && bgKey === 'faulty-terminal' ? (
           <FaultyTerminal
             className={styles.bgFx}
             mouseReact={false}
@@ -65,7 +77,7 @@ export function WelcomePage(props: WelcomePageProps) {
           />
         ) : null}
 
-        {bgKey === 'prismatic-burst' ? (
+        {webglOk && bgKey === 'prismatic-burst' ? (
           <PrismaticBurst
             className={styles.bgFx}
             dpr={1}
@@ -81,11 +93,11 @@ export function WelcomePage(props: WelcomePageProps) {
           />
         ) : null}
 
-        {bgKey === 'hyperspeed' ? (
+        {webglOk && bgKey === 'hyperspeed' ? (
           <Hyperspeed className={styles.bgFx} dpr={1} effectOptions={HYPERSPEED_EFFECT} />
         ) : null}
 
-        {bgKey === 'color-bends' ? (
+        {webglOk && bgKey === 'color-bends' ? (
           <ColorBends
             className={styles.bgFx}
             dpr={1}
@@ -103,7 +115,7 @@ export function WelcomePage(props: WelcomePageProps) {
           />
         ) : null}
 
-        {bgKey === 'prism' ? (
+        {webglOk && bgKey === 'prism' ? (
           <Prism
             className={styles.bgFx}
             dpr={1}
@@ -132,6 +144,26 @@ export function WelcomePage(props: WelcomePageProps) {
 
           <h1 className={styles.title}>打开项目，开始梳理与解耦。</h1>
           <p className={styles.subtitle}>欢迎页只负责“起步”：打开项目、管理最近项目，不引入三栏任何逻辑。</p>
+
+          {!webglOk && !dismissWebglNotice ? (
+            <div className={styles.webglNotice} role="status" aria-live="polite">
+              <span className={styles.webglNoticeIcon} aria-hidden="true">
+                <Icon name="warning" size={18} />
+              </span>
+              <div className={styles.webglNoticeText}>
+                当前环境无法创建 WebGL，欢迎页背景动效不可用。若你看到 “GPU process exited unexpectedly”，请优先切换 ANGLE（例如{' '}
+                <code className={styles.inlineCode}>SPECWAVE_ANGLE=d3d9</code>）后重启。
+              </div>
+              <button
+                type="button"
+                className={styles.webglNoticeClose}
+                aria-label="关闭提示"
+                onClick={() => setDismissWebglNotice(true)}
+              >
+                <Icon name="close" size={18} />
+              </button>
+            </div>
+          ) : null}
 
           <div className={styles.actions}>
             <button

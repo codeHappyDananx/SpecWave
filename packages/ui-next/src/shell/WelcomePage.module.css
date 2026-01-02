@@ -22,14 +22,13 @@
 
 .backdrop{
   position:absolute;
-  inset:-40%;
+  inset:-30%;
   background:
     radial-gradient(closest-side at 35% 35%, rgba(56,189,248,.20), rgba(0,0,0,0) 60%),
     radial-gradient(closest-side at 70% 55%, rgba(167,139,250,.18), rgba(0,0,0,0) 60%),
     radial-gradient(closest-side at 55% 85%, rgba(34,197,94,.10), rgba(0,0,0,0) 60%);
-  filter:blur(30px);
-  transform:rotate(-8deg);
-  opacity:.9;
+  transform:rotate(-8deg) scale(1.08);
+  opacity:.85;
 }
 
 .vignette{
@@ -75,6 +74,42 @@
   max-width:56ch;
 }
 
+.webglNotice{
+  margin-top:18px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:rgba(251,191,36,.12);
+  border:1px solid rgba(251,191,36,.26);
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+.webglNoticeIcon{color:#fbbf24;display:inline-flex;align-items:center;margin-top:2px;}
+.webglNoticeText{flex:1;font-size:13px;line-height:1.5;color:rgba(238,242,255,.82);}
+.inlineCode{
+  font-family:var(--sw-font-mono);
+  font-size:12px;
+  padding:2px 6px;
+  border-radius:8px;
+  background:rgba(0,0,0,.25);
+  border:1px solid rgba(255,255,255,.10);
+  color:rgba(238,242,255,.92);
+}
+.webglNoticeClose{
+  width:34px;height:34px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.14);
+  color:rgba(238,242,255,.75);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:background var(--t-quick), transform var(--t-quick);
+}
+.webglNoticeClose:hover{background:rgba(255,255,255,.10);transform:scale(1.02);}
+.webglNoticeClose:active{transform:scale(.98);}
+
 .actions{margin-top:22px;display:flex;gap:12px;align-items:center;}
 .primaryButton{
   appearance:none;
@@ -107,9 +142,8 @@
   justify-self:end;
   padding:18px;
   border-radius:18px;
-  background:rgba(255,255,255,.06);
+  background:rgba(15,23,42,.42);
   border:1px solid rgba(255,255,255,.10);
-  backdrop-filter:blur(14px);
 }
 
 .recentsHeader{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:12px;}

@@ -19,3 +19,6 @@ apps/**/src/**/*.d.ts.map
 
 # Vite 的环境声明属于源码（不能被忽略）
 !apps/**/src/**/vite-env.d.ts
+
+# dev 专用 userData（可回收）
+.tmp-specwave-userdata/

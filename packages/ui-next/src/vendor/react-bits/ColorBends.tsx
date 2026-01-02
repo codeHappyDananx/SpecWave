@@ -2,6 +2,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import * as THREE from 'three';
 import styles from './ColorBends.module.css';
+import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
 
 const MAX_COLORS = 8;
 
@@ -143,6 +144,7 @@ export function ColorBends({
 
   useEffect(() => {
     const container = containerRef.current;
+    if (!container) return;
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
@@ -175,11 +177,17 @@ export function ColorBends({
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: false,
-      powerPreference: 'default',
-      alpha: true
-    });
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        powerPreference: 'default',
+        alpha: true
+      });
+    } catch (err) {
+      logWebglInitFailed('ColorBends', err);
+      return;
+    }
     rendererRef.current = renderer;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(dpr);
@@ -188,6 +196,11 @@ export function ColorBends({
     renderer.domElement.style.height = '100%';
     renderer.domElement.style.display = 'block';
     container.appendChild(renderer.domElement);
+
+    const detachContextLoss = attachWebglContextLoss(renderer.domElement, 'ColorBends', () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    });
 
     const clock = new THREE.Clock();
 
@@ -231,6 +244,7 @@ export function ColorBends({
 
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      detachContextLoss();
       if (resizeObserverRef.current) resizeObserverRef.current.disconnect();
       else window.removeEventListener('resize', handleResize);
       geometry.dispose();

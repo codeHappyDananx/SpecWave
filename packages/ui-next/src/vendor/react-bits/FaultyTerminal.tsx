@@ -1,6 +1,7 @@
 import { Color, Program, Renderer, Mesh, Triangle } from 'ogl';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import styles from './FaultyTerminal.module.css';
+import { attachWebglContextLoss, logWebglInitFailed } from './webglDiagnostics';
 
 type Vec2 = [number, number];
 
@@ -295,8 +296,8 @@ export function FaultyTerminal({
     let renderer: Renderer;
     try {
       renderer = new Renderer({ dpr });
-    } catch {
-      // 软渲染/禁用 GPU 的环境下，WebGL 可能创建失败；这里直接降级为“无动效背景”，避免影响应用可用性。
+    } catch (err) {
+      logWebglInitFailed('FaultyTerminal', err);
       return;
     }
     rendererRef.current = renderer;
@@ -345,7 +346,13 @@ export function FaultyTerminal({
     resizeObserver.observe(ctn);
     resize();
 
+    const detachContextLoss = attachWebglContextLoss(gl.canvas, 'FaultyTerminal', () => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    });
+
     const update = (t: number) => {
+      if (!rafRef.current) return;
       rafRef.current = requestAnimationFrame(update);
 
       if (pageLoadAnimation && loadAnimationStartRef.current === 0) {
@@ -388,6 +395,7 @@ export function FaultyTerminal({
 
     return () => {
       cancelAnimationFrame(rafRef.current);
+      detachContextLoss();
       resizeObserver.disconnect();
       if (mouseReact) ctn.removeEventListener('mousemove', handleMouseMove);
       if (gl.canvas.parentElement === ctn) ctn.removeChild(gl.canvas);
