@@ -105,6 +105,7 @@
   - 做什么：Electron 主进程入口（注册 IPC handlers、创建窗口、加载 renderer、打开外链；并负责 GPU/ANGLE/DevTools 的启动策略，且在生产模式 GPU 自救后持久化稳定配置）。
   - 依赖谁：Electron API。
   - 由谁依赖：electron-vite main entry。
+  - 额外行为：转发 renderer 的 WelcomePage 关键日志到终端（只转发带 `[SpecWave][Welcome]` 前缀的 console，便于定位“随机某个背景黑屏/不渲染”）。
   - 启动开关（环境变量或同名 `--specwave-*` 参数）：
     - `SPECWAVE_ANGLE`：`d3d11`/`d3d9`/`warp`（Windows ANGLE 后端）。
     - `SPECWAVE_USE_GL`：`swiftshader-webgl`（软件 WebGL，用于 GPU 进程崩溃排查）。

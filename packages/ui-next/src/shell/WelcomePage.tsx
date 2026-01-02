@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RecentProjectVM, UIIntent } from '@specwave/contracts';
 import { ColorBends } from '../vendor/react-bits/ColorBends';
 import { FaultyTerminal } from '../vendor/react-bits/FaultyTerminal';
@@ -34,13 +34,15 @@ export type WelcomePageProps = {
   dispatch: (intent: UIIntent) => void;
 };
 
-function canUseWebgl() {
-  if (typeof document === 'undefined') return false;
+function getWebglSupport() {
+  if (typeof document === 'undefined') return { webgl: false, webgl2: false };
   try {
     const canvas = document.createElement('canvas');
-    return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+    const webgl2 = Boolean(canvas.getContext('webgl2'));
+    const webgl = webgl2 || Boolean(canvas.getContext('webgl'));
+    return { webgl, webgl2 };
   } catch {
-    return false;
+    return { webgl: false, webgl2: false };
   }
 }
 
@@ -62,8 +64,10 @@ function computeWelcomeDpr() {
 export function WelcomePage(props: WelcomePageProps) {
   const { recentProjects, isLoading, error, dispatch } = props;
   const [dismissWebglNotice, setDismissWebglNotice] = useState(false);
-  const webglOk = useMemo(() => canUseWebgl(), []);
+  const webglSupport = useMemo(() => getWebglSupport(), []);
+  const webglOk = webglSupport.webgl;
   const [dpr, setDpr] = useState(() => computeWelcomeDpr());
+  const hasLoggedRef = useRef(false);
 
   useEffect(() => {
     const update = () => setDpr(computeWelcomeDpr());
@@ -80,6 +84,14 @@ export function WelcomePage(props: WelcomePageProps) {
     const idx = Math.floor(Math.random() * WELCOME_BG_KEYS.length);
     return WELCOME_BG_KEYS[idx] ?? 'faulty-terminal';
   }, []);
+
+  useEffect(() => {
+    if (hasLoggedRef.current) return;
+    hasLoggedRef.current = true;
+    console.info(
+      `[SpecWave][Welcome] 背景选择：${bgKey} dpr=${dpr} devicePixelRatio=${typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1} webgl=${webglSupport.webgl ? '1' : '0'} webgl2=${webglSupport.webgl2 ? '1' : '0'}`
+    );
+  }, [bgKey, dpr, webglSupport.webgl, webglSupport.webgl2]);
 
   return (
     <div className={styles.root} aria-label="欢迎页">
