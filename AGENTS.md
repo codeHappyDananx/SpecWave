@@ -334,7 +334,7 @@
   - 依赖谁：`Panel`、`Icons`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/center/CenterPanel.tsx` / `packages/ui-next/src/panels/center/CenterPanel.module.css`
-  - 做什么：中区（文件渲染/源码编辑；纯文本预览带行号；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数）；Markdown 渲染使用“纸张宽度”上限提升阅读体验；保存只走 Ctrl+S 快捷键，不提供“保存”按钮）。
+  - 做什么：中区（文件渲染/源码编辑；纯文本预览带行号；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数）；Markdown 渲染保持富文本样式，但容器铺满面板宽度（通过自适应 padding 控制阅读宽度），更贴近代码编辑器观感；保存只走 Ctrl+S 快捷键，不提供“保存”按钮）。
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`

@@ -35,7 +35,7 @@
 .taskLabel{font-weight:800;line-height:1.45;word-break:break-word;}
 
 .muted{color:#4B5563;font-weight:700;}
-.markdown{border-radius:var(--sw-radius-lg);background:var(--sw-bg);padding:18px 20px;min-height:0;line-height:1.8;border:2px solid var(--sw-border);max-width:980px;margin:0 auto;}
+.markdown{border-radius:var(--sw-radius-lg);background:var(--sw-bg);padding:18px clamp(18px,4vw,48px);min-height:0;line-height:1.8;border:2px solid var(--sw-border);width:100%;max-width:none;margin:0;}
 .markdown :where(h1,h2,h3){letter-spacing:-.02em;}
 .markdown :where(code){font-family:var(--sw-font-mono);}
 .markdown :where(pre){background:var(--sw-muted);color:var(--sw-fg);padding:12px;border-radius:var(--sw-radius-lg);overflow:auto;border:2px solid var(--sw-border);}
