@@ -213,16 +213,12 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.tsx`
-  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方展示历史项目卡片栈（`RecentProjectDeck`）；欢迎页窗口为 frameless：顶部 44px 为无感拖拽区，右上角自绘 `X` 用于退出应用；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
+  - 做什么：欢迎页（未打开项目时展示；**极简**：只渲染“打开项目”按钮，并在按钮下方居中展示历史项目列表；欢迎页窗口为 frameless：顶部 44px 为无感拖拽区，右上角自绘 `X` 用于退出应用；背景动效默认走 WebGL，若检测到软件 WebGL 或发生 `CONTEXT_LOST_WEBGL` 会自动切到 CSS 动效；背景 DPR 按系统缩放渲染）。
   - 依赖谁：`@specwave/contracts`、`primitives/Icons`、`vendor/react-bits`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.module.css`
-  - 做什么：欢迎页样式（内容区居中；允许单页炫酷，但必须局部化，不影响主工作区）。
+  - 做什么：欢迎页样式（内容区居中；历史列表默认无背景；允许单页炫酷，但必须局部化，不影响主工作区）。
   - 依赖谁：tokens（CSS variables）。
-  - 由谁依赖：`WelcomePage.tsx`。
-- `packages/ui-next/src/shell/RecentProjectDeck.tsx` / `packages/ui-next/src/shell/RecentProjectDeck.module.css`
-  - 做什么：欢迎页“历史项目”卡片栈（透明卡片 + CardSwap 动效；hover 可暂停；点击打开/移除只派发 intents）。
-  - 依赖谁：`gsap`、`@specwave/contracts`、`primitives/Icons`。
   - 由谁依赖：`WelcomePage.tsx`。
 - `packages/ui-next/src/shell/TopBar.tsx`
   - 做什么：顶部栏（项目 tabs / 搜索 / 功能入口），只上报 intents，不落业务逻辑；项目 tabs 左侧仅滚动 tablist，右侧固定操作区（“打开项目/＋” 不随 tab 增减跳动）；右侧 iconBar 用更轻的按钮样式降低噪音。
