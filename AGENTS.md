@@ -107,6 +107,7 @@
 
 - `apps/desktop/electron.vite.config.ts`
   - 做什么：Electron-Vite 构建/开发配置（main/preload/renderer）。
+  - 关键约束：main/preload 里的 native 依赖（例如 `node-pty`）必须 `external`，避免被打包后出现 `conpty.node` 动态加载失败。
   - 依赖谁：`electron-vite`、`@vitejs/plugin-react`。
   - 由谁依赖：`pnpm -C apps/desktop dev/build`。
 - `apps/desktop/tsconfig.json`

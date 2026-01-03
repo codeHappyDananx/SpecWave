@@ -2,7 +2,9 @@ import path from 'node:path';
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 
-const external = ['fsevents'];
+// native 模块必须 external，避免被 rollup 打包后导致 .node 动态加载路径失效
+// （Windows 下常见症状：conpty.node 加载失败 / 需要 dynamicRequireTargets）
+const external = ['fsevents', 'node-pty'];
 
 export default defineConfig({
   main: {
