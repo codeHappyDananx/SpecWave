@@ -209,7 +209,7 @@
   - 依赖谁：`shell/*`、`panels/*`、`@specwave/contracts`。
   - 由谁依赖：`packages/ui-next/src/index.ts`。
 - `packages/ui-next/src/shell/SpecWaveApp.module.css`
-  - 做什么：Shell 容器布局样式（root/app）。
+  - 做什么：Shell 容器布局样式（root/app；工作台底色用 `--sw-muted`，面板维持 `--sw-bg`，让三栏层级更清晰）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/WelcomePage.tsx`
@@ -221,11 +221,11 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`WelcomePage.tsx`。
 - `packages/ui-next/src/shell/TopBar.tsx`
-  - 做什么：顶部栏（项目 tabs / 搜索 / 功能入口），只上报 intents，不落业务逻辑。
+  - 做什么：顶部栏（项目 tabs / 搜索 / 功能入口），只上报 intents，不落业务逻辑；项目 tabs 左侧仅滚动 tablist，右侧固定操作区（“打开项目/＋” 不随 tab 增减跳动）；右侧 iconBar 用更轻的按钮样式降低噪音。
   - 依赖谁：`primitives/*`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/TopBar.module.css`
-  - 做什么：TopBar 样式（布局 + 项目 tabs 区 + 打开项目按钮；搜索输入样式在 `primitives/SearchInput`）。
+  - 做什么：TopBar 样式（布局 + 项目 tabs 区：scroll/tablist 与固定操作区分离；搜索输入样式在 `primitives/SearchInput`）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`TopBar.tsx`。
 - `packages/ui-next/src/shell/LayoutGrid.tsx`
@@ -233,7 +233,7 @@
   - 依赖谁：`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/shell/LayoutGrid.module.css`
-  - 做什么：三栏网格样式（pane/splitter/dragging）。
+  - 做什么：三栏网格样式（pane/splitter/dragging；网格底色用 `--sw-muted`，让三栏更有“框架感”）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：`LayoutGrid.tsx`。
 - `packages/ui-next/src/shell/StatusBar.tsx`
@@ -291,7 +291,7 @@
   - 依赖谁：React 类型。
   - 由谁依赖：`ProjectTab`、`ClosableTab`。
 - `packages/ui-next/src/primitives/IconButton.tsx` / `packages/ui-next/src/primitives/IconButton.module.css`
-  - 做什么：图标按钮（统一 active/hover/press 反馈）。
+  - 做什么：图标按钮（统一 active/hover/press 反馈；支持 `variant=solid|soft`，用于“动作按钮强调/工具栏降噪”的不同口径）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：TopBar、RightPanel。
 - `packages/ui-next/src/primitives/ShinyText.tsx` / `packages/ui-next/src/primitives/ShinyText.module.css`
@@ -334,7 +334,7 @@
   - 依赖谁：`Panel`、`Icons`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/center/CenterPanel.tsx` / `packages/ui-next/src/panels/center/CenterPanel.module.css`
-  - 做什么：中区（文件渲染/源码编辑；纯文本预览带行号；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数）；保存只走 Ctrl+S 快捷键，不提供“保存”按钮）。
+  - 做什么：中区（文件渲染/源码编辑；纯文本预览带行号；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数）；Markdown 渲染使用“纸张宽度”上限提升阅读体验；保存只走 Ctrl+S 快捷键，不提供“保存”按钮）。
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`

@@ -1,4 +1,4 @@
-.body{display:grid;gap:0;padding:0;background:#fff;min-height:0;height:100%;align-items:stretch;overflow:hidden;width:100%;max-width:100%;}
+.body{display:grid;gap:0;padding:0;background:var(--sw-muted);min-height:0;height:100%;align-items:stretch;overflow:hidden;width:100%;max-width:100%;}
 .dragging{transition:none;user-select:none;}
 .pane{min-height:0;height:100%;min-width:0;overflow:hidden;max-width:100%;}
 .pane[data-hidden="true"]{pointer-events:none;opacity:0;}

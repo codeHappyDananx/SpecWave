@@ -37,32 +37,36 @@ export function TopBar(props: TopBarProps) {
     <header className={styles.topBar} aria-label="TopBar">
       <div className={styles.left} aria-label="项目页签">
         {props.projects.openTabs.length > 0 ? (
-          <div className={styles.projectTabs} role="tablist" aria-label="打开的项目">
-            {props.projects.openTabs.map((t) => (
-              <ProjectTab
-                key={t.id}
-                selected={t.id === props.projects.activeTabId}
-                title={t.folderName}
-                onSelect={() => props.dispatch({ type: 'PROJECT_TAB_SET_ACTIVE', id: t.id })}
-                onClose={() => props.dispatch({ type: 'PROJECT_TAB_CLOSE', id: t.id })}
+          <div className={styles.projectTabsWrap} aria-label="打开的项目">
+            <div className={styles.projectTabsScroll} role="tablist" aria-label="打开的项目页签">
+              {props.projects.openTabs.map((t) => (
+                <ProjectTab
+                  key={t.id}
+                  selected={t.id === props.projects.activeTabId}
+                  title={t.folderName}
+                  onSelect={() => props.dispatch({ type: 'PROJECT_TAB_SET_ACTIVE', id: t.id })}
+                  onClose={() => props.dispatch({ type: 'PROJECT_TAB_CLOSE', id: t.id })}
+                />
+              ))}
+            </div>
+            <div className={styles.projectActions} aria-label="项目操作">
+              {activeTab?.path == null ? (
+                <button
+                  className={styles.openProjectButton}
+                  type="button"
+                  onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
+                >
+                  打开项目
+                </button>
+              ) : null}
+              <IconButton
+                active
+                title="新建项目页签"
+                ariaLabel="新建项目页签"
+                icon={<Icon name="plus" />}
+                onClick={() => props.dispatch({ type: 'PROJECT_TAB_ADD_EMPTY' })}
               />
-            ))}
-            {activeTab?.path == null ? (
-              <button
-                className={styles.openProjectButton}
-                type="button"
-                onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
-              >
-                打开项目
-              </button>
-            ) : null}
-            <IconButton
-              active
-              title="新建项目页签"
-              ariaLabel="新建项目页签"
-              icon={<Icon name="plus" />}
-              onClick={() => props.dispatch({ type: 'PROJECT_TAB_ADD_EMPTY' })}
-            />
+            </div>
           </div>
         ) : (
           <div className={styles.emptyTop} aria-label="未打开项目">
@@ -93,18 +97,21 @@ export function TopBar(props: TopBarProps) {
         <div className={styles.iconBar} aria-label="快捷功能">
           <IconButton
             active={props.leftVisible}
+            variant="soft"
             title="文件"
             icon={<Icon name="folder" />}
             onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_LEFT' })}
           />
           <IconButton
             active={props.centerVisible}
+            variant="soft"
             title="任务"
             icon={<Icon name="tasks" />}
             onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_CENTER' })}
           />
           <IconButton
             active={props.rightVisible && props.rightMode === 'terminal'}
+            variant="soft"
             title="终端"
             icon={<Icon name="terminal" />}
             onClick={() => {
@@ -116,7 +123,8 @@ export function TopBar(props: TopBarProps) {
             }}
           />
           <IconButton
-            active
+            active={false}
+            variant="soft"
             title="皮肤"
             icon={<Icon name="theme" />}
             onClick={() => props.dispatch({ type: 'THEME_TOGGLE' })}
