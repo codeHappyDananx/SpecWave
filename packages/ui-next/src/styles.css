@@ -22,6 +22,12 @@
   --sw-terminal-fg: #111827;
   --sw-terminal-cursor: #111827;
   --sw-terminal-selection: rgba(59, 130, 246, 0.22);
+
+  /* 全局滚动条：默认隐藏（不显示滑轨）；hover 时只显示滑块，避免满屏“条条框框”。 */
+  --sw-scrollbar-size: 6px;
+  --sw-scrollbar-thumb: rgba(17, 24, 39, 0.18);
+  --sw-scrollbar-thumb-hover: rgba(17, 24, 39, 0.28);
+  --sw-scrollbar-thumb-active: rgba(17, 24, 39, 0.36);
 }
 
 [data-skin="blue"] {
@@ -77,27 +83,44 @@ body {
 }
 
 :where(*) {
-  scrollbar-color: var(--sw-border) var(--sw-muted);
+  scrollbar-color: transparent transparent;
   scrollbar-width: thin;
 }
 
 ::-webkit-scrollbar {
-  height: 12px;
-  width: 12px;
+  height: var(--sw-scrollbar-size);
+  width: var(--sw-scrollbar-size);
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--sw-muted);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--sw-border);
+  background: transparent;
   border-radius: 999px;
-  border: 3px solid var(--sw-muted);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #d1d5db;
+:where(*:hover) {
+  scrollbar-color: var(--sw-scrollbar-thumb) transparent;
+}
+
+:where(*:hover)::-webkit-scrollbar-thumb {
+  background: var(--sw-scrollbar-thumb);
+}
+
+:where(*:hover)::-webkit-scrollbar-thumb:hover {
+  background: var(--sw-scrollbar-thumb-hover);
+}
+
+:where(*:hover)::-webkit-scrollbar-thumb:active {
+  background: var(--sw-scrollbar-thumb-active);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 :where(button, input, textarea):focus-visible {

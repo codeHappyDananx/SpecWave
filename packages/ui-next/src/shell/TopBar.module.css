@@ -3,11 +3,7 @@
 .center{min-width:0;display:flex;align-items:center;}
 .right{display:flex;align-items:center;justify-content:flex-end;}
 .projectTabsWrap{min-width:0;display:flex;align-items:center;gap:10px;width:100%;}
-.projectTabsScroll{min-width:0;flex:1 1 auto;display:flex;gap:8px;align-items:center;overflow-x:auto;overflow-y:hidden;padding:0 2px 2px;scrollbar-width:thin;scrollbar-color:rgba(229,231,235,.85) transparent;}
-.projectTabsScroll::-webkit-scrollbar{height:6px;}
-.projectTabsScroll::-webkit-scrollbar-track{background:transparent;}
-.projectTabsScroll::-webkit-scrollbar-thumb{background:rgba(229,231,235,.85);border-radius:999px;}
-.projectTabsScroll::-webkit-scrollbar-thumb:hover{background:rgba(209,213,219,.95);}
+.projectTabsScroll{min-width:0;flex:1 1 auto;display:flex;gap:8px;align-items:center;overflow-x:auto;overflow-y:hidden;padding:0 2px;}
 .projectActions{flex:0 0 auto;display:flex;align-items:center;gap:8px;}
 .emptyTop{display:flex;align-items:center;gap:10px;}
 .logo{width:44px;height:44px;border-radius:999px;background:var(--sw-primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.02em;}

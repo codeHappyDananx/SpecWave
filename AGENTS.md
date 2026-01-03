@@ -194,7 +194,7 @@
   - 依赖谁：`./shell/SpecWaveApp`。
   - 由谁依赖：`apps/desktop` renderer。
 - `packages/ui-next/src/styles.css`
-  - 做什么：全局 tokens + reset（禁止写组件样式）；支持 `data-skin` 主色切换（仍保持单一 Light/Flat 口径）。
+  - 做什么：全局 tokens + reset（禁止写组件样式）；支持 `data-skin` 主色切换（仍保持单一 Light/Flat 口径）；统一滚动条规则：默认不展示，hover 时仅显示滑块（无滑轨），减少多区域同时滚动时的“条框噪音”。
   - 依赖谁：无。
   - 由谁依赖：`apps/desktop/src/renderer/src/main.tsx`。
 - `packages/ui-next/src/css.d.ts`
