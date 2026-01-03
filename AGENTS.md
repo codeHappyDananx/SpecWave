@@ -323,7 +323,7 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：ChatView。
 - `packages/ui-next/src/primitives/SearchInput.tsx` / `packages/ui-next/src/primitives/SearchInput.module.css`
-  - 做什么：顶部搜索输入（带图标与清空），只负责输入展示与事件上报；样式局部化，避免影响其它区域。
+  - 做什么：顶部搜索输入（带图标与清空），只负责输入展示与事件上报；固定高度，避免输入后因清空按钮出现导致高度跳动；样式局部化，避免影响其它区域。
   - 依赖谁：`Icons`、tokens（CSS variables）。
   - 由谁依赖：TopBar。
 
