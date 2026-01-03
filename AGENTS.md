@@ -307,7 +307,7 @@
   - 依赖谁：`Icons`、`keyboard`。
   - 由谁依赖：TopBar。
 - `packages/ui-next/src/primitives/ClosableTab.tsx` / `packages/ui-next/src/primitives/ClosableTab.module.css`
-  - 做什么：可关闭页签（终端/对话会话 tabs）。
+  - 做什么：可关闭页签（终端/对话会话 tabs；高度固定 36px，与右区左右图标对齐，避免滚动条占位导致页签被裁剪）。
   - 依赖谁：`Icons`、`keyboard`。
   - 由谁依赖：RightPanel。
 - `packages/ui-next/src/primitives/Badge.tsx` / `packages/ui-next/src/primitives/Badge.module.css`
@@ -338,7 +338,7 @@
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`
-  - 做什么：右区（终端/对话切换 + tabs + 新增入口）；开启 `bodyBleed` 让内容区贴满面板边缘（不留白边）；页签溢出时只在“中间区域”横向滚动，`+` 永远可见，且不会把右区撑出窗口。
+  - 做什么：右区（终端/对话切换 + tabs + 新增入口）；开启 `bodyBleed` 让内容区贴满面板边缘（不留白边）；页签溢出时只在“中间区域”横向滚动，滚动条占位在页签下方独立空位（不遮挡页签），`+` 永远可见，且不会把右区撑出窗口。
   - 依赖谁：`Panel`、`IconButton`、`ClosableTab`、`Icons`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/TerminalView.tsx` / `packages/ui-next/src/panels/right/TerminalView.module.css`
