@@ -14,6 +14,8 @@ type RightIntent = Extract<
   | { type: 'RIGHT_PANEL_ADD' }
   | { type: 'TERMINAL_PANEL_SET_ACTIVE' }
   | { type: 'TERMINAL_PANEL_CLOSE' }
+  | { type: 'TERMINAL_COPY' }
+  | { type: 'TERMINAL_PASTE' }
   | { type: 'CHAT_SESSION_SET_ACTIVE' }
   | { type: 'CHAT_SESSION_CLOSE' }
   | { type: 'TERMINAL_WRITE' }
@@ -66,7 +68,7 @@ export function RightPanel(props: RightPanelProps) {
       bodyAriaLabel="右区滚动区"
       minwPx={props.minwPx}
       header={
-        <>
+        <div className={styles.header} aria-label="右区头部内容">
           <div className={styles.headerLeft} aria-label="右区切换区">
             <div className={styles.modeTabs} role="tablist" aria-label="终端/对话切换">
               <button
@@ -102,7 +104,7 @@ export function RightPanel(props: RightPanelProps) {
             icon={<Icon name="plus" />}
             onClick={() => props.dispatch({ type: 'RIGHT_PANEL_ADD' })}
           />
-        </>
+        </div>
       }
     >
       {props.rightMode === 'terminal' ? (

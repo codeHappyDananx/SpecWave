@@ -1172,6 +1172,26 @@ export const useAppStore = create<AppState>((set, get) => ({
           api.terminalWrite(intent.id, intent.data);
           return { vm };
         }
+        case 'TERMINAL_COPY': {
+          const api = window.specwave;
+          if (!api?.clipboardWriteText) return { vm };
+          try {
+            api.clipboardWriteText(intent.text);
+          } catch {}
+          return { vm };
+        }
+        case 'TERMINAL_PASTE': {
+          void (async () => {
+            const api = window.specwave;
+            if (!api?.clipboardReadText || !api?.terminalWrite) return;
+            try {
+              const text = api.clipboardReadText();
+              if (!text) return;
+              api.terminalWrite(intent.id, text);
+            } catch {}
+          })();
+          return { vm };
+        }
         case 'TERMINAL_RESIZE': {
           const api = window.specwave;
           if (!api?.terminalResize) return { vm };

@@ -157,7 +157,7 @@
   - 依赖谁：Electron `ipcMain`、`ptyManager`。
   - 由谁依赖：`apps/desktop/src/main/index.ts`。
 - `apps/desktop/src/preload/index.ts`
-  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：窗口控制、文件系统能力、最近项目持久化；以及终端会话 create/kill/write/resize 与事件订阅）。
+  - 做什么：preload（通过 `contextBridge` 暴露 `window.specwave`：窗口控制、文件系统能力、最近项目持久化；剪贴板读写（给终端 copy/paste 用）；以及终端会话 create/kill/write/resize 与事件订阅）。
   - 依赖谁：Electron API。
   - 由谁依赖：主进程 `BrowserWindow.webPreferences.preload`。
 - `apps/desktop/src/renderer/index.html`
@@ -338,11 +338,11 @@
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`
-  - 做什么：右区（终端/对话切换 + tabs + 新增入口），只派发右区相关 intents。
+  - 做什么：右区（终端/对话切换 + tabs + 新增入口）；页签溢出时只在“中间区域”横向滚动，`+` 永远可见，且不会把右区撑出窗口。
   - 依赖谁：`Panel`、`IconButton`、`ClosableTab`、`Icons`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/TerminalView.tsx` / `packages/ui-next/src/panels/right/TerminalView.module.css`
-  - 做什么：终端视图（xterm 渲染 + FitAddon 自适应；输入/resize 只派发 intents，输出由 store 推送）。
+  - 做什么：终端视图（xterm 渲染 + FitAddon 自适应；输入/resize 只派发 intents，输出由 store 推送；右键/快捷键按 Windows 习惯做 copy/paste，且 `Ctrl+C` 有选区复制、无选区中断）。
   - 依赖谁：`@xterm/xterm`、`@xterm/addon-fit`。
   - 由谁依赖：RightPanel。
 - `packages/ui-next/src/panels/right/ChatView.tsx` / `packages/ui-next/src/panels/right/ChatView.module.css`

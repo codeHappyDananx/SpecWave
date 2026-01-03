@@ -120,6 +120,8 @@ export type UIIntent =
   | { type: "THEME_TOGGLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
   | { type: "TERMINAL_PANEL_SET_ACTIVE"; id: string }
+  | { type: "TERMINAL_COPY"; text: string }
+  | { type: "TERMINAL_PASTE"; id: string }
   | { type: "CHAT_SESSION_CLOSE"; id: string }
   | { type: "CHAT_SESSION_SET_ACTIVE"; id: string }
   | { type: "GLOBAL_SEARCH_SET"; query: string }

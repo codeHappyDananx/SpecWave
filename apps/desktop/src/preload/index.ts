@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { clipboard, contextBridge, ipcRenderer } from 'electron';
 
 export type DirEntryDTO = {
   name: string;
@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('specwave', {
   saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) =>
     ipcRenderer.invoke('specwave:saveTextFile', { filePath, text, ifMatchSha256 }) as Promise<SaveTextFileResult>,
 
+  clipboardReadText: () => clipboard.readText(),
+  clipboardWriteText: (text: string) => clipboard.writeText(text),
+
   terminalCreateSession: (args: { id: string; cwd?: string | null; cols?: number | null; rows?: number | null }) =>
     ipcRenderer.invoke('specwave:terminal:create', args) as Promise<TerminalCreateResult>,
   terminalKillSession: (id: string) => ipcRenderer.invoke('specwave:terminal:kill', { id }) as Promise<void>,
@@ -72,6 +75,9 @@ declare global {
       readDirectory: (dirPath: string) => Promise<ReadDirectoryResult>;
       readTextFile: (filePath: string) => Promise<ReadTextFileResult>;
       saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) => Promise<SaveTextFileResult>;
+
+      clipboardReadText: () => string;
+      clipboardWriteText: (text: string) => void;
 
       terminalCreateSession: (args: { id: string; cwd?: string | null; cols?: number | null; rows?: number | null }) => Promise<TerminalCreateResult>;
       terminalKillSession: (id: string) => Promise<void>;

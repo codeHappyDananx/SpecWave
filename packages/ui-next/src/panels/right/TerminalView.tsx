@@ -5,7 +5,13 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import styles from './TerminalView.module.css';
 
-type TerminalIntent = Extract<UIIntent, { type: 'TERMINAL_WRITE' } | { type: 'TERMINAL_RESIZE' }>;
+type TerminalIntent = Extract<
+  UIIntent,
+  | { type: 'TERMINAL_WRITE' }
+  | { type: 'TERMINAL_RESIZE' }
+  | { type: 'TERMINAL_COPY' }
+  | { type: 'TERMINAL_PASTE' }
+>;
 
 export type TerminalViewProps = {
   terminal: AppViewModel['terminal'];
@@ -68,6 +74,75 @@ export function TerminalView(props: TerminalViewProps) {
       dispatch({ type: 'TERMINAL_WRITE', id: activeId, data });
     });
 
+    const copySelection = () => {
+      if (!term.hasSelection()) return false;
+      const text = term.getSelection();
+      if (!text) return false;
+      dispatch({ type: 'TERMINAL_COPY', text });
+      try {
+        term.clearSelection();
+      } catch {}
+      return true;
+    };
+
+    const pasteFromClipboard = () => {
+      dispatch({ type: 'TERMINAL_PASTE', id: activeId });
+      try {
+        term.focus();
+      } catch {}
+    };
+
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (term.hasSelection()) {
+        copySelection();
+        return;
+      }
+      pasteFromClipboard();
+    };
+
+    el.addEventListener('contextmenu', onContextMenu);
+
+    // Windows 常用：Ctrl+Shift+C/V、Ctrl+Insert、Shift+Insert
+    // 额外口径：Ctrl+C 有选区时复制；无选区时按“中断”处理（交给终端/pty）。
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true;
+      if (e.defaultPrevented) return true;
+      if (e.isComposing) return true;
+
+      const ctrl = e.ctrlKey;
+      const shift = e.shiftKey;
+      const alt = e.altKey;
+      const meta = e.metaKey;
+      const code = e.code;
+
+      const isCtrlC = ctrl && !shift && !alt && !meta && code === 'KeyC';
+      const isCopyShortcut = (ctrl && shift && !alt && !meta && code === 'KeyC') || (ctrl && !shift && !alt && !meta && code === 'Insert');
+      const isPasteShortcut =
+        (ctrl && shift && !alt && !meta && code === 'KeyV') || (shift && !ctrl && !alt && !meta && code === 'Insert');
+
+      if (isPasteShortcut) {
+        pasteFromClipboard();
+        return false;
+      }
+
+      if (isCopyShortcut) {
+        const didCopy = copySelection();
+        if (didCopy) return false;
+        return false;
+      }
+
+      if (isCtrlC) {
+        const didCopy = copySelection();
+        if (didCopy) return false;
+        // 无选区：交给终端本身处理（通常是中断/停止当前命令）。
+        return true;
+      }
+
+      return true;
+    });
+
     let raf = 0;
     const runFit = () => {
       cancelAnimationFrame(raf);
@@ -85,6 +160,7 @@ export function TerminalView(props: TerminalViewProps) {
       ro.disconnect();
       onData.dispose();
       cancelAnimationFrame(raf);
+      el.removeEventListener('contextmenu', onContextMenu);
       try {
         term.dispose();
       } catch {}
