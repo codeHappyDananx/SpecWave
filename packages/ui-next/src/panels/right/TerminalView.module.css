@@ -1,4 +1,4 @@
-.root{min-height:0;height:100%;display:grid;gap:10px;grid-template-rows:1fr;}
-.xtermHost{border-radius:var(--sw-radius-lg);background:var(--sw-terminal-bg);min-height:0;height:100%;overflow:hidden;border:2px solid var(--sw-border);}
-.emptyHint{border-radius:var(--sw-radius-lg);background:var(--sw-muted);padding:16px;display:grid;place-items:center;gap:6px;color:#374151;text-align:center;font-weight:800;letter-spacing:-.01em;}
+.root{min-height:0;height:100%;display:flex;min-width:0;}
+.xtermHost{flex:1;min-width:0;border-radius:0;background:var(--sw-terminal-bg);min-height:0;height:100%;overflow:hidden;border:0;}
+.emptyHint{width:100%;height:100%;border-radius:0;background:var(--sw-terminal-bg);padding:16px;display:grid;place-items:center;gap:6px;color:#374151;text-align:center;font-weight:800;letter-spacing:-.01em;}
 .emptyHintMuted{font-weight:700;color:#4B5563;}

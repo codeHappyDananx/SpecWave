@@ -26,13 +26,15 @@ export function ChatView(props: ChatViewProps) {
         ))}
       </div>
 
-      <PromptInput
-        ariaLabel="对话输入"
-        placeholder="输入指令…"
-        value={draft}
-        onChangeText={(text) => props.dispatch({ type: 'CHAT_DRAFT_SET', id: activeId, text })}
-        onSubmit={(text) => props.dispatch({ type: 'CHAT_MESSAGE_SUBMIT', id: activeId, text })}
-      />
+      <div className={styles.inputWrap} aria-label="对话输入区">
+        <PromptInput
+          ariaLabel="对话输入"
+          placeholder="输入指令…"
+          value={draft}
+          onChangeText={(text) => props.dispatch({ type: 'CHAT_DRAFT_SET', id: activeId, text })}
+          onSubmit={(text) => props.dispatch({ type: 'CHAT_MESSAGE_SUBMIT', id: activeId, text })}
+        />
+      </div>
     </div>
   );
 }

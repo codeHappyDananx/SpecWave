@@ -1,5 +1,6 @@
-.root{min-height:0;height:100%;display:grid;gap:10px;grid-template-rows:1fr auto;}
-.msgs{min-height:0;overflow:auto;display:grid;gap:10px;align-content:start;}
+.root{min-height:0;height:100%;display:grid;gap:0;grid-template-rows:1fr auto;background:var(--sw-muted);padding:0;}
+.msgs{min-height:0;overflow:auto;display:grid;gap:10px;align-content:start;padding:12px;}
+.inputWrap{padding:12px;}
 .msg{border-radius:var(--sw-radius-lg);padding:12px;display:grid;gap:6px;}
 .msgUser{background:#DBEAFE;}
 .msgAi{background:#ECFDF5;}

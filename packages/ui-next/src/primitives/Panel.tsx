@@ -8,6 +8,7 @@ export type PanelProps = {
   headerAriaLabel?: string;
   bodyAriaLabel?: string;
   minwPx?: number;
+  bodyBleed?: boolean;
   children: React.ReactNode;
 };
 
@@ -16,7 +17,12 @@ export function Panel(props: PanelProps) {
   const hasHeader = Boolean(props.header);
 
   return (
-    <Tag className={styles.panel} aria-label={props.ariaLabel} data-has-header={hasHeader ? 'true' : 'false'}>
+    <Tag
+      className={styles.panel}
+      aria-label={props.ariaLabel}
+      data-has-header={hasHeader ? 'true' : 'false'}
+      data-body-bleed={props.bodyBleed ? 'true' : 'false'}
+    >
       {props.header ? (
         <div className={styles.header} aria-label={props.headerAriaLabel}>
           {props.header}

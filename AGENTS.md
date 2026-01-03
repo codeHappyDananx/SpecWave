@@ -315,7 +315,7 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：CenterPanel、StatusBar。
 - `packages/ui-next/src/primitives/Panel.tsx` / `packages/ui-next/src/primitives/Panel.module.css`
-  - 做什么：三栏面板骨架（header + scroll body + min width 变量）。
+  - 做什么：三栏面板骨架（header + scroll body + min width 变量；可选 `bodyBleed` 让 body 区域贴边，用于右区终端/对话“贴满无白边”，不影响其它面板）。
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：LeftPanel、CenterPanel、RightPanel。
 - `packages/ui-next/src/primitives/PromptInput.tsx` / `packages/ui-next/src/primitives/PromptInput.module.css`
@@ -338,7 +338,7 @@
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`
-  - 做什么：右区（终端/对话切换 + tabs + 新增入口）；页签溢出时只在“中间区域”横向滚动，`+` 永远可见，且不会把右区撑出窗口。
+  - 做什么：右区（终端/对话切换 + tabs + 新增入口）；开启 `bodyBleed` 让内容区贴满面板边缘（不留白边）；页签溢出时只在“中间区域”横向滚动，`+` 永远可见，且不会把右区撑出窗口。
   - 依赖谁：`Panel`、`IconButton`、`ClosableTab`、`Icons`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/TerminalView.tsx` / `packages/ui-next/src/panels/right/TerminalView.module.css`

@@ -67,6 +67,7 @@ export function RightPanel(props: RightPanelProps) {
       headerAriaLabel="右区头部"
       bodyAriaLabel="右区滚动区"
       minwPx={props.minwPx}
+      bodyBleed
       header={
         <div className={styles.header} aria-label="右区头部内容">
           <div className={styles.headerLeft} aria-label="右区切换区">
