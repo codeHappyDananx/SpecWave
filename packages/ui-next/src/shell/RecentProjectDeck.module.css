@@ -1,0 +1,77 @@
+.recents{width:min(720px,92vw);}
+
+.deck{
+  width:min(680px,92vw);
+  height:260px;
+  position:relative;
+  perspective:900px;
+  transform-style:preserve-3d;
+}
+
+.card{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:min(640px,88vw);
+  height:92px;
+  display:flex;
+  align-items:stretch;
+  gap:10px;
+  padding:10px 10px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.14);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+  color:inherit;
+  will-change:transform;
+}
+
+.cardOpen{
+  flex:1;
+  text-align:left;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  padding:2px 2px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:6px;
+  min-width:0;
+}
+.cardOpen:hover{background:rgba(255,255,255,.03);border-radius:12px;}
+.cardOpen:active{transform:translateY(1px);}
+.cardOpen:disabled{opacity:.55;cursor:not-allowed;}
+
+.cardNameRow{display:flex;align-items:center;gap:10px;justify-content:space-between;min-width:0;}
+.cardName{font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cardWarn{color:#fbbf24;display:inline-flex;align-items:center;flex:0 0 auto;}
+
+.cardPath{
+  font-family:var(--sw-font-mono);
+  font-size:12px;
+  color:rgba(238,242,255,.72);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.cardRemove{
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.14);
+  background:transparent;
+  color:rgba(238,242,255,.74);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  transition:background var(--t-quick),transform var(--t-quick),opacity var(--t-quick);
+  flex:0 0 auto;
+  align-self:center;
+}
+.cardRemove:hover{background:rgba(255,255,255,.06);transform:scale(1.03);}
+.cardRemove:active{transform:scale(.98);}
+.cardRemove:disabled{opacity:.55;cursor:not-allowed;transform:none;}

@@ -8,6 +8,7 @@ import { Prism } from '../vendor/react-bits/Prism';
 import { PrismaticBurst } from '../vendor/react-bits/PrismaticBurst';
 import { Icon } from '../primitives/Icons';
 import { ShinyText } from '../primitives/ShinyText';
+import { RecentProjectDeck } from './RecentProjectDeck';
 import styles from './WelcomePage.module.css';
 
 const WELCOME_BG_KEYS = ['faulty-terminal', 'prismatic-burst', 'hyperspeed', 'color-bends', 'prism'] as const;
@@ -316,39 +317,7 @@ export function WelcomePage(props: WelcomePageProps) {
         ) : null}
 
         {recentProjects.length > 0 ? (
-          <section className={styles.recents} aria-label="历史项目">
-            <div className={styles.list} role="list">
-              {recentProjects.map((p) => (
-                <div key={p.path} className={styles.item} role="listitem">
-                  <button
-                    type="button"
-                    className={styles.itemOpen}
-                    disabled={isLoading}
-                    onClick={() => dispatch({ type: 'PROJECT_OPEN_RECENT', path: p.path })}
-                  >
-                    <div className={styles.itemNameRow}>
-                      <div className={styles.itemName}>{p.name}</div>
-                      {!p.exists ? (
-                        <span className={styles.warning} title="路径不存在（可手动移除）" aria-label="路径不存在">
-                          <Icon name="warning" size={18} />
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className={styles.itemPath}>{p.path}</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={styles.itemRemove}
-                    aria-label={`从历史项目移除：${p.name}`}
-                    onClick={() => dispatch({ type: 'RECENT_PROJECT_REMOVE', path: p.path })}
-                  >
-                    <Icon name="close" size={18} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
+          <RecentProjectDeck projects={recentProjects} isLoading={isLoading} dispatch={dispatch} />
         ) : null}
       </div>
     </div>
