@@ -20,6 +20,7 @@ type AppState = {
 const msg = (who: ChatMessageVM['who'], text: string): ChatMessageVM => ({ who, text });
 
 const initialTerminalBootText = ['正在启动终端…\r\n'];
+const terminalUserTyped = new Set<string>();
 
 type SpecwaveWindowKind = 'welcome' | 'main';
 
@@ -46,6 +47,38 @@ function loadSkin(): AppViewModel['ui']['skin'] {
 
 const specwaveWindowKind = getSpecwaveWindowKind();
 const bootProjectPath = getBootProjectPath();
+
+async function restartIdleTerminalSessionsToCwd(args: {
+  api: Window['specwave'] | undefined;
+  cwd: string;
+  terminalIds: string[];
+  setState: (fn: (state: AppState) => Partial<AppState> | AppState) => void;
+}) {
+  const api = args.api;
+  if (!api?.terminalCreateSession) return;
+
+  args.setState((state) => {
+    const vm2 = state.vm;
+    const nextOutput = { ...vm2.terminal.outputByPanel };
+    for (const id of args.terminalIds) {
+      if (terminalUserTyped.has(id)) continue;
+      nextOutput[id] = ['正在启动终端…\r\n'];
+    }
+    return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: nextOutput } } };
+  });
+
+  for (const id of args.terminalIds) {
+    if (terminalUserTyped.has(id)) continue;
+    const res = await api.terminalCreateSession({ id, cwd: args.cwd });
+    if (res.ok) continue;
+    args.setState((state) => {
+      const vm2 = state.vm;
+      const prev = vm2.terminal.outputByPanel[id] ?? [];
+      const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
+      return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: { ...vm2.terminal.outputByPanel, [id]: next } } } };
+    });
+  }
+}
 
 const initialVm: AppViewModel = {
   app: { mode: specwaveWindowKind === 'welcome' ? 'welcome' : 'main', recentProjects: [] },
@@ -520,6 +553,17 @@ export const useAppStore = create<AppState>((set, get) => ({
               return;
             }
 
+            // 关键处理节点：主窗口启动后才选择项目时，终端会话可能已经用 process.cwd() 启动在 apps/desktop。
+            // 这里在“用户首次打开项目”时，把未输入过的终端会话重建到项目根目录，避免提示符路径误导。
+            if (specwaveWindowKind === 'main' && !bootProjectPath) {
+              await restartIdleTerminalSessionsToCwd({
+                api,
+                cwd: dirPath,
+                terminalIds: get().vm.terminal.panelIds,
+                setState: set
+              });
+            }
+
             const projectName = basename(dirPath);
             const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
 
@@ -594,10 +638,10 @@ export const useAppStore = create<AppState>((set, get) => ({
                return;
              }
 
-             if (specwaveWindowKind === 'welcome' && api.openMainWindow) {
-               try {
-                 await api.openMainWindow(dirPath);
-               } catch (err) {
+              if (specwaveWindowKind === 'welcome' && api.openMainWindow) {
+                try {
+                  await api.openMainWindow(dirPath);
+                } catch (err) {
                  set((s) => ({
                    vm: {
                      ...s.vm,
@@ -609,11 +653,20 @@ export const useAppStore = create<AppState>((set, get) => ({
                    }
                  }));
                }
-               return;
-             }
+                return;
+              }
 
-             const projectName = basename(dirPath);
-             const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
+              if (specwaveWindowKind === 'main' && !bootProjectPath) {
+                await restartIdleTerminalSessionsToCwd({
+                  api,
+                  cwd: dirPath,
+                  terminalIds: get().vm.terminal.panelIds,
+                  setState: set
+                });
+              }
+
+              const projectName = basename(dirPath);
+              const workspaceRoot = joinPath(dirPath, '.specwave', 'workspace');
 
              const tabId = (() => {
                const current = get().vm.projects;
@@ -1102,6 +1155,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             await api.terminalKillSession(intent.id);
           })();
 
+          terminalUserTyped.delete(intent.id);
           const nextIds = vm.terminal.panelIds.filter((id) => id !== intent.id);
           const nextActive = vm.terminal.activePanelId === intent.id ? (nextIds[0] ?? '') : vm.terminal.activePanelId;
           const nextOutput = { ...vm.terminal.outputByPanel };
@@ -1169,6 +1223,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'TERMINAL_WRITE': {
           const api = window.specwave;
           if (!api?.terminalWrite) return { vm };
+          terminalUserTyped.add(intent.id);
           api.terminalWrite(intent.id, intent.data);
           return { vm };
         }
@@ -1201,6 +1256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'RIGHT_PANEL_ADD': {
           if (vm.rightMode === 'terminal') {
             const nextId = `terminal-${Date.now()}`;
+            terminalUserTyped.delete(nextId);
 
             void (async () => {
               const api = window.specwave;
@@ -1450,7 +1506,7 @@ void (async () => {
 
   if (specwaveWindowKind === 'main' && api.terminalCreateSession) {
     const id = useAppStore.getState().vm.terminal.activePanelId;
-    const cwd = useAppStore.getState().vm.explorer.projectRoot ?? null;
+    const cwd = bootProjectPath ?? useAppStore.getState().vm.explorer.projectRoot ?? null;
     const res = await api.terminalCreateSession({ id, cwd });
     if (!res.ok) {
       useAppStore.setState((state) => {

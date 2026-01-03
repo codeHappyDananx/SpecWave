@@ -21,7 +21,7 @@ export function ChatView(props: ChatViewProps) {
         {msgs.map((m, idx) => (
           <div key={idx} className={`${styles.msg} ${m.who === '你' ? styles.msgUser : styles.msgAi}`}>
             <div className={styles.who}>{m.who}</div>
-            <div>{m.text}</div>
+            <div className={styles.text}>{m.text}</div>
           </div>
         ))}
       </div>

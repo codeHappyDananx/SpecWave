@@ -6,11 +6,27 @@ import { Badge } from '../../primitives/Badge';
 import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
 import styles from './CenterPanel.module.css';
 
+function LineNumberedCode(props: { text: string }) {
+  const lines = React.useMemo(() => props.text.replaceAll('\r\n', '\n').split('\n'), [props.text]);
+
+  return (
+    <div className={styles.code} aria-label="文本预览">
+      {lines.map((line, idx) => (
+        <div key={idx} className={styles.codeLine}>
+          <span className={styles.codeNo} aria-hidden="true">
+            {idx + 1}
+          </span>
+          <span className={styles.codeText}>{line.length ? line : ' '}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 type CenterIntent = Extract<
   UIIntent,
   | { type: 'CONTENT_TOGGLE_VIEW_MODE' }
   | { type: 'CONTENT_DRAFT_SET' }
-  | { type: 'CONTENT_SAVE_REQUEST' }
   | { type: 'CONTENT_FIND_SET_QUERY' }
   | { type: 'CONTENT_FIND_NEXT' }
   | { type: 'CONTENT_FIND_PREV' }
@@ -141,14 +157,6 @@ export function CenterPanel(props: CenterPanelProps) {
               >
                 {modeLabel}
               </button>
-              <button
-                className={styles.saveButton}
-                type="button"
-                disabled={!props.content.isDirty || props.content.saveStatus === 'saving'}
-                onClick={() => props.dispatch({ type: 'CONTENT_SAVE_REQUEST' })}
-              >
-                保存
-              </button>
             </div>
           ) : null}
         </div>
@@ -199,9 +207,7 @@ export function CenterPanel(props: CenterPanelProps) {
           <ReactMarkdown>{effectiveText}</ReactMarkdown>
         </div>
       ) : (
-        <pre className={styles.pre} aria-label="文本预览">
-          {effectiveText}
-        </pre>
+        <LineNumberedCode text={effectiveText} />
       )}
 
       {props.content.saveError ? <div className={styles.error}>{props.content.saveError}</div> : null}

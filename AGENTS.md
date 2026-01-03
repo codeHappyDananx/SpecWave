@@ -319,9 +319,9 @@
   - 依赖谁：tokens（CSS variables）。
   - 由谁依赖：LeftPanel、CenterPanel、RightPanel。
 - `packages/ui-next/src/primitives/PromptInput.tsx` / `packages/ui-next/src/primitives/PromptInput.module.css`
-  - 做什么：统一输入框（终端/对话共用）：Enter 提交、Shift+Enter 不提交。
+  - 做什么：对话输入框（多行 textarea）：Enter 提交；Ctrl/Shift+Enter 换行；输入高度自动随内容增长（上限 160px）。
   - 依赖谁：tokens（CSS variables）。
-  - 由谁依赖：TerminalView、ChatView。
+  - 由谁依赖：ChatView。
 - `packages/ui-next/src/primitives/SearchInput.tsx` / `packages/ui-next/src/primitives/SearchInput.module.css`
   - 做什么：顶部搜索输入（带图标与清空），只负责输入展示与事件上报；样式局部化，避免影响其它区域。
   - 依赖谁：`Icons`、tokens（CSS variables）。
@@ -334,7 +334,7 @@
   - 依赖谁：`Panel`、`Icons`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/center/CenterPanel.tsx` / `packages/ui-next/src/panels/center/CenterPanel.module.css`
-  - 做什么：中区（文件渲染/源码编辑/保存；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数），只派发 intents）。
+  - 做什么：中区（文件渲染/源码编辑；纯文本预览带行号；task 文件支持任务看板勾选写回；支持 Ctrl+F 文件内查找条（Next/Prev/计数）；保存只走 Ctrl+S 快捷键，不提供“保存”按钮）。
   - 依赖谁：`Panel`、`Badge`、`Icons`、`react-markdown`、`@specwave/contracts`。
   - 由谁依赖：`SpecWaveApp.tsx`。
 - `packages/ui-next/src/panels/right/RightPanel.tsx` / `packages/ui-next/src/panels/right/RightPanel.module.css`

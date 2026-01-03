@@ -18,12 +18,10 @@ export type TerminalViewProps = {
   dispatch: (intent: TerminalIntent) => void;
 };
 
-const termTheme = {
-  background: '#0B1020',
-  foreground: '#E5E7EB',
-  cursor: '#E5E7EB',
-  selectionBackground: 'rgba(59,130,246,.35)'
-};
+function cssVar(style: CSSStyleDeclaration, name: string, fallback: string) {
+  const v = style.getPropertyValue(name).trim();
+  return v || fallback;
+}
 
 export function TerminalView(props: TerminalViewProps) {
   const activeId = props.terminal.activePanelId;
@@ -53,6 +51,13 @@ export function TerminalView(props: TerminalViewProps) {
     if (!el) return;
 
     el.innerHTML = '';
+    const css = getComputedStyle(el);
+    const termTheme = {
+      background: cssVar(css, '--sw-terminal-bg', '#FFF7ED'),
+      foreground: cssVar(css, '--sw-terminal-fg', '#111827'),
+      cursor: cssVar(css, '--sw-terminal-cursor', '#111827'),
+      selectionBackground: cssVar(css, '--sw-terminal-selection', 'rgba(59,130,246,.22)')
+    };
     const term = new Terminal({
       cursorBlink: true,
       fontFamily: 'var(--sw-font-mono)',
@@ -174,7 +179,18 @@ export function TerminalView(props: TerminalViewProps) {
     const term = termRef.current;
     if (!term) return;
 
-    const start = writtenRef.current[activeId] ?? 0;
+    let start = writtenRef.current[activeId] ?? 0;
+    // 输出被裁剪/重置时，writtenRef 可能大于当前 chunks；需要把终端内容同步回“当前缓存”的样子。
+    if (start > chunks.length) {
+      start = 0;
+      writtenRef.current[activeId] = 0;
+      try {
+        (term as any).reset?.();
+      } catch {}
+      try {
+        term.clear();
+      } catch {}
+    }
     if (chunks.length <= start) return;
     const next = chunks.slice(start);
     writtenRef.current[activeId] = chunks.length;

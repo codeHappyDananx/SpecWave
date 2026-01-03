@@ -16,6 +16,12 @@
     "Microsoft YaHei", "PingFang SC", sans-serif;
   --sw-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
+
+  /* 终端（xterm）主题：保持“白天模式”清爽、字形清晰 */
+  --sw-terminal-bg: #fff7ed;
+  --sw-terminal-fg: #111827;
+  --sw-terminal-cursor: #111827;
+  --sw-terminal-selection: rgba(59, 130, 246, 0.22);
 }
 
 [data-skin="blue"] {
@@ -52,6 +58,10 @@
 html,
 body {
   height: 100%;
+}
+
+html {
+  font-size: 13px;
 }
 
 #root {

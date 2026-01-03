@@ -4,4 +4,4 @@
 .msgUser{background:#DBEAFE;}
 .msgAi{background:#ECFDF5;}
 .who{font-weight:800;letter-spacing:-.02em;}
-
+.text{white-space:pre-wrap;word-break:break-word;}
