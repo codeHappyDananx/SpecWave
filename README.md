@@ -15,6 +15,23 @@
 - 启动开发：`pnpm dev`（Windows 推荐直接双击/运行 `start.bat`，它会自动 `cd` 到仓库根目录，并默认清理残留进程）
 - 类型检查：`pnpm typecheck`
 
+## 打包（Windows）
+
+- 生成构建产物（`dist-electron`）：`pnpm build`
+- 生成安装包（NSIS Setup.exe）+ 免安装版（portable.exe）：`pnpm -C apps/desktop dist:win`
+- 打包输出目录：`apps/desktop/release/`
+
+### 代码签名（Windows）
+
+本项目用 `electron-builder` 的默认签名逻辑：通过环境变量提供证书，不把证书落进仓库。
+
+- `CSC_LINK`：`.pfx` 证书路径（也可以是 base64 字符串）
+- `CSC_KEY_PASSWORD`：证书密码
+
+说明：
+- 如果机器上没有 `signtool.exe`（Windows SDK / Visual Studio Build Tools 提供），会导致签名失败；你也可以先不设置 `CSC_LINK`/`CSC_KEY_PASSWORD` 生成未签名安装包用于自测。
+- PowerShell 示例：`$env:CSC_LINK='C:\\path\\to\\SpecWave.pfx'; $env:CSC_KEY_PASSWORD='******'; pnpm -C apps/desktop dist:win`
+
 ### WelcomePage 背景动效（WebGL）排查
 
 如果你在 Windows 上遇到 `GPU process exited unexpectedly` 或 WelcomePage 动效黑屏/卡顿，优先尝试切换 ANGLE：  

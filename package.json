@@ -12,6 +12,7 @@
     "typecheck": "tsc -b"
   },
   "devDependencies": {
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.5.4"
   }
 }
