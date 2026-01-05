@@ -41,10 +41,10 @@
 ## 3. 关键目录/文件职责
 | 路径 | 职责（简述） | 依赖谁 | 被谁依赖 | 边界/备注 |
 | --- | --- | --- | --- | --- |
-| `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel` | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
+| `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果等展示 | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
-| `packages/ui-next/src/panels/center` | 中栏：编辑/预览/查找 | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
+| `packages/ui-next/src/panels/center` | 中栏：编辑/预览/查找（含图片预览） | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/panels/right` | 右栏：终端/对话 tabs | `primitives` | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/primitives` | 可复用 UI 组件与样式 | tokens | panels/shell | 自写组件样式用 CSS Modules；shadcn 引入组件允许 Tailwind class（集中在 `primitives/shadcn`） |
 | `packages/ui-next/src/primitives/shadcn` | shadcn/ui 引入的可控组件（new-york v4） | Tailwind v4 + Radix + lucide | panels/left | 只在 primitives 内维护，避免散落；组件内部可带少量 reset（如 `list-none`）来保证样式稳定 |
@@ -61,9 +61,9 @@
 | `tailwind.config.cjs` | Tailwind 配置 | 无 | renderer 构建链路 | content 覆盖 renderer + `ui-next`；补齐 shadcn tokens/colors 映射 |
 | `apps/desktop/src/renderer/postcss.config.cjs` | renderer 的 PostCSS/Tailwind 配置 | `@tailwindcss/postcss` | Vite renderer | Tailwind v4：通过 `base` 指到仓库根，确保能扫到 `packages/ui-next` 里的 class；Tailwind 配置由 `styles.css` 的 `@config` 指定 |
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
-| `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty | Electron/Node | Electron entry | 系统能力集中在这里 |
-| `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制 | Electron | renderer | UI 不直连 Node 能力 |
-| `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
+| `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty（含目录监听与二进制读取） | Electron/Node | Electron entry | 系统能力集中在这里 |
+| `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗） | Electron | renderer | UI 不直连 Node 能力 |
+| `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（含图片预览与文件外部变更处理） | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |

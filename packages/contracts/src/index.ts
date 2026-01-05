@@ -52,7 +52,7 @@ export type ExplorerVM = {
   error: string | null;
 };
 
-export type ContentKind = "markdown" | "task" | "text";
+export type ContentKind = "markdown" | "task" | "text" | "image";
 export type ContentMode = "view" | "editor" | "task";
 
 export type ContentFileVM = {

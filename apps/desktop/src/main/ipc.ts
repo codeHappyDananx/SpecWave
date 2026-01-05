@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { createHash } from 'node:crypto';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getRecentProjects, removeRecentProject, touchRecentProject } from './recentProjects';
@@ -12,16 +13,35 @@ type DirEntryDTO = {
 
 type ReadDirectoryResult = { ok: true; entries: DirEntryDTO[] } | { ok: false; error: string };
 type ReadTextFileResult = { ok: true; text: string; sha256: string } | { ok: false; error: string };
+type ReadBinaryFileResult =
+  | { ok: true; base64: string; mime: string; sha256: string; size: number }
+  | { ok: false; error: string };
 type SaveTextFileResult =
   | { ok: true; sha256: string }
   | { ok: false; error: string }
   | { ok: false; conflict: true; error: string };
+
+type MessageBoxOptions = {
+  title?: string;
+  message: string;
+  detail?: string;
+  buttons: string[];
+  defaultId?: number;
+  cancelId?: number;
+};
+type MessageBoxResult = { ok: true; response: number } | { ok: false; error: string };
+
+type FsEventDTO = { event: 'rename' | 'change'; path: string };
+type FsWatchStartArgs = { workspaceRoot?: string | null; projectRoot?: string | null };
+type FsWatchStartResult = { ok: true } | { ok: false; error: string };
 
 export type AppShellBridge = {
   openMainWindow: (args: { projectPath?: string | null }) => Promise<void> | void;
   openWelcomeWindow: (args: { fromWindowId?: number | null }) => Promise<void> | void;
   quitApp: () => void;
 };
+
+const MAX_BINARY_BYTES = 20 * 1024 * 1024;
 
 function sha256(buf: Buffer) {
   return createHash('sha256').update(buf).digest('hex');
@@ -30,6 +50,108 @@ function sha256(buf: Buffer) {
 function toErrorMessage(err: unknown) {
   if (err instanceof Error) return err.message || String(err);
   return String(err);
+}
+
+function mimeFromFilePath(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.bmp':
+      return 'image/bmp';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.ico':
+      return 'image/x-icon';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+type FsWatchGroup = {
+  roots: { workspaceRoot: string | null; projectRoot: string | null };
+  watchers: fsSync.FSWatcher[];
+};
+
+const fsWatchGroupsByWebContentsId = new Map<number, FsWatchGroup>();
+
+function stopFsWatchGroup(webContentsId: number) {
+  const group = fsWatchGroupsByWebContentsId.get(webContentsId);
+  if (!group) return;
+  fsWatchGroupsByWebContentsId.delete(webContentsId);
+  for (const w of group.watchers) {
+    try {
+      w.close();
+    } catch {}
+  }
+}
+
+function startFsWatchGroup(webContents: Electron.WebContents, args: FsWatchStartArgs) {
+  const id = webContents.id;
+  const nextRoots = {
+    workspaceRoot: typeof args.workspaceRoot === 'string' && args.workspaceRoot.trim().length ? args.workspaceRoot : null,
+    projectRoot: typeof args.projectRoot === 'string' && args.projectRoot.trim().length ? args.projectRoot : null
+  };
+
+  const prev = fsWatchGroupsByWebContentsId.get(id);
+  if (
+    prev &&
+    prev.roots.workspaceRoot === nextRoots.workspaceRoot &&
+    prev.roots.projectRoot === nextRoots.projectRoot
+  ) {
+    return;
+  }
+
+  if (!prev) {
+    webContents.once('destroyed', () => stopFsWatchGroup(id));
+  }
+
+  stopFsWatchGroup(id);
+
+  const watchers: fsSync.FSWatcher[] = [];
+  const watchRoot = (root: string) => {
+    try {
+      if (!fsSync.existsSync(root)) return;
+      const st = fsSync.statSync(root);
+      if (!st.isDirectory()) return;
+    } catch {
+      return;
+    }
+
+    const attach = (recursive: boolean) => {
+      const w = fsSync.watch(
+        root,
+        { recursive },
+        (event, filename) => {
+          const safeEvent = event === 'rename' || event === 'change' ? event : 'change';
+          const name = filename == null ? '' : String(filename);
+          const fullPath = name.length ? path.join(root, name) : root;
+          try {
+            webContents.send('specwave:fs:event', { event: safeEvent, path: fullPath } satisfies FsEventDTO);
+          } catch {}
+        }
+      );
+      watchers.push(w);
+    };
+
+    try {
+      attach(true);
+    } catch {
+      attach(false);
+    }
+  };
+
+  if (nextRoots.workspaceRoot) watchRoot(nextRoots.workspaceRoot);
+  if (nextRoots.projectRoot) watchRoot(nextRoots.projectRoot);
+
+  fsWatchGroupsByWebContentsId.set(id, { roots: nextRoots, watchers });
 }
 
 async function readDirectoryEntries(dirPath: string): Promise<DirEntryDTO[]> {
@@ -108,6 +230,22 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
     }
   });
 
+  ipcMain.handle('specwave:readBinaryFile', async (_evt, args: { filePath: string }): Promise<ReadBinaryFileResult> => {
+    try {
+      const stat = await fs.stat(args.filePath);
+      if (!stat.isFile()) return { ok: false, error: '不是文件。' };
+      if (stat.size > MAX_BINARY_BYTES) {
+        return { ok: false, error: `文件过大（${stat.size} bytes），已拒绝加载。` };
+      }
+
+      const buf = await fs.readFile(args.filePath);
+      const mime = mimeFromFilePath(args.filePath);
+      return { ok: true, base64: buf.toString('base64'), mime, sha256: sha256(buf), size: buf.byteLength };
+    } catch (err) {
+      return { ok: false, error: toErrorMessage(err) };
+    }
+  });
+
   ipcMain.handle(
     'specwave:saveTextFile',
     async (_evt, args: { filePath: string; text: string; ifMatchSha256?: string }): Promise<SaveTextFileResult> => {
@@ -128,4 +266,33 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
       }
     }
   );
+
+  ipcMain.handle('specwave:showMessageBox', async (evt, args: MessageBoxOptions): Promise<MessageBoxResult> => {
+    try {
+      const win = BrowserWindow.fromWebContents(evt.sender);
+      if (!win) return { ok: false, error: '窗口已关闭。' };
+      const res = await dialog.showMessageBox(win, {
+        type: 'question',
+        title: args.title || 'SpecWave',
+        message: args.message,
+        detail: args.detail,
+        buttons: Array.isArray(args.buttons) && args.buttons.length ? args.buttons : ['确定'],
+        defaultId: typeof args.defaultId === 'number' ? args.defaultId : 0,
+        cancelId: typeof args.cancelId === 'number' ? args.cancelId : undefined,
+        noLink: true
+      });
+      return { ok: true, response: res.response };
+    } catch (err) {
+      return { ok: false, error: toErrorMessage(err) };
+    }
+  });
+
+  ipcMain.handle('specwave:fsWatchStart', async (evt, args: FsWatchStartArgs): Promise<FsWatchStartResult> => {
+    try {
+      startFsWatchGroup(evt.sender, args);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: toErrorMessage(err) };
+    }
+  });
 }

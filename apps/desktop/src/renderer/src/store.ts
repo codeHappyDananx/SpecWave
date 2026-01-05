@@ -339,6 +339,10 @@ function applyDrag(snapshot: DragSnapshot, deltaX: number) {
 let openProjectSeq = 0;
 let openFileSeq = 0;
 
+const SELF_WRITE_SILENCE_MS = 800;
+const selfWriteAtByPath = new Map<string, number>();
+let suppressExternalChangePromptPath: string | null = null;
+
 function detectSep(p: string) {
   return p.includes('/') ? '/' : '\\';
 }
@@ -358,6 +362,27 @@ function basename(p: string) {
   return idx >= 0 ? normalized.slice(idx + 1) : normalized;
 }
 
+function dirname(p: string) {
+  const sep = detectSep(p);
+  const normalized = p.replace(/[\\/]+$/g, '');
+  const idx = normalized.lastIndexOf(sep);
+  if (idx < 0) return normalized;
+  if (idx === 0) return sep;
+  return normalized.slice(0, idx);
+}
+
+function normalizeFsPath(p: string) {
+  return p.replaceAll('\\', '/').replaceAll(/\/+/g, '/').toLowerCase();
+}
+
+function isWithinRoot(candidatePath: string, root: string) {
+  const c = normalizeFsPath(candidatePath);
+  const r = normalizeFsPath(root);
+  if (c === r) return true;
+  const prefix = r.endsWith('/') ? r : `${r}/`;
+  return c.startsWith(prefix);
+}
+
 const defaultIgnoredNames = new Set(['node_modules', '.git', 'dist', 'out']);
 
 function isIgnoredEntryName(name: string): boolean {
@@ -368,6 +393,17 @@ function isIgnoredEntryName(name: string): boolean {
 
 function toExplorerNodes(entries: { name: string; path: string; kind: 'dir' | 'file' }[]): ExplorerNodeVM[] {
   return entries.map((e) => ({ id: e.path, name: e.name, kind: e.kind, isIgnored: isIgnoredEntryName(e.name) }));
+}
+
+function mergeExplorerChildren(prev: ExplorerNodeVM[] | undefined, next: ExplorerNodeVM[]): ExplorerNodeVM[] {
+  if (!prev || prev.length === 0) return next;
+  const byId = new Map(prev.map((n) => [n.id, n]));
+  return next.map((n) => {
+    const old = byId.get(n.id);
+    if (!old) return n;
+    if (n.kind !== 'dir') return n;
+    return { ...n, children: old.children, isLoading: old.isLoading, error: old.error };
+  });
 }
 
 function updateNodeById(
@@ -397,7 +433,8 @@ function findNodeById(nodes: ExplorerNodeVM[], id: string): ExplorerNodeVM | nul
 function detectContentKind(filePath: string): ContentKind {
   const lower = filePath.toLowerCase();
   const name = basename(filePath).toLowerCase();
-  if (name === 'tasks.md' || name === 'work.md') return 'task';
+  if (name === 'tasks.md' || name === 'work.md' || name === '02-任务.md' || name === '03-任务.md') return 'task';
+  if (/\.(png|jpg|jpeg|gif|webp|bmp|svg|ico)$/.test(lower)) return 'image';
   if (lower.endsWith('.md')) return 'markdown';
   return 'text';
 }
@@ -405,6 +442,7 @@ function detectContentKind(filePath: string): ContentKind {
 function defaultContentMode(kind: ContentKind): ContentMode {
   if (kind === 'task') return 'task' as const;
   if (kind === 'markdown') return 'view' as const;
+  if (kind === 'image') return 'view' as const;
   return 'editor' as const;
 }
 
@@ -610,6 +648,10 @@ export const useAppStore = create<AppState>((set, get) => ({
                 ? null
                 : `工作区读取失败：${workspaceRes.error}`;
 
+            if (api.fsWatchStart) {
+              void api.fsWatchStart({ workspaceRoot: workspaceRes.ok ? workspaceRoot : null, projectRoot: dirPath });
+            }
+
             const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
             if (seq !== openProjectSeq) return;
 
@@ -712,6 +754,10 @@ export const useAppStore = create<AppState>((set, get) => ({
                 ? null
                 : `工作区读取失败：${workspaceRes.error}`;
 
+            if (api.fsWatchStart) {
+              void api.fsWatchStart({ workspaceRoot: workspaceRes.ok ? workspaceRoot : null, projectRoot: dirPath });
+            }
+
             const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
             if (seq !== openProjectSeq) return;
 
@@ -761,6 +807,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (!targetTab) return { vm };
 
           if (targetTab.path == null) {
+            void window.specwave?.fsWatchStart?.({ workspaceRoot: null, projectRoot: null });
             return {
               vm: {
                 ...vm,
@@ -795,6 +842,10 @@ export const useAppStore = create<AppState>((set, get) => ({
               : workspaceRes.error.includes('ENOENT')
                 ? null
                 : `工作区读取失败：${workspaceRes.error}`;
+
+            if (api.fsWatchStart) {
+              void api.fsWatchStart({ workspaceRoot: workspaceRes.ok ? workspaceRoot : null, projectRoot: dirPath });
+            }
 
             const recentProjects = api.touchRecentProject ? await api.touchRecentProject(dirPath) : get().vm.app.recentProjects;
             if (seq !== openProjectSeq) return;
@@ -853,6 +904,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
 
           if (specwaveWindowKind === 'main') {
+            void window.specwave?.fsWatchStart?.({ workspaceRoot: null, projectRoot: null });
             void (async () => {
               const api = window.specwave;
               if (api?.openWelcomeWindow) {
@@ -944,11 +996,20 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'EXPLORER_OPEN_FILE': {
           const seq = ++openFileSeq;
           const filePath = intent.path;
+          const kind = detectContentKind(filePath);
+          suppressExternalChangePromptPath = null;
 
           void (async () => {
             const api = window.specwave;
             if (!api) return;
-            const res = await api.readTextFile(filePath);
+
+            const res = await (async () => {
+              if (kind !== 'image') return api.readTextFile(filePath);
+              if (!api.readBinaryFile) return { ok: false, error: '当前桌面端版本不支持图片预览。' } as const;
+              const bin = await api.readBinaryFile(filePath);
+              if (!bin.ok) return { ok: false, error: bin.error } as const;
+              return { ok: true, text: `data:${bin.mime};base64,${bin.base64}`, sha256: bin.sha256 } as const;
+            })();
             if (seq !== openFileSeq) return;
 
             set((state) => {
@@ -964,7 +1025,6 @@ export const useAppStore = create<AppState>((set, get) => ({
                 };
               }
 
-              const kind = detectContentKind(filePath);
               const mode = defaultContentMode(kind);
               const taskBoard = kind === 'task' ? parseTaskBoard(res.text) : null;
 
@@ -999,6 +1059,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'CONTENT_TOGGLE_VIEW_MODE': {
           const file = vm.content.file;
           if (!file) return { vm };
+          if (file.kind === 'image') return { vm };
           const effectiveText = vm.content.isDirty ? vm.content.draftText : vm.content.text;
 
           const nextMode = (() => {
@@ -1048,6 +1109,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             if (!current || current.path !== file.path) return;
             const text = get().vm.content.draftText;
             const res = await api.saveTextFile(current.path, text, current.sha256);
+            if (res.ok) selfWriteAtByPath.set(normalizeFsPath(current.path), Date.now());
 
             set((state) => {
               const vm2 = state.vm;
@@ -1132,6 +1194,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             const current = get().vm.content.file;
             if (!current || current.path !== file.path) return;
             const res = await api.saveTextFile(current.path, nextText, current.sha256);
+            if (res.ok) selfWriteAtByPath.set(normalizeFsPath(current.path), Date.now());
 
             set((state) => {
               const vm2 = state.vm;
@@ -1399,6 +1462,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             if (!current) return;
             const text = get().vm.content.draftText;
             const res = await api.saveTextFile(current.path, text, current.sha256);
+            if (res.ok) selfWriteAtByPath.set(normalizeFsPath(current.path), Date.now());
             set((state) => {
               const vm2 = state.vm;
               if (!vm2.content.file || vm2.content.file.path !== current.path) return { vm: vm2 };
@@ -1547,6 +1611,234 @@ void (async () => {
       });
     }
   }
+})();
+
+let fsBridgeSubscribed = false;
+void (async () => {
+  const api = window.specwave;
+  if (!api?.onFsEvent) return;
+  if (fsBridgeSubscribed) return;
+  fsBridgeSubscribed = true;
+
+  const pending: { workspace: Set<string>; project: Set<string> } = {
+    workspace: new Set(),
+    project: new Set()
+  };
+  let scheduled = false;
+  let flushing = false;
+
+  const applyDirectoryRefresh = (tree: 'workspace' | 'project', dirPath: string, res: { ok: true; entries: { name: string; path: string; kind: 'dir' | 'file' }[] } | { ok: false; error: string }) => {
+    useAppStore.setState((state) => {
+      const vm = state.vm;
+      const root = tree === 'workspace' ? vm.explorer.workspaceRoot : vm.explorer.projectRoot;
+      if (!root) return { vm };
+
+      const isRoot = normalizeFsPath(dirPath) === normalizeFsPath(root);
+      const nextNodesRaw = res.ok ? toExplorerNodes(res.entries) : [];
+
+      if (isRoot) {
+        const prevRootNodes = tree === 'workspace' ? vm.explorer.workspace : vm.explorer.project;
+        const merged = mergeExplorerChildren(prevRootNodes, nextNodesRaw);
+        return { vm: { ...vm, explorer: { ...vm.explorer, [tree]: merged } } };
+      }
+
+      const treeNodes = tree === 'workspace' ? vm.explorer.workspace : vm.explorer.project;
+      const hit = findNodeById(treeNodes, dirPath);
+      if (!hit || hit.kind !== 'dir') return { vm };
+
+      const mergedChildren = mergeExplorerChildren(hit.children, nextNodesRaw);
+      const nextTree = updateNodeById(treeNodes, dirPath, (node) => ({
+        ...node,
+        children: mergedChildren,
+        isLoading: false,
+        error: res.ok ? undefined : res.error
+      }));
+      return { vm: { ...vm, explorer: { ...vm.explorer, [tree]: nextTree } } };
+    });
+  };
+
+  const flush = async () => {
+    if (flushing) return;
+    flushing = true;
+    try {
+      const api2 = window.specwave;
+      if (!api2) return;
+
+      while (pending.workspace.size || pending.project.size) {
+        const batch: { tree: 'workspace' | 'project'; dirPath: string }[] = [];
+
+        for (const p of pending.workspace) {
+          batch.push({ tree: 'workspace', dirPath: p });
+          pending.workspace.delete(p);
+          if (batch.length >= 6) break;
+        }
+        for (const p of pending.project) {
+          batch.push({ tree: 'project', dirPath: p });
+          pending.project.delete(p);
+          if (batch.length >= 6) break;
+        }
+
+        if (!batch.length) break;
+
+        const results = await Promise.all(
+          batch.map(async (t) => ({ ...t, res: await api2.readDirectory(t.dirPath) }))
+        );
+
+        for (const r of results) applyDirectoryRefresh(r.tree, r.dirPath, r.res);
+      }
+    } finally {
+      flushing = false;
+    }
+  };
+
+  const scheduleFlush = () => {
+    if (scheduled) return;
+    scheduled = true;
+    window.setTimeout(() => {
+      scheduled = false;
+      void flush();
+    }, 200);
+  };
+
+  const enqueueRefresh = (tree: 'workspace' | 'project', dirPath: string) => {
+    pending[tree].add(dirPath);
+    scheduleFlush();
+  };
+
+  const resolveExpandedDirId = (tree: 'workspace' | 'project', dirPath: string) => {
+    const expanded = useAppStore.getState().vm.explorer.expanded[tree];
+    const target = normalizeFsPath(dirPath);
+    for (const id of expanded) {
+      if (normalizeFsPath(id) === target) return id;
+    }
+    return null;
+  };
+
+  const reloadOpenFile = async (filePath: string, mode: 'auto' | 'force') => {
+    const api2 = window.specwave;
+    if (!api2) return;
+
+    const current = useAppStore.getState().vm.content.file;
+    if (!current || normalizeFsPath(current.path) !== normalizeFsPath(filePath)) return;
+
+    const stateNow = useAppStore.getState().vm.content;
+    const isDirty = stateNow.isDirty;
+
+    if (isDirty && mode === 'auto') {
+      if (suppressExternalChangePromptPath && normalizeFsPath(suppressExternalChangePromptPath) === normalizeFsPath(filePath)) {
+        return;
+      }
+
+      const title = '文件已在外部修改';
+      const message = `检测到文件已在外部修改：\n${basename(filePath)}\n\n你当前有未保存的修改。是否用磁盘版本覆盖当前内容？`;
+      const detail = '覆盖：丢弃未保存改动；保留：继续保留当前内容（保存时可能提示冲突）。';
+
+      const response = (() => {
+        if (!api2.showMessageBox) {
+          const ok = window.confirm(`${message}\n\n${detail}`);
+          return ok ? 0 : 1;
+        }
+        return null;
+      })();
+
+      const chosen = response != null ? response : (await api2.showMessageBox({ title, message, detail, buttons: ['覆盖', '保留'], defaultId: 1, cancelId: 1 }));
+      const idx = typeof chosen === 'number' ? chosen : chosen.ok ? chosen.response : 1;
+
+      if (idx !== 0) {
+        suppressExternalChangePromptPath = filePath;
+        useAppStore.setState((s) => ({
+          vm: {
+            ...s.vm,
+            content: {
+              ...s.vm.content,
+              saveStatus: s.vm.content.isDirty ? 'conflict' : s.vm.content.saveStatus,
+              saveError: s.vm.content.isDirty ? '文件已在外部修改（已选择保留当前内容）；保存时可能冲突。' : s.vm.content.saveError
+            }
+          }
+        }));
+        return;
+      }
+    }
+
+    suppressExternalChangePromptPath = null;
+
+    const kind = detectContentKind(filePath);
+    const res = await (async () => {
+      if (kind !== 'image') return api2.readTextFile(filePath);
+      if (!api2.readBinaryFile) return { ok: false, error: '当前桌面端版本不支持图片预览。' } as const;
+      const bin = await api2.readBinaryFile(filePath);
+      if (!bin.ok) return { ok: false, error: bin.error } as const;
+      return { ok: true, text: `data:${bin.mime};base64,${bin.base64}`, sha256: bin.sha256 } as const;
+    })();
+
+    useAppStore.setState((state) => {
+      const vm = state.vm;
+      const file = vm.content.file;
+      if (!file || normalizeFsPath(file.path) !== normalizeFsPath(filePath)) return { vm };
+
+      if (!res.ok) {
+        return { vm: { ...vm, content: { ...vm.content, saveStatus: 'error', saveError: res.error } } };
+      }
+
+      const nextMode = vm.content.mode;
+      const nextFind = vm.content.find.isOpen && kind !== 'image'
+        ? { ...vm.content.find, matchStarts: findMatchStarts(res.text, vm.content.find.query), activeIndex: 0 }
+        : { ...initialVm.content.find };
+      return {
+        vm: {
+          ...vm,
+          content: {
+            ...vm.content,
+            file: { ...file, kind, sha256: res.sha256 },
+            text: res.text,
+            draftText: res.text,
+            mode: nextMode,
+            isDirty: false,
+            saveStatus: 'idle',
+            saveError: null,
+            taskBoard: kind === 'task' ? parseTaskBoard(res.text) : kind === 'image' ? null : vm.content.taskBoard,
+            find: nextFind
+          }
+        }
+      };
+    });
+  };
+
+  api.onFsEvent((evt) => {
+    const now = Date.now();
+    const vm = useAppStore.getState().vm;
+    const path0 = evt.path;
+
+    const lastSelfWriteAt = selfWriteAtByPath.get(normalizeFsPath(path0));
+    if (lastSelfWriteAt != null && now - lastSelfWriteAt < SELF_WRITE_SILENCE_MS) return;
+
+    const currentFilePath = vm.content.file?.path ?? null;
+    if (currentFilePath && normalizeFsPath(currentFilePath) === normalizeFsPath(path0)) {
+      void reloadOpenFile(currentFilePath, 'auto');
+    }
+
+    if (evt.event !== 'rename') return;
+
+    const workspaceRoot = vm.explorer.workspaceRoot;
+    const projectRoot = vm.explorer.projectRoot;
+
+    if (workspaceRoot && isWithinRoot(path0, workspaceRoot)) {
+      const dirCandidate = dirname(path0);
+      const resolved = normalizeFsPath(dirCandidate) === normalizeFsPath(workspaceRoot)
+        ? workspaceRoot
+        : resolveExpandedDirId('workspace', dirCandidate);
+      if (resolved) enqueueRefresh('workspace', resolved);
+      return;
+    }
+
+    if (projectRoot && isWithinRoot(path0, projectRoot)) {
+      const dirCandidate = dirname(path0);
+      const resolved = normalizeFsPath(dirCandidate) === normalizeFsPath(projectRoot)
+        ? projectRoot
+        : resolveExpandedDirId('project', dirCandidate);
+      if (resolved) enqueueRefresh('project', resolved);
+    }
+  });
 })();
 
 if (specwaveWindowKind === 'main' && bootProjectPath) {

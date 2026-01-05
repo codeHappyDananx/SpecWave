@@ -8,10 +8,26 @@ export type DirEntryDTO = {
 
 export type ReadDirectoryResult = { ok: true; entries: DirEntryDTO[] } | { ok: false; error: string };
 export type ReadTextFileResult = { ok: true; text: string; sha256: string } | { ok: false; error: string };
+export type ReadBinaryFileResult =
+  | { ok: true; base64: string; mime: string; sha256: string; size: number }
+  | { ok: false; error: string };
 export type SaveTextFileResult =
   | { ok: true; sha256: string }
   | { ok: false; error: string }
   | { ok: false; conflict: true; error: string };
+
+export type MessageBoxOptions = {
+  title?: string;
+  message: string;
+  detail?: string;
+  buttons: string[];
+  defaultId?: number;
+  cancelId?: number;
+};
+export type MessageBoxResult = { ok: true; response: number } | { ok: false; error: string };
+
+export type FsEventDTO = { event: 'rename' | 'change'; path: string };
+export type FsWatchStartResult = { ok: true } | { ok: false; error: string };
 
 export type RecentProjectDTO = {
   path: string;
@@ -41,8 +57,23 @@ contextBridge.exposeInMainWorld('specwave', {
     ipcRenderer.invoke('specwave:readDirectory', { dirPath }) as Promise<ReadDirectoryResult>,
   readTextFile: (filePath: string) =>
     ipcRenderer.invoke('specwave:readTextFile', { filePath }) as Promise<ReadTextFileResult>,
+  readBinaryFile: (filePath: string) =>
+    ipcRenderer.invoke('specwave:readBinaryFile', { filePath }) as Promise<ReadBinaryFileResult>,
   saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) =>
     ipcRenderer.invoke('specwave:saveTextFile', { filePath, text, ifMatchSha256 }) as Promise<SaveTextFileResult>,
+
+  showMessageBox: (options: MessageBoxOptions) =>
+    ipcRenderer.invoke('specwave:showMessageBox', options) as Promise<MessageBoxResult>,
+
+  fsWatchStart: (args: { workspaceRoot?: string | null; projectRoot?: string | null }) =>
+    ipcRenderer.invoke('specwave:fsWatchStart', args) as Promise<FsWatchStartResult>,
+  onFsEvent: (cb: (evt: FsEventDTO) => void) => {
+    const listener = (_evt: unknown, payload: FsEventDTO) => cb(payload);
+    ipcRenderer.on('specwave:fs:event', listener);
+    return () => {
+      ipcRenderer.off('specwave:fs:event', listener);
+    };
+  },
 
   clipboardReadText: () => clipboard.readText(),
   clipboardWriteText: (text: string) => clipboard.writeText(text),
@@ -74,7 +105,13 @@ declare global {
       selectDirectory: () => Promise<string | null>;
       readDirectory: (dirPath: string) => Promise<ReadDirectoryResult>;
       readTextFile: (filePath: string) => Promise<ReadTextFileResult>;
+      readBinaryFile: (filePath: string) => Promise<ReadBinaryFileResult>;
       saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) => Promise<SaveTextFileResult>;
+
+      showMessageBox: (options: MessageBoxOptions) => Promise<MessageBoxResult>;
+
+      fsWatchStart: (args: { workspaceRoot?: string | null; projectRoot?: string | null }) => Promise<FsWatchStartResult>;
+      onFsEvent: (cb: (evt: FsEventDTO) => void) => () => void;
 
       clipboardReadText: () => string;
       clipboardWriteText: (text: string) => void;

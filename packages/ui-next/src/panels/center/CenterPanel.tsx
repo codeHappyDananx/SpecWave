@@ -93,6 +93,7 @@ export function CenterPanel(props: CenterPanelProps) {
       if (props.content.mode === 'view') return '切到源码';
       return '切到任务';
     }
+    if (file.kind === 'image') return '切换';
     if (props.content.mode === 'view') return '切到源码';
     return '切到渲染';
   })();
@@ -162,7 +163,7 @@ export function CenterPanel(props: CenterPanelProps) {
               </div>
             ) : null}
           </div>
-          {file ? (
+          {file && file.kind !== 'image' ? (
             <div className={styles.headerActions}>
               <button
                 className={styles.modeButton}
@@ -215,6 +216,10 @@ export function CenterPanel(props: CenterPanelProps) {
           ) : (
             <div className={styles.muted}>未解析到任务（只识别形如 “- [ ] xxx” 的任务行）。</div>
           )}
+        </div>
+      ) : file.kind === 'image' ? (
+        <div className={styles.imageWrap} aria-label="图片预览">
+          {effectiveText ? <img className={styles.image} src={effectiveText} alt={file.name} /> : <div className={styles.muted}>图片内容为空。</div>}
         </div>
       ) : file.kind === 'markdown' || file.kind === 'task' ? (
         <div className={styles.markdown} aria-label="渲染预览">
