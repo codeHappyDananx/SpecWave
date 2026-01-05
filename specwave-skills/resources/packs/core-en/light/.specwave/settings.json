@@ -1,0 +1,16 @@
+{
+  "specwave": {
+    "version": "0.2.1"
+  },
+  "executionGate": {
+    "requiresAcceptancePass": false,
+    "requiresRequirementConfirmation": true,
+    "requiresStartToken": "START"
+  },
+  "requirementsTemplate": {
+    "askOnFirstEnter": false,
+    "neverAskAgain": true,
+    "templateId": "minimal-en",
+    "customTemplateText": null
+  }
+}

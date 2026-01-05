@@ -1,0 +1,22 @@
+# SpecWave Collaboration Guide (Project-level)
+
+<!-- SPECWAVE:START core -->
+This guide keeps collaboration natural while preserving key decisions in writing.
+
+## Principles
+- If unsure, confirm first (do not guess).
+- Before any side-effectful action (write files / change code / run commands), wait for explicit user go-ahead (e.g. “START / proceed / go ahead”).
+- Log decisions, not essays: write down confirmed scope/decisions/boundaries, avoid long process narratives.
+
+## Workspace (fixed)
+- Editable requirement materials live under `.specwave/workspace/`.
+- Source of truth for structure: `.specwave/workspace/project-map.md` (tree + responsibilities + boundaries).
+
+## Story (optional)
+When you want traceability, create `STORY-000001(示例标题)` under `.specwave/workspace/stories/`, with:
+- Keep a fixed set of files (avoid “v2/v3” sprawl): intent.md / requirements.md / work.md / trace.md / accept.md / rules.md
+- Put reusable reference materials (API contracts / test outputs / screenshots) under `refs/` inside the Story folder
+
+## Stages (not a rigid workflow)
+Init → Requirements → Dev → Acceptance, but keep it conversational.
+<!-- SPECWAVE:END core -->

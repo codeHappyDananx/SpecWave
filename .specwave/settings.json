@@ -1,0 +1,30 @@
+{
+  "specwave": {
+    "version": "0.2.1"
+  },
+  "executionGate": {
+    "requiresAcceptancePass": true,
+    "requiresRequirementConfirmation": true,
+    "requiresStartToken": "开始"
+  },
+  "requirementsTemplate": {
+    "askOnFirstEnter": false,
+    "neverAskAgain": true,
+    "templateId": "minimal-zh",
+    "customTemplateText": null
+  },
+  "projectProbe": {
+    "ignoreDirs": [
+      ".git",
+      ".specwave",
+      "node_modules",
+      "dist",
+      "build",
+      "out",
+      ".next",
+      ".turbo",
+      ".cache",
+      ".tmp-specwave-userdata"
+    ]
+  }
+}

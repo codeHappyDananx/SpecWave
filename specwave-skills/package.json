@@ -1,0 +1,18 @@
+{
+  "name": "specwave-skills",
+  "version": "0.1.0",
+  "description": "SpecWave Skills - 资源与 CLI（create/catalog）",
+  "license": "MIT",
+  "author": "SpecWave Team",
+  "bin": {
+    "specwave": "bin/specwave.js"
+  },
+  "files": [
+    "bin/",
+    "resources/"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
+

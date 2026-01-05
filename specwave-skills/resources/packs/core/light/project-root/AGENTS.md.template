@@ -53,46 +53,5 @@ Story 目录内固定这些内容：
     - `**【执行：<执行>】**`
 <!-- SPECWAVE:END core -->
 
-## 初始化成果（只读）
-- 项目路径图：`.specwave/workspace/project-map.md`
-- 初始化快照：`.specwave/workspace/specs/INIT-000001(初始化成果-AGENTS快照).md`
-- 说明：快照只做追溯；后续维护以 `project-map.md` 为准。
-
-## SpecWave 协作门禁（给 AI / 开发者）
-
-> 目标：**彻底解耦 + 可持续扩展**。UI 只渲染 `ViewModel`、只发 `UIIntent`；业务/文件系统/终端/AI 能力统一走 ports/adapters（后续接入）。
-
-## 强制规则（写死）
-
-1) **禁止把业务逻辑写进 UI**
-   - `packages/ui-next` 只能做“展示 + 采集交互”，只能通过 `dispatch(intent)` 上报意图。
-2) **改动即更新**
-   - 如果你修改了某个文件/目录的职责、行为或入口（哪怕只是 UI 行为），必须同步更新 `.specwave/workspace/project-map.md` 的对应条目。
-   - 新增文件：必须在 `.specwave/workspace/project-map.md` 补一条“它做什么 / 依赖谁 / 由谁依赖 / 边界备注”。
-3) **先改 contracts，再改实现**
-   - 新交互语义优先在 `packages/contracts` 定义 `UIIntent` / `ViewModel` 字段，再由 `store` 实现，再由 UI 消费。
-4) **样式与新组件参照规范**
-   - 新增组件、修改视觉风格、调整交互细节时，必须参照 `SPECWAVESTYLE.MD` 的口径。
-5) **功能完成后，需要提交git但是不push。**
-
-## 解耦与边界（当前仓库已落地的硬约束）
-
-1) **三栏互不影响（强制）**
-   - `packages/ui-next/src/panels/left` / `center` / `right` 之间 **禁止互相 import**。
-   - Panels 允许依赖：`packages/ui-next/src/primitives`、`@specwave/contracts`。
-   - Shell（`packages/ui-next/src/shell`）负责组合三栏与布局；Panels 不实现布局规则。
-
-2) **样式互不影响（强制）**
-   - 全局样式以 tokens + reset 为主：`packages/ui-next/src/styles.css`；允许引入 Tailwind（base+utilities）用于承载 `shadcn/ui` 组件（当前已启用 preflight；若出现全局样式联动，优先收敛影响面）。
-   - 自写组件样式必须使用 `*.module.css` 并与组件同目录；`shadcn/ui` 引入组件可使用 Tailwind class，但要集中放在 `packages/ui-next/src/primitives/shadcn`，避免通用类名外溢。
-
-3) **TypeScript 产物不进源码（强制）**
-   - 根 `typecheck` 使用 `tsc -b`（project references 需要引用工程能 emit）。
-   - `apps/desktop/tsconfig.json` 强制 `noEmit: true`。
-   - 禁止把 `src/**.js`、`src/**.d.ts`、`dist-electron/`、`*.tsbuildinfo` 提交到 git（见 `.gitignore`）。
-
-## 项目结构（为什么这样分层）
-
-- `packages/contracts`：**唯一**的交互契约（`UIIntent` + `ViewModel`），用于解耦 UI 与运行时实现。
-- `packages/ui-next`：纯 UI（React 组件 + Flat 样式 + 内置图标），不接触 Electron/Node/文件系统。
-- `apps/desktop`：Electron 桌面端运行时（主进程、preload、renderer），负责把真实能力接到 `store`（未来通过 ports/adapters）。
+## 项目自定义（留给人写）
+你可以在这里补充团队约定、技术栈、发布流程等内容；升级时不会覆盖这部分。
