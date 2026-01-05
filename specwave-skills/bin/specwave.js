@@ -906,10 +906,15 @@ function extractFirstMeaningfulLine(markdown, headingKeywords) {
 
 function deriveCnSummaryFromWorkDir(workDirPath, kind) {
   const candidates = [
+    '01-需求.md',
+    '02-任务.md',
+    '03-追溯.md',
+    '04-验收.md',
+    '05-规则.md',
+    // Legacy (keep for migration compatibility)
     '01-诉求.md',
     '02-需求.md',
     '03-任务.md',
-    '04-追溯.md',
     '05-验收.md',
     '06-规则.md',
     'intent.md',
@@ -920,7 +925,7 @@ function deriveCnSummaryFromWorkDir(workDirPath, kind) {
     'rules.md'
   ];
   const headingOrderByKind = {
-    story: ['诉求', '目标', '期望效果', '背景'],
+    story: ['你最终会看到什么', '需求概览', '诉求', '目标', '期望效果', '背景'],
     bug: ['现象', '复现', '期望', '实际', '风险/止损', '背景', '诉求']
   };
 
@@ -1051,6 +1056,12 @@ function normalizeStableIdsZh(markdown) {
 
 function normalizeStoryDocsZh({ storyDir }) {
   const targetNames = [
+    '01-需求.md',
+    '02-任务.md',
+    '03-追溯.md',
+    '04-验收.md',
+    '05-规则.md',
+    // Legacy (keep for migration compatibility)
     '01-诉求.md',
     '02-需求.md',
     '03-任务.md',
@@ -1074,14 +1085,51 @@ function normalizeStoryFilesZh({ workspaceRoot }) {
   const storiesRoot = path.join(workspaceRoot, 'stories');
   if (!isDirectoryPath(storiesRoot)) return;
 
-  const storyFileRenames = [
-    ['intent.md', '01-诉求.md'],
-    ['requirements.md', '02-需求.md'],
-    ['work.md', '03-任务.md'],
-    ['trace.md', '04-追溯.md'],
-    ['accept.md', '05-验收.md'],
-    ['rules.md', '06-规则.md']
-  ];
+  const mergeMarkdownInto = ({ targetPath, sourcePath, sourceLabel }) => {
+    if (!isFilePath(sourcePath)) return false;
+    if (!fs.existsSync(targetPath)) {
+      ensureDirectory(path.dirname(targetPath));
+      movePathWithFallback(sourcePath, targetPath);
+      return true;
+    }
+    if (!isFilePath(targetPath)) {
+      exitWithError(`Story 文件迁移冲突：目标不是文件：${targetPath}`);
+    }
+
+    const sourceText = readFileUtf8(sourcePath).trim();
+    if (sourceText.length === 0) {
+      fs.rmSync(sourcePath, { force: true });
+      return true;
+    }
+
+    const targetText = readFileUtf8(targetPath).trimEnd();
+    const merged =
+      targetText.length > 0
+        ? `${targetText}\n\n---\n\n## 迁移内容（来自 ${sourceLabel}）\n\n${sourceText}\n`
+        : `${sourceText}\n`;
+    fs.writeFileSync(targetPath, merged.trimEnd() + '\n', { encoding: 'utf8' });
+    fs.rmSync(sourcePath, { force: true });
+    return true;
+  };
+
+  const ensureCanonical = ({ storyDir, targetName, candidates }) => {
+    const targetPath = path.join(storyDir, targetName);
+    if (fs.existsSync(targetPath) && !isFilePath(targetPath)) {
+      exitWithError(`Story 文件迁移冲突：目标存在同名非文件：${targetPath}`);
+    }
+    let hasTarget = isFilePath(targetPath);
+
+    for (const sourceName of candidates) {
+      const sourcePath = path.join(storyDir, sourceName);
+      if (!isFilePath(sourcePath)) continue;
+      if (!hasTarget) {
+        movePathWithFallback(sourcePath, targetPath);
+        hasTarget = true;
+        continue;
+      }
+      mergeMarkdownInto({ targetPath, sourcePath, sourceLabel: sourceName });
+    }
+  };
 
   const entries = fs.readdirSync(storiesRoot, { withFileTypes: true });
   for (const entry of entries) {
@@ -1090,24 +1138,43 @@ function normalizeStoryFilesZh({ workspaceRoot }) {
 
     const storyDir = path.join(storiesRoot, entry.name);
 
-    for (const [fromName, toName] of storyFileRenames) {
-      const fromPath = path.join(storyDir, fromName);
-      const toPath = path.join(storyDir, toName);
-
-      if (!isFilePath(fromPath)) continue;
-      if (fs.existsSync(toPath)) {
-        exitWithError(
-          `Story 文件迁移冲突：同时存在 ${fromName} 与 ${toName}（请手动合并后删除其中一个）：${storyDir}`
-        );
-      }
-      movePathWithFallback(fromPath, toPath);
-    }
-
     const refsDir = path.join(storyDir, 'refs');
     if (fs.existsSync(refsDir) && !isDirectoryPath(refsDir)) {
       exitWithError(`Story refs 冲突：存在同名文件：${refsDir}`);
     }
     ensureDirectory(refsDir);
+
+    // Canonical story docs (new standard, sequential numbering):
+    // - 01-需求.md (merged from legacy 01-诉求/02-需求/intent/requirements)
+    // - 02-任务.md (merged from legacy 03-任务/work)
+    // - 03-追溯.md (merged from legacy 04-追溯/trace)
+    // - 04-验收.md (merged from legacy 05-验收/accept)
+    // - 05-规则.md (merged from legacy 06-规则/rules)
+    ensureCanonical({
+      storyDir,
+      targetName: '01-需求.md',
+      candidates: ['02-需求.md', 'requirements.md', '01-诉求.md', 'intent.md']
+    });
+    ensureCanonical({
+      storyDir,
+      targetName: '02-任务.md',
+      candidates: ['03-任务.md', 'work.md']
+    });
+    ensureCanonical({
+      storyDir,
+      targetName: '03-追溯.md',
+      candidates: ['04-追溯.md', 'trace.md']
+    });
+    ensureCanonical({
+      storyDir,
+      targetName: '04-验收.md',
+      candidates: ['05-验收.md', 'accept.md']
+    });
+    ensureCanonical({
+      storyDir,
+      targetName: '05-规则.md',
+      candidates: ['06-规则.md', 'rules.md']
+    });
 
     // Normalize IDs inside story docs (REQ/AC/T). Keep it idempotent.
     normalizeStoryDocsZh({ storyDir });

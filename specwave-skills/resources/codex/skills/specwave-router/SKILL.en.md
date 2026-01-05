@@ -39,7 +39,7 @@ When routing to `specwave-requirements-analyst`:
 
 When routing to `specwave-dev-expert` (execution):
 - Align on tasks first: find the current focus task before doing anything (avoid losing progress after context compression).
-  - If the user didn’t specify the current story/task, search the workspace for the single task marked as “in progress” and use it (status anchor).
-  - If no task is “in progress”, pick the highest-numbered `STORY-xxxxxx(...)`, then pick one unchecked task from its `03-任务.md` and mark it as “in progress”.
+  - If the user didn’t specify the current story/task, first look for a `> 当前焦点：T-xxx（…）` line and use that; if missing, fall back to searching the single task marked as “in progress” (status anchor).
+  - If no task is “in progress”, pick the highest-numbered `STORY-xxxxxx(...)`, then pick one unchecked task from its `02-任务.md` and mark it as “in progress”.
   - Reference `T-xxx` in your first paragraph; check it off when done and record evidence (refs/).
 - If you changed responsibilities/entry points/boundaries, remind to merge-update `.specwave/workspace/project-map.md` (edit the existing row, don’t append a long log).
