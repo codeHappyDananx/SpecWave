@@ -1,4 +1,4 @@
-/* 全局只允许 tokens + reset：禁止写任何组件样式（组件必须用 CSS Modules）。 */
+/* 全局只放 tokens + reset；Tailwind utilities 由 renderer 侧单独引入（见 `apps/desktop/src/renderer/src/tailwind.css`）。 */
 
 :root {
   --sw-bg: #ffffff;
@@ -16,6 +16,38 @@
     "Microsoft YaHei", "PingFang SC", sans-serif;
   --sw-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
+
+  /* shadcn/ui tokens：只服务 primitives/shadcn（Tailwind utilities），不替换现有 --sw-* 口径。 */
+  --background: 0 0% 100%;
+  --foreground: 220.9 39.3% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 220.9 39.3% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220.9 39.3% 11%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14.3% 95.9%;
+  --secondary-foreground: 220.9 39.3% 11%;
+  --muted: 220 14.3% 95.9%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 220 14.3% 95.9%;
+  --accent-foreground: 220.9 39.3% 11%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 217.2 91.2% 59.8%;
+  --radius: 0.5rem;
+
+  /* Sidebar tokens（来自 shadcn/ui sidebar 的 cssVars）。 */
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 214 95% 94%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
 
   /* 终端（xterm）主题：保持“白天模式”清爽、字形清晰 */
   --sw-terminal-bg: #fff7ed;
@@ -58,7 +90,6 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  box-shadow: none !important;
 }
 
 html,
@@ -67,7 +98,7 @@ body {
 }
 
 html {
-  font-size: 13px;
+  font-size: 16px;
 }
 
 #root {
@@ -79,6 +110,7 @@ body {
   background: var(--sw-muted);
   color: var(--sw-fg);
   font-family: var(--sw-font-sans);
+  font-size: 13px;
   overflow: hidden;
 }
 

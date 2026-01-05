@@ -1,0 +1,14 @@
+/* Tailwind（给 shadcn/ui 用）：把 utilities 放在 renderer 侧编译，避免 monorepo 下依赖包里的 @tailwind 指令“漏编译”。 */
+
+@import "tailwindcss/theme.css";
+@import "tailwindcss/preflight.css";
+
+@config "../../../../../tailwind.config.cjs";
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+}
+
+@tailwind utilities;

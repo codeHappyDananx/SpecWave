@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Icon } from '../../primitives/Icons';
 import { Badge } from '../../primitives/Badge';
 import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
@@ -38,6 +39,19 @@ export type CenterPanelProps = {
   content: AppViewModel['content'];
   dispatch: (intent: CenterIntent) => void;
   minwPx: number;
+};
+
+const markdownComponents: Components = {
+  table({ node: _node, className, children, ...props }) {
+    const mergedClassName = className ? `${styles.table} ${className}` : styles.table;
+    return (
+      <div className={styles.tableWrap}>
+        <table className={mergedClassName} {...props}>
+          {children}
+        </table>
+      </div>
+    );
+  }
 };
 
 export function CenterPanel(props: CenterPanelProps) {
@@ -204,7 +218,9 @@ export function CenterPanel(props: CenterPanelProps) {
         </div>
       ) : file.kind === 'markdown' || file.kind === 'task' ? (
         <div className={styles.markdown} aria-label="渲染预览">
-          <ReactMarkdown>{effectiveText}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            {effectiveText}
+          </ReactMarkdown>
         </div>
       ) : (
         <LineNumberedCode text={effectiveText} />

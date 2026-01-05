@@ -37,8 +37,24 @@
 .muted{color:#4B5563;font-weight:700;}
 .markdown{border-radius:var(--sw-radius-lg);background:var(--sw-bg);padding:18px clamp(18px,4vw,48px);min-height:0;line-height:1.8;border:2px solid var(--sw-border);width:100%;max-width:none;margin:0;}
 .markdown :where(h1,h2,h3){letter-spacing:-.02em;}
+.markdown :where(h1){font-size:1.55rem;font-weight:900;margin:.2em 0 .6em;}
+.markdown :where(h2){font-size:1.25rem;font-weight:900;margin:1em 0 .5em;}
+.markdown :where(h3){font-size:1.05rem;font-weight:900;margin:1em 0 .4em;}
+.markdown :where(p){margin:.8em 0;}
+.markdown :where(ul,ol){margin:.8em 0;padding-left:1.4em;}
+.markdown :where(ul){list-style:disc;}
+.markdown :where(ol){list-style:decimal;}
+.markdown :where(li){margin:.2em 0;}
+.markdown :where(blockquote){margin:.8em 0;padding:.2em 0 .2em 1em;border-left:4px solid var(--sw-border);color:#374151;}
+.markdown :where(a){color:var(--sw-primary);text-decoration:underline;text-underline-offset:2px;}
 .markdown :where(code){font-family:var(--sw-font-mono);}
 .markdown :where(pre){background:var(--sw-muted);color:var(--sw-fg);padding:12px;border-radius:var(--sw-radius-lg);overflow:auto;border:2px solid var(--sw-border);}
+.tableWrap{margin:.9em 0;overflow:auto;border:2px solid var(--sw-border);border-radius:var(--sw-radius-lg);background:var(--sw-bg);}
+.table{width:100%;border-collapse:separate;border-spacing:0;min-width:560px;}
+.table :where(th,td){padding:10px 12px;border-bottom:1px solid var(--sw-border);border-right:1px solid var(--sw-border);text-align:left;vertical-align:top;}
+.table :where(th){background:var(--sw-muted);font-weight:900;color:#111827;white-space:nowrap;}
+.table :where(tr:last-child td){border-bottom:0;}
+.table :where(th:last-child,td:last-child){border-right:0;}
 
 .code{border-radius:var(--sw-radius-lg);background:#fff;color:var(--sw-fg);padding:14px;font-family:var(--sw-font-mono);line-height:1.55;overflow:auto;min-height:0;border:2px solid var(--sw-border);}
 .codeLine{display:flex;align-items:flex-start;gap:12px;min-width:max-content;}

@@ -30,6 +30,8 @@ export type ExplorerNodeVM = {
   id: string;
   name: string;
   kind: "dir" | "file";
+  // 是否属于“默认忽略项”（由 store 统一打标；UI 只按开关决定显隐）。
+  isIgnored?: boolean;
   children?: ExplorerNodeVM[];
   isLoading?: boolean;
   error?: string;
@@ -45,6 +47,7 @@ export type ExplorerVM = {
     project: string[];
   };
   selectedPath: string | null;
+  showIgnored: boolean;
   isLoading: boolean;
   error: string | null;
 };
@@ -109,6 +112,7 @@ export type UIIntent =
   | { type: "PROJECT_TAB_CLOSE"; id: string }
   | { type: "EXPLORER_TOGGLE_DIR"; tree: ExplorerTree; id: string }
   | { type: "EXPLORER_OPEN_FILE"; path: string }
+  | { type: "EXPLORER_SHOW_IGNORED_SET"; showIgnored: boolean }
   | { type: "CONTENT_TOGGLE_VIEW_MODE" }
   | { type: "CONTENT_DRAFT_SET"; text: string }
   | { type: "CONTENT_SAVE_REQUEST" }

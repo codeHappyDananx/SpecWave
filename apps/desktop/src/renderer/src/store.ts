@@ -45,6 +45,14 @@ function loadSkin(): AppViewModel['ui']['skin'] {
   return 'blue';
 }
 
+function loadExplorerShowIgnored(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem('specwave_explorer_show_ignored') === '1';
+  } catch {}
+  return false;
+}
+
 const specwaveWindowKind = getSpecwaveWindowKind();
 const bootProjectPath = getBootProjectPath();
 
@@ -90,6 +98,7 @@ const initialVm: AppViewModel = {
     project: [],
     expanded: { workspace: [], project: [] },
     selectedPath: null,
+    showIgnored: loadExplorerShowIgnored(),
     isLoading: false,
     error: null
   },
@@ -349,8 +358,16 @@ function basename(p: string) {
   return idx >= 0 ? normalized.slice(idx + 1) : normalized;
 }
 
+const defaultIgnoredNames = new Set(['node_modules', '.git', 'dist', 'out']);
+
+function isIgnoredEntryName(name: string): boolean {
+  if (defaultIgnoredNames.has(name)) return true;
+  if (name.startsWith('.tmp-') || name.startsWith('tmp-') || name.startsWith('tmp_')) return true;
+  return false;
+}
+
 function toExplorerNodes(entries: { name: string; path: string; kind: 'dir' | 'file' }[]): ExplorerNodeVM[] {
-  return entries.map((e) => ({ id: e.path, name: e.name, kind: e.kind }));
+  return entries.map((e) => ({ id: e.path, name: e.name, kind: e.kind, isIgnored: isIgnoredEntryName(e.name) }));
 }
 
 function updateNodeById(
@@ -513,7 +530,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 openTabs: [...vm.projects.openTabs, { id: tabId, folderName: '未打开', path: null }],
                 activeTabId: tabId
               },
-              explorer: { ...initialVm.explorer },
+              explorer: { ...initialVm.explorer, showIgnored: vm.explorer.showIgnored },
               content: { ...initialVm.content }
             }
           };
@@ -615,6 +632,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     project: projectNodes,
                     expanded: { workspace: [], project: [] },
                     selectedPath: null,
+                    showIgnored: vm2.explorer.showIgnored,
                     isLoading: false,
                     error: workspaceError
                   },
@@ -716,6 +734,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     project: projectNodes,
                     expanded: { workspace: [], project: [] },
                     selectedPath: null,
+                    showIgnored: vm2.explorer.showIgnored,
                     isLoading: false,
                     error: workspaceError
                   },
@@ -747,7 +766,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 ...vm,
                 app: { ...vm.app, mode: 'main' },
                 projects: { ...vm.projects, activeTabId: targetTab.id },
-                explorer: { ...initialVm.explorer },
+                explorer: { ...initialVm.explorer, showIgnored: vm.explorer.showIgnored },
                 content: { ...initialVm.content }
               }
             };
@@ -794,6 +813,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     project: projectNodes,
                     expanded: { workspace: [], project: [] },
                     selectedPath: null,
+                    showIgnored: vm2.explorer.showIgnored,
                     isLoading: false,
                     error: workspaceError
                   },
@@ -810,6 +830,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               projects: { ...vm.projects, activeTabId: targetTab.id },
               explorer: {
                 ...initialVm.explorer,
+                showIgnored: vm.explorer.showIgnored,
                 workspaceRoot,
                 projectRoot: dirPath,
                 isLoading: true,
@@ -846,7 +867,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                   ...s.vm,
                   app: { ...s.vm.app, mode: 'welcome' },
                   projects: { openTabs: [], activeTabId: null },
-                  explorer: { ...initialVm.explorer },
+                  explorer: { ...initialVm.explorer, showIgnored: s.vm.explorer.showIgnored },
                   content: { ...initialVm.content }
                 }
               }));
@@ -859,10 +880,19 @@ export const useAppStore = create<AppState>((set, get) => ({
               ...vm,
               app: { ...vm.app, mode: 'welcome' },
               projects: { openTabs: [], activeTabId: null },
-              explorer: { ...initialVm.explorer },
+              explorer: { ...initialVm.explorer, showIgnored: vm.explorer.showIgnored },
               content: { ...initialVm.content }
             }
           };
+        }
+        case 'EXPLORER_SHOW_IGNORED_SET': {
+          const nextShowIgnored = intent.showIgnored;
+          if (typeof window !== 'undefined') {
+            try {
+              window.localStorage.setItem('specwave_explorer_show_ignored', nextShowIgnored ? '1' : '0');
+            } catch {}
+          }
+          return { vm: { ...vm, explorer: { ...vm.explorer, showIgnored: nextShowIgnored } } };
         }
         case 'EXPLORER_TOGGLE_DIR': {
           const tree = intent.tree;
