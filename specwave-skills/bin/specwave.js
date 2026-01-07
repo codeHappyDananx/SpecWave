@@ -1560,7 +1560,22 @@ function assertCreateConsistency({ resourcesRoot, specwaveSourceRoot, uiLang }) 
   const forbiddenTokens = [
     // historical drifts
     'EARS',
-    '02-任务.md'
+    '02-任务.md',
+
+    // avoid “prompt-y” labels & hard-numbered writing rules (zh)
+    '说人话',
+    '人话',
+    '建议照抄',
+    '第 1 句',
+    '第 2 句',
+    '第 3 句',
+    '3~8 行',
+    '3~6 行',
+    '3-6 行',
+    '2-5 行',
+    '最多只问 1 个',
+    '最多 3 个',
+    '连续 2 轮'
   ];
 
   const checkTextForForbiddenTokens = (label, text) => {

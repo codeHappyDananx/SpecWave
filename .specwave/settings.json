@@ -4,9 +4,9 @@
   },
   "currentSession": {
     "mode": "spec",
-    "storyId": "STORY-000007",
-    "phase": "执行",
-    "createdAt": "2026-01-07T15:30:44Z"
+    "storyId": "STORY-000008",
+    "phase": "诉求对齐",
+    "createdAt": "2026-01-07T17:27:19Z"
   },
   "executionGate": {
     "requiresExplicitApproval": true,
