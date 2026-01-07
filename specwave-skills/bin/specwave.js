@@ -1058,17 +1058,18 @@ function normalizeStableIdsZh(markdown) {
 function normalizeStoryDocsZh({ storyDir }) {
   const targetNames = [
     '01-需求.md',
-    '02-任务.md',
-    '03-追溯.md',
-    '04-验收.md',
-    '05-规则.md',
+    '02-设计.md',
+    '03-任务.md',
     // Legacy (keep for migration compatibility)
     '01-诉求.md',
     '02-需求.md',
-    '03-任务.md',
-    '04-追溯.md',
-    '05-验收.md',
-    '06-规则.md'
+    '02-任务.md',
+    '03-设计.md',
+    'intent.md',
+    'requirements.md',
+    'design.md',
+    'work.md',
+    'tasks.md'
   ];
 
   for (const name of targetNames) {
@@ -1145,12 +1146,10 @@ function normalizeStoryFilesZh({ workspaceRoot }) {
     }
     ensureDirectory(refsDir);
 
-    // Canonical story docs (new standard, sequential numbering):
+    // Canonical story docs (current standard):
     // - 01-需求.md (merged from legacy 01-诉求/02-需求/intent/requirements)
-    // - 02-任务.md (merged from legacy 03-任务/work)
-    // - 03-追溯.md (merged from legacy 04-追溯/trace)
-    // - 04-验收.md (merged from legacy 05-验收/accept)
-    // - 05-规则.md (merged from legacy 06-规则/rules)
+    // - 02-设计.md (merged from legacy 03-设计/design)
+    // - 03-任务.md (merged from legacy 02-任务/work/tasks)
     ensureCanonical({
       storyDir,
       targetName: '01-需求.md',
@@ -1158,23 +1157,13 @@ function normalizeStoryFilesZh({ workspaceRoot }) {
     });
     ensureCanonical({
       storyDir,
-      targetName: '02-任务.md',
-      candidates: ['03-任务.md', 'work.md']
+      targetName: '02-设计.md',
+      candidates: ['03-设计.md', 'design.md']
     });
     ensureCanonical({
       storyDir,
-      targetName: '03-追溯.md',
-      candidates: ['04-追溯.md', 'trace.md']
-    });
-    ensureCanonical({
-      storyDir,
-      targetName: '04-验收.md',
-      candidates: ['05-验收.md', 'accept.md']
-    });
-    ensureCanonical({
-      storyDir,
-      targetName: '05-规则.md',
-      candidates: ['06-规则.md', 'rules.md']
+      targetName: '03-任务.md',
+      candidates: ['02-任务.md', 'work.md', 'tasks.md']
     });
 
     // Normalize IDs inside story docs (REQ/AC/T). Keep it idempotent.
@@ -1268,6 +1257,13 @@ function mergeSettings(templateObj, existingObj) {
 
   // 4) executionGate：完全由模板定义（强制规范）
   if ('executionGate' in template) merged.executionGate = template.executionGate;
+
+  // 4.5) currentSession：运行时状态，create/refresh 不应把用户的会话锁定清空
+  // - 模板里通常是 null（表示“无会话”），但如果用户当前正在 spec 会话中，应当保留现状。
+  if ('currentSession' in existing) {
+    const session = existing.currentSession;
+    if (session != null) merged.currentSession = session;
+  }
 
   // 5) requirementsTemplate：
   // - 旧版本默认值会让协作变“重”（首次进入就提模板选择等）。
@@ -1541,6 +1537,113 @@ async function resolveCreateVariantInteractive(options) {
   return { ...options, pack: picked.packId };
 }
 
+function textContainsTokensInOrder(text, tokens) {
+  const raw = String(text ?? '');
+  let lastIndex = -1;
+  for (const token of tokens) {
+    const idx = raw.indexOf(token);
+    if (idx === -1) return false;
+    if (idx < lastIndex) return false;
+    lastIndex = idx;
+  }
+  return true;
+}
+
+function assertCreateConsistency({ resourcesRoot, specwaveSourceRoot, uiLang }) {
+  const lang = normalizeLang(uiLang);
+  const fail = (zh, en) => exitWithError(lang === 'en' ? en : zh);
+
+  // This consistency check is intentionally light-weight:
+  // catch the most painful “old vs new wording” drifts early in --plan,
+  // instead of letting users discover them in a real session.
+
+  const forbiddenTokens = [
+    // historical drifts
+    'EARS',
+    '02-任务.md'
+  ];
+
+  const checkTextForForbiddenTokens = (label, text) => {
+    for (const token of forbiddenTokens) {
+      if (String(text).includes(token)) {
+        fail(
+          `资源口径不一致：${label} 包含已废弃口径：${token}`,
+          `Resource consistency error: ${label} contains deprecated token: ${token}`
+        );
+      }
+    }
+  };
+
+  // 1) Router skill must include session-lock rule (avoid routing spec back to vibe).
+  const routerRoot = path.resolve(__dirname, '..', 'resources', 'codex', 'skills', 'specwave-router');
+  const routerFiles = isDirectoryPath(routerRoot)
+    ? listFilesRecursively(routerRoot).filter((filePath) => filePath.toLowerCase().endsWith('.md'))
+    : [];
+  if (routerFiles.length === 0) {
+    fail('资源缺失：找不到 specwave-router skill 文件', 'Missing resources: specwave-router skill not found');
+  }
+  for (const filePath of routerFiles) {
+    const text = readFileUtf8(filePath);
+    checkTextForForbiddenTokens(`codex/skills/specwave-router/${path.basename(filePath)}`, text);
+    if (!text.includes('.specwave/settings.json') || !text.includes('currentSession')) {
+      fail(
+        `资源口径不一致：${path.basename(filePath)} 缺少“会话锁定”规则（需要包含 .specwave/settings.json 与 currentSession）`,
+        `Resource consistency error: ${path.basename(filePath)} missing session-lock rule (.specwave/settings.json & currentSession)`
+      );
+    }
+  }
+
+  // 2) For zh packs, enforce the fixed 4-stage order and 01/02/03 doc naming.
+  if (lang !== 'zh') return;
+
+  const stageTokens = ['诉求对齐', '需求编写', '设计方案', '任务拆解'];
+  const expectedDocs = ['01-需求.md', '02-设计.md', '03-任务.md'];
+
+  const agentsTemplatePath = path.join(resourcesRoot, 'project-root', 'AGENTS.md.template');
+  const analystRolePath = path.join(specwaveSourceRoot, 'roles', '需求分析师.md');
+  const newStoryPromptPath = path.join(specwaveSourceRoot, 'prompts', '新建需求.md');
+  const templatesRoot = path.join(specwaveSourceRoot, 'templates');
+
+  if (!isFilePath(agentsTemplatePath)) {
+    fail('资源缺失：project-root/AGENTS.md.template', 'Missing resources: project-root/AGENTS.md.template');
+  }
+  if (!isFilePath(analystRolePath)) {
+    fail('资源缺失：.specwave/roles/需求分析师.md', 'Missing resources: .specwave/roles/需求分析师.md');
+  }
+  if (!isFilePath(newStoryPromptPath)) {
+    fail('资源缺失：.specwave/prompts/新建需求.md', 'Missing resources: .specwave/prompts/新建需求.md');
+  }
+
+  const agentsText = readFileUtf8(agentsTemplatePath);
+  const roleText = readFileUtf8(analystRolePath);
+  const promptText = readFileUtf8(newStoryPromptPath);
+
+  checkTextForForbiddenTokens('project-root/AGENTS.md.template', agentsText);
+  checkTextForForbiddenTokens('.specwave/roles/需求分析师.md', roleText);
+  checkTextForForbiddenTokens('.specwave/prompts/新建需求.md', promptText);
+
+  const orderOk =
+    textContainsTokensInOrder(agentsText, stageTokens) &&
+    textContainsTokensInOrder(roleText, stageTokens) &&
+    textContainsTokensInOrder(promptText, stageTokens);
+  if (!orderOk) {
+    fail(
+      `资源口径不一致：阶段顺序必须是 ${stageTokens.join(' → ')}`,
+      `Resource consistency error: stage order must be ${stageTokens.join(' → ')}`
+    );
+  }
+
+  for (const docName of expectedDocs) {
+    const templatePath = path.join(templatesRoot, docName);
+    if (!isFilePath(templatePath)) {
+      fail(
+        `资源缺失：.specwave/templates/${docName}`,
+        `Missing resources: .specwave/templates/${docName}`
+      );
+    }
+  }
+}
+
 function getCreatePlan({ dir, pack, profile }) {
   const targetRoot = path.resolve(dir);
   const resolved = resolvePackProfileRoot(pack, profile);
@@ -1566,6 +1669,8 @@ function getCreatePlan({ dir, pack, profile }) {
       : typeof packMeta.data.lang === 'string' && packMeta.data.lang.trim().length > 0
         ? packMeta.data.lang.trim()
         : null;
+
+  assertCreateConsistency({ resourcesRoot, specwaveSourceRoot, uiLang: packLanguage || getCreateUiLang() });
 
   const specwaveFiles = listFilesRecursively(specwaveSourceRoot);
   for (const sourceFilePath of specwaveFiles) {
@@ -1865,14 +1970,28 @@ function writeCreatePlan(plan, options) {
   process.stdout.write(
     PALETTE.dim(uiLang === 'en' ? '- Run specwave catalog to view installed indexes' : '- 运行 specwave catalog 查看已安装索引') + '\n'
   );
-  process.stdout.write(
-    PALETTE.dim(
-      uiLang === 'en'
-        ? '- In Codex, available slash commands: /specwave-write-requirements /specwave-acceptance-review /specwave-report-bug /specwave-start-dev'
-        : '- 在 Codex 中可用斜杠命令：/specwave-write-requirements /specwave-acceptance-review /specwave-report-bug /specwave-start-dev'
-    ) +
-      '\n'
-  );
+  const codexOps =
+    plan && plan.codexPlan && Array.isArray(plan.codexPlan.operations) ? plan.codexPlan.operations : [];
+  const codexCommands = codexOps
+    .filter((op) => op && op.kind === 'codex-prompt' && op.action !== 'delete' && !op.isDirectory)
+    .map((op) => '/' + path.basename(op.targetPath, '.md'));
+  if (codexCommands.length > 0) {
+    process.stdout.write(
+      PALETTE.dim(
+        uiLang === 'en'
+          ? `- In Codex, available slash commands: ${codexCommands.join(' ')}`
+          : `- 在 Codex 中可用斜杠命令：${codexCommands.join(' ')}`
+      ) + '\n'
+    );
+  } else {
+    process.stdout.write(
+      PALETTE.dim(
+        uiLang === 'en'
+          ? '- In Codex: no slash commands installed (prompts dir is empty)'
+          : '- 在 Codex 中：未安装斜杠命令（prompts 目录为空）'
+      ) + '\n'
+    );
+  }
   process.stdout.write('\n');
 
   return { didWrite: true };
@@ -2007,6 +2126,22 @@ function printCreatePlan(plan) {
 
   if (codexSkillOp || codexPromptOps.length > 0) {
     process.stdout.write(PALETTE.hint(tCreate(planLang, 'plan_codex_assets')) + '\n');
+    if (codexPlan && typeof codexPlan.codexHome === 'string' && codexPlan.codexHome.length > 0) {
+      process.stdout.write(PALETTE.dim(`  CODEX_HOME：${truncate(codexPlan.codexHome)}`) + '\n');
+      const codexHomeFromEnv =
+        typeof process.env.CODEX_HOME === 'string' && process.env.CODEX_HOME.trim().length > 0;
+      if (!codexHomeFromEnv) {
+        const localCodexHome = path.join(plan.targetRoot, '.codex');
+        process.stdout.write(
+          PALETTE.dim(
+            planLang === 'en'
+              ? `  Hint: to keep changes project-local, set CODEX_HOME to: ${truncate(localCodexHome)}`
+              : `  提示：要只影响当前项目，可把 CODEX_HOME 指到：${truncate(localCodexHome)}`
+          ) + '\n'
+        );
+      }
+    }
+    process.stdout.write('\n');
 
     if (codexSkillOp) {
       const label = codexSkillOp.isDirectory ? 'CONFLICT' : codexSkillOp.exists ? 'UPDATE' : 'WRITE';

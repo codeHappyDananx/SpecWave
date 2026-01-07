@@ -4,19 +4,18 @@
   },
   "currentSession": {
     "mode": "spec",
-    "storyId": "STORY-000004",
+    "storyId": "STORY-000007",
     "phase": "执行",
-    "createdAt": "2026-01-07T08:01:50Z"
+    "createdAt": "2026-01-07T15:30:44Z"
   },
   "executionGate": {
-    "requiresAcceptancePass": true,
-    "requiresRequirementConfirmation": true,
-    "requiresStartToken": "开始"
+    "requiresExplicitApproval": true,
+    "requiresRequirementConfirmation": true
   },
   "requirementsTemplate": {
+    "templateId": "minimal-zh",
     "askOnFirstEnter": false,
     "neverAskAgain": true,
-    "templateId": "minimal-zh",
     "customTemplateText": null
   },
   "projectProbe": {

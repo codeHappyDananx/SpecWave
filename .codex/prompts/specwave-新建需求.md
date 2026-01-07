@@ -1,10 +1,12 @@
 ---
-id: 新建需求
-name: 新建需求
-description: 进入 spec 模式，按 SpecWave 规范走需求流程
+description: SpecWave：新建需求
+argument-hint: 输入
 managedBy: specwave
+specwavePromptId: 新建需求
 ---
 
+$ARGUMENTS
+<!-- SPECWAVE:START 新建需求 -->
 你现在进入 **spec 模式**。
 
 请先读取以下文件了解规范：
@@ -18,3 +20,4 @@ managedBy: specwave
 - 按 4 阶段流程推进：诉求对齐 → 需求编写 → 设计方案 → 任务拆解
 
 回复开头标注：【spec 模式 - 诉求对齐】
+<!-- SPECWAVE:END 新建需求 -->

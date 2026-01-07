@@ -1,11 +1,12 @@
 ---
-id: 开始执行
-name: 开始执行
-description: 进入执行阶段，按任务清单开发
+description: SpecWave：开始执行
+argument-hint: 输入
 managedBy: specwave
-argumentHint: Story ID（如 STORY-000001）
+specwavePromptId: 开始执行
 ---
 
+$ARGUMENTS
+<!-- SPECWAVE:START 开始执行 -->
 你现在进入 **执行阶段**，切换到「开发执行者」角色。
 
 用户提供的参数是 Story ID，请立即：
@@ -29,3 +30,4 @@ argumentHint: Story ID（如 STORY-000001）
 
 准备开始，确认后我将执行。
 ```
+<!-- SPECWAVE:END 开始执行 -->

@@ -1,0 +1,57 @@
+[1/3] 检查环境
+[2/3] 生成初始化计划
+初始化计划
+目标目录：F:\AI\SpecWave
+模型：default
+语言：zh
+profile：light
+
+将写入/刷新：
+- 机器区 .specwave：9 个文件
+- 项目根：1 个文件
+
+- 工作区 .specwave/workspace：创建/确保目录 6 个
+
+Codex 全局资源：
+  CODEX_HOME：F:\AI\SpecWave\.codex
+
+- UPDATE specwave-router （自动路由与门禁）
+斜杠命令：
+- WRITE /specwave-开始执行
+- WRITE /specwave-新建需求
+
+明细（按类）：
+【.specwave 基础】
+- UPDATE .specwave\pack.md （pack 定义）
+- MERGE .specwave\settings.json （合并设置：保留你的自定义）
+
+【.specwave prompts】
+- UPDATE .specwave\prompts\开始执行.md （提示卡）
+- UPDATE .specwave\prompts\新建需求.md （提示卡）
+
+【.specwave roles】
+- UPDATE .specwave\roles\开发执行者.md （角色定义）
+- UPDATE .specwave\roles\需求分析师.md （角色定义）
+
+【项目根】
+- PATCH AGENTS.md （协作规则：受控更新并保留自定义）
+
+【.specwave 其他】
+- UPDATE .specwave\templates\01-需求.md
+- UPDATE .specwave\templates\02-设计.md
+- UPDATE .specwave\templates\03-任务.md
+
+
+摘要：将写入/刷新 10 个（新建 0，更新 8，合并 1，补丁 1），删除 0 个，冲突 0 个。
+[3/3] 写入文件
+正在整理工作区...
+OK  工作区就绪
+正在启用 Codex 全局资源...
+OK  已更新
+正在写入 SpecWave 文件...
+OK  写入完成（10 个文件）
+
+下一步：
+- 运行 specwave catalog 查看已安装索引
+- 在 Codex 中可用斜杠命令：/specwave-开始执行 /specwave-新建需求
+

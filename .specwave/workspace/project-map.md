@@ -33,6 +33,7 @@
 │        ├─ panels/
 │        ├─ primitives/
 │        └─ vendor/
+├─ .codex/               (Codex 项目内资源，可选)
 ├─ .specwave/            (协作工作区)
 ├─ specwave-skills/      (技能包与 CLI)
 └─ start.bat
@@ -66,6 +67,7 @@
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（含图片预览与文件外部变更处理） | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
+| `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |
 | `specwave-skills` | skills/CLI 资源（可公开复用） | Node | `specwave` 命令 | 不属于业务源码 |
 

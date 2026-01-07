@@ -22,3 +22,6 @@ apps/**/src/**/*.d.ts.map
 
 # dev 专用 userData（可回收）
 .tmp-specwave-userdata/
+
+# 外部工具产物（避免污染仓库）
+.kiro/

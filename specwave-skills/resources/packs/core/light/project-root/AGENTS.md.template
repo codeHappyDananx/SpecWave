@@ -64,6 +64,7 @@
 
 - 需求资料：`.specwave/workspace/`
 - 项目结构：`.specwave/workspace/project-map.md`
+- Codex 资源：默认写到全局 `CODEX_HOME`（默认 `~/.codex`）；要只影响本项目，把 `CODEX_HOME` 指到项目根 `.codex`
 
 ## Story 结构
 
