@@ -976,7 +976,8 @@ function normalizeWorkItemDirs({ workspaceRoot }) {
   const storiesRoot = path.join(workspaceRoot, 'stories');
   const bugsRoot = path.join(workspaceRoot, 'bugs');
 
-  const storyRe = /^STORY-(\d{6})(?:\(([^)]+)\))?$/;
+  // 支持 -草稿 后缀：STORY-000001(概要) 或 STORY-000001(概要)-草稿
+  const storyRe = /^STORY-(\d{6})(?:\(([^)]+)\))?(?:-草稿)?$/;
   const bugRe = /^BUG-(\d{6})-(\d{2,})(?:\(([^)]+)\))?$/;
 
   const normalizeIn = (rootDir, kind) => {
@@ -2449,9 +2450,7 @@ function getCodexInstallPlan({ packId, profile, lang }) {
   const promptFiles = listFilesRecursively(promptSource.promptsRoot).filter((filePath) =>
     filePath.endsWith('.md')
   );
-  if (promptFiles.length === 0) {
-    exitWithError(`找不到 prompts 资源：pack=${packId}, profile=${profile}`);
-  }
+  // prompts 目录可以为空（方案 B：提示词逻辑合并到角色文件）
 
   const promptOps = promptFiles.map((filePath) => {
     const parsed = parseFrontMatter(readFileUtf8(filePath));

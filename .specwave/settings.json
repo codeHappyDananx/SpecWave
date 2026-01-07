@@ -1,6 +1,12 @@
 {
   "specwave": {
-    "version": "0.2.1"
+    "version": "0.3.0"
+  },
+  "currentSession": {
+    "mode": "spec",
+    "storyId": "STORY-000004",
+    "phase": "执行",
+    "createdAt": "2026-01-07T08:01:50Z"
   },
   "executionGate": {
     "requiresAcceptancePass": true,

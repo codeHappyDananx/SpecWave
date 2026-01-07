@@ -1,7 +1,8 @@
 {
   "specwave": {
-    "version": "0.2.1"
+    "version": "0.3.0"
   },
+  "currentSession": null,
   "executionGate": {
     "requiresExplicitApproval": true,
     "requiresRequirementConfirmation": true

@@ -1,0 +1,29 @@
+# Requirements（需求与验收）
+
+## 需求清单（REQ）
+- STORY-DRAFT::REQ-001：WHEN 用户在操作流水区域点击“导出” THEN 系统 SHALL 按与“查询”一致的日期范围条件导出对应数据为 Excel 文件。
+- STORY-DRAFT::REQ-002：WHEN 系统生成 Excel THEN 系统 SHALL 使用中文表头展示字段名（中文名以页面列头为准）。
+- STORY-DRAFT::REQ-003：WHEN 用户无导出权限 THEN 系统 SHALL 不展示导出入口或给出明确的无权限提示。
+- STORY-DRAFT::REQ-004：WHEN 用户点击“导出” THEN 系统 SHALL 导出命中日期范围条件的全量数据（不按分页截断）。
+- STORY-DRAFT::REQ-005：WHEN 用户触发导出 THEN 系统 SHALL 以异步方式执行导出并触发浏览器下载（页面可继续操作）。
+- STORY-DRAFT::REQ-006：WHEN 系统生成 Excel THEN 系统 SHALL 以页面展示值口径导出单元格内容（字典翻译/日期与时间格式/百分比等与页面一致）。
+- STORY-DRAFT::REQ-007：WHEN 用户点击“导出” THEN 系统 SHALL 不将页面本地筛选条件纳入导出条件（仅日期范围条件生效）。
+- STORY-DRAFT::REQ-008：WHEN 操作流水查询命中数据量超过阈值 THEN 系统 SHALL 自动切换到“大数据渲染模式”，并保持与小数据模式一致的数据口径（取值优先级、字典/日期/时间/百分比格式化规则一致）。
+- STORY-DRAFT::REQ-009：WHEN 系统处于“大数据渲染模式” THEN 系统 SHALL 复用与小数据模式一致的列配置（列顺序/显隐/中文列头/字段类型），确保“所见即所得”。
+- STORY-DRAFT::REQ-010：WHEN 系统在大数据量下展示操作流水 THEN 系统 SHALL 保证可用的交互性能（至少可顺畅滚动、可继续查询与导出，不出现页面无响应）。
+- STORY-DRAFT::REQ-011：WHEN 系统切换渲染模式 THEN 系统 SHALL 在页面上明确提示当前模式与命中条数，并给出收敛日期范围的建议（便于用户理解性能差异）。
+- STORY-DRAFT::REQ-012：WHEN 系统判断是否进入“大数据渲染模式” THEN 系统 SHALL 以“实际展示行数（param_data 数组展开后的行数）”作为阈值判断依据，而不是 task 行数。
+
+## 验收口径（AC）
+- STORY-DRAFT::AC-001：（关联 REQ：STORY-DRAFT::REQ-001）在页面选择日期范围后点击“导出”，导出的数据范围与该日期范围一致（抽样核对边界日期包含）。
+- STORY-DRAFT::AC-002：（关联 REQ：STORY-DRAFT::REQ-002）打开导出 Excel，首行表头为中文；抽查至少 5 个字段的中文名与页面列头一致。
+- STORY-DRAFT::AC-003：（关联 REQ：STORY-DRAFT::REQ-003）使用无导出权限账号进入页面：导出入口不可用，并出现明确提示（不可出现“接口错误”类误导信息）。
+- STORY-DRAFT::AC-004：（关联 REQ：STORY-DRAFT::REQ-004）查询结果超过 1 页时，导出文件仍包含全部命中日期范围的数据。
+- STORY-DRAFT::AC-005：（关联 REQ：STORY-DRAFT::REQ-005）点击导出后页面不阻塞；导出完成后浏览器下载栏出现 Excel 文件。
+- STORY-DRAFT::AC-006：（关联 REQ：STORY-DRAFT::REQ-006）抽查 3 个字段：页面显示值与 Excel 单元格值一致（至少包含 1 个字典字段、1 个日期/时间字段）。
+- STORY-DRAFT::AC-007：（关联 REQ：STORY-DRAFT::REQ-007）在页面添加任意“其他条件”本地筛选并让页面展示条数变少；点击导出后，导出结果不受该本地筛选影响（仅受日期范围影响）。
+- STORY-DRAFT::AC-008：（关联 REQ：STORY-DRAFT::REQ-008）准备约 1.1 万条可展示的操作流水数据后查询：页面能正常展示数据；抽查 3 个字段的显示值与小数据模式一致。
+- STORY-DRAFT::AC-009：（关联 REQ：STORY-DRAFT::REQ-009）同一菜单同一日期范围下：小数据模式与大数据模式的列顺序与列显隐一致；中文列头一致。
+- STORY-DRAFT::AC-010：（关联 REQ：STORY-DRAFT::REQ-010）在约 1.1 万条数据下：页面无明显卡死；可滚动浏览；点击“查询/导出”按钮仍能响应。
+- STORY-DRAFT::AC-011：（关联 REQ：STORY-DRAFT::REQ-011）当命中条数超过阈值并切换模式时，页面出现明确提示（包含命中条数与当前模式）；用户可按提示收敛日期范围复测。
+- STORY-DRAFT::AC-012：（关联 REQ：STORY-DRAFT::REQ-012）构造“task 行数较小但 param_data 展开后行数很大”的场景：系统仍能识别并进入大数据渲染模式。
