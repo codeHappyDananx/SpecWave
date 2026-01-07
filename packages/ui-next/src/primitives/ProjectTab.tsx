@@ -17,6 +17,7 @@ export function ProjectTab(props: ProjectTabProps) {
       role="tab"
       tabIndex={0}
       aria-selected={props.selected}
+      title={props.title}
       onClick={props.onSelect}
       onKeyDown={(e) => activateOnEnterOrSpace(e, props.onSelect)}
     >
@@ -25,7 +26,7 @@ export function ProjectTab(props: ProjectTabProps) {
         className={styles.close}
         type="button"
         aria-label={`关闭项目 ${props.title}`}
-        title="关闭"
+        title={`关闭项目 ${props.title}`}
         onClick={(e) => {
           e.stopPropagation();
           props.onClose();

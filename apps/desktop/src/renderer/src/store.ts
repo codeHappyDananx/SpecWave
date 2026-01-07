@@ -53,8 +53,49 @@ function loadExplorerShowIgnored(): boolean {
   return false;
 }
 
+// 关键处理节点：Renderer 意外刷新/热重载时，内存态的页签会丢失，表现为“过一会儿新增项目被关掉”。
+// 这里用 sessionStorage 记住当前窗口的 openTabs/activeTabId，避免刷新把用户刚开的项目吞掉。
+const PROJECTS_SESSION_KEY = 'specwave_projects_session_v1';
+
+function loadProjectsSession(): AppViewModel['projects'] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(PROJECTS_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed == null) return null;
+
+    const obj = parsed as { openTabs?: unknown; activeTabId?: unknown };
+    if (!Array.isArray(obj.openTabs)) return null;
+
+    const openTabs: AppViewModel['projects']['openTabs'] = [];
+    for (const item of obj.openTabs) {
+      if (typeof item !== 'object' || item == null) return null;
+      const tab = item as { id?: unknown; folderName?: unknown; path?: unknown };
+      if (typeof tab.id !== 'string' || typeof tab.folderName !== 'string') return null;
+      const path = tab.path;
+      if (path !== null && typeof path !== 'string') return null;
+      openTabs.push({ id: tab.id, folderName: tab.folderName, path });
+    }
+
+    let activeTabId: string | null = typeof obj.activeTabId === 'string' ? obj.activeTabId : null;
+    if (activeTabId && !openTabs.some((t) => t.id === activeTabId)) activeTabId = openTabs[0]?.id ?? null;
+    return { openTabs, activeTabId };
+  } catch {
+    return null;
+  }
+}
+
+function persistProjectsSession(projects: AppViewModel['projects']) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(PROJECTS_SESSION_KEY, JSON.stringify(projects));
+  } catch {}
+}
+
 const specwaveWindowKind = getSpecwaveWindowKind();
 const bootProjectPath = getBootProjectPath();
+const restoredProjectsSession = specwaveWindowKind === 'main' ? loadProjectsSession() : null;
 
 async function restartIdleTerminalSessionsToCwd(args: {
   api: Window['specwave'] | undefined;
@@ -90,7 +131,7 @@ async function restartIdleTerminalSessionsToCwd(args: {
 
 const initialVm: AppViewModel = {
   app: { mode: specwaveWindowKind === 'welcome' ? 'welcome' : 'main', recentProjects: [] },
-  projects: { openTabs: [], activeTabId: null },
+  projects: restoredProjectsSession ?? { openTabs: [], activeTabId: null },
   explorer: {
     workspaceRoot: null,
     projectRoot: null,
@@ -375,6 +416,51 @@ function normalizeFsPath(p: string) {
   return p.replaceAll('\\', '/').replaceAll(/\/+/g, '/').toLowerCase();
 }
 
+type ProjectTab = AppViewModel['projects']['openTabs'][number];
+
+// 最近激活的项目页签（仅用于“关闭后切回上一个项目”的回退规则；不进 ViewModel）。
+let projectTabActivationHistory: string[] = restoredProjectsSession?.activeTabId ? [restoredProjectsSession.activeTabId] : [];
+
+function recordProjectTabActivation(tabId: string | null) {
+  if (!tabId) return;
+  projectTabActivationHistory = [tabId, ...projectTabActivationHistory.filter((id) => id !== tabId)].slice(0, 20);
+}
+
+function removeProjectTabFromHistory(tabId: string) {
+  projectTabActivationHistory = projectTabActivationHistory.filter((id) => id !== tabId);
+}
+
+function pickMostRecentExistingProjectTabId(args: { availableTabs: ProjectTab[]; excludedId: string }): string | null {
+  const available = new Set(args.availableTabs.map((t) => t.id));
+  for (const id of projectTabActivationHistory) {
+    if (id === args.excludedId) continue;
+    if (available.has(id)) return id;
+  }
+  return null;
+}
+
+function pickNeighborProjectTabId(args: { tabsBefore: ProjectTab[]; tabsAfter: ProjectTab[]; closedId: string }): string | null {
+  const available = new Set(args.tabsAfter.map((t) => t.id));
+  const idx = args.tabsBefore.findIndex((t) => t.id === args.closedId);
+  if (idx < 0) return args.tabsAfter[0]?.id ?? null;
+
+  for (let i = idx + 1; i < args.tabsBefore.length; i++) {
+    const id = args.tabsBefore[i]?.id;
+    if (id && available.has(id)) return id;
+  }
+  for (let i = idx - 1; i >= 0; i--) {
+    const id = args.tabsBefore[i]?.id;
+    if (id && available.has(id)) return id;
+  }
+  return args.tabsAfter[0]?.id ?? null;
+}
+
+function isSamePathOrNull(a: string | null, b: string | null) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return normalizeFsPath(a) === normalizeFsPath(b);
+}
+
 function isWithinRoot(candidatePath: string, root: string) {
   const c = normalizeFsPath(candidatePath);
   const r = normalizeFsPath(root);
@@ -560,14 +646,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           return { vm: { ...vm, globalSearchQuery: intent.query } };
         case 'PROJECT_TAB_ADD_EMPTY': {
           const tabId = `proj-empty-${Date.now()}`;
+          const nextProjects: AppViewModel['projects'] = {
+            openTabs: [...vm.projects.openTabs, { id: tabId, folderName: '未打开', path: null }],
+            activeTabId: tabId
+          };
+          recordProjectTabActivation(tabId);
+          persistProjectsSession(nextProjects);
           return {
             vm: {
               ...vm,
               app: { ...vm.app, mode: 'main' },
-              projects: {
-                openTabs: [...vm.projects.openTabs, { id: tabId, folderName: '未打开', path: null }],
-                activeTabId: tabId
-              },
+              projects: nextProjects,
               explorer: { ...initialVm.explorer, showIgnored: vm.explorer.showIgnored },
               content: { ...initialVm.content }
             }
@@ -661,12 +750,16 @@ export const useAppStore = create<AppState>((set, get) => ({
               const nextTabs = existing
                 ? vm2.projects.openTabs.map((t) => (t.id === tabId ? { ...t, folderName: projectName, path: dirPath } : t))
                 : [...vm2.projects.openTabs, { id: tabId, folderName: projectName, path: dirPath }];
+              const nextProjects: AppViewModel['projects'] = { openTabs: nextTabs, activeTabId: tabId };
+
+              recordProjectTabActivation(tabId);
+              persistProjectsSession(nextProjects);
 
               return {
                 vm: {
                   ...vm2,
                   app: { mode: 'main', recentProjects },
-                  projects: { openTabs: nextTabs, activeTabId: tabId },
+                  projects: nextProjects,
                   explorer: {
                     workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
                     projectRoot: dirPath,
@@ -767,12 +860,16 @@ export const useAppStore = create<AppState>((set, get) => ({
               const nextTabs = existing
                 ? vm2.projects.openTabs.map((t) => (t.id === tabId ? { ...t, folderName: projectName, path: dirPath } : t))
                 : [...vm2.projects.openTabs, { id: tabId, folderName: projectName, path: dirPath }];
+              const nextProjects: AppViewModel['projects'] = { openTabs: nextTabs, activeTabId: tabId };
+
+              recordProjectTabActivation(tabId);
+              persistProjectsSession(nextProjects);
 
               return {
                 vm: {
                   ...vm2,
                   app: { mode: 'main', recentProjects },
-                  projects: { openTabs: nextTabs, activeTabId: tabId },
+                  projects: nextProjects,
                   explorer: {
                     workspaceRoot: workspaceRes.ok ? workspaceRoot : null,
                     projectRoot: dirPath,
@@ -802,17 +899,25 @@ export const useAppStore = create<AppState>((set, get) => ({
           return { vm };
         }
         case 'PROJECT_TAB_SET_ACTIVE': {
-          if (intent.id === vm.projects.activeTabId) return { vm };
           const targetTab = vm.projects.openTabs.find((t) => t.id === intent.id);
           if (!targetTab) return { vm };
 
+          // 关键处理节点：关闭 active tab 后我们会先更新 activeTabId，再触发一次 PROJECT_TAB_SET_ACTIVE 做“下方三栏”恢复。
+          // 如果这里仅凭 “id 相等”就短路，会出现“顶部页签切回了，但文件树/内容区/终端没恢复”的断层。
+          const isAlreadyActive = intent.id === vm.projects.activeTabId;
+          if (isAlreadyActive && isSamePathOrNull(vm.explorer.projectRoot, targetTab.path)) return { vm };
+
+          recordProjectTabActivation(targetTab.id);
+
           if (targetTab.path == null) {
             void window.specwave?.fsWatchStart?.({ workspaceRoot: null, projectRoot: null });
+            const nextProjects: AppViewModel['projects'] = { ...vm.projects, activeTabId: targetTab.id };
+            persistProjectsSession(nextProjects);
             return {
               vm: {
                 ...vm,
                 app: { ...vm.app, mode: 'main' },
-                projects: { ...vm.projects, activeTabId: targetTab.id },
+                projects: nextProjects,
                 explorer: { ...initialVm.explorer, showIgnored: vm.explorer.showIgnored },
                 content: { ...initialVm.content }
               }
@@ -874,11 +979,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             });
           })();
 
+          const nextProjects: AppViewModel['projects'] = { ...vm.projects, activeTabId: targetTab.id };
+          persistProjectsSession(nextProjects);
           return {
             vm: {
               ...vm,
               app: { ...vm.app, mode: 'main' },
-              projects: { ...vm.projects, activeTabId: targetTab.id },
+              projects: nextProjects,
               explorer: {
                 ...initialVm.explorer,
                 showIgnored: vm.explorer.showIgnored,
@@ -892,16 +999,32 @@ export const useAppStore = create<AppState>((set, get) => ({
           };
         }
         case 'PROJECT_TAB_CLOSE': {
-          const nextTabs = vm.projects.openTabs.filter((t) => t.id !== intent.id);
-          const nextActive = vm.projects.activeTabId === intent.id ? (nextTabs[0]?.id ?? null) : vm.projects.activeTabId;
+          const tabsBefore = vm.projects.openTabs;
+          const nextTabs = tabsBefore.filter((t) => t.id !== intent.id);
+          const wasActive = vm.projects.activeTabId === intent.id;
+
+          removeProjectTabFromHistory(intent.id);
+
+          // 关闭 active tab 后优先切回“上一次激活的项目”；没有历史再按相邻规则（右优先，其次左），最后才兜底取第一个。
+          const nextActive = wasActive
+            ? (pickMostRecentExistingProjectTabId({ availableTabs: nextTabs, excludedId: intent.id }) ??
+              pickNeighborProjectTabId({ tabsBefore, tabsAfter: nextTabs, closedId: intent.id }))
+            : vm.projects.activeTabId;
+
           const isEmpty = nextTabs.length === 0;
           if (!isEmpty) {
-            const nextVm = { ...vm, projects: { openTabs: nextTabs, activeTabId: nextActive } };
-            if (nextActive && nextActive !== vm.projects.activeTabId) {
+            const nextProjects: AppViewModel['projects'] = { openTabs: nextTabs, activeTabId: nextActive };
+            if (wasActive) recordProjectTabActivation(nextActive);
+            persistProjectsSession(nextProjects);
+
+            const nextVm = { ...vm, projects: nextProjects };
+            if (wasActive && nextActive) {
               queueMicrotask(() => get().dispatch({ type: 'PROJECT_TAB_SET_ACTIVE', id: nextActive }));
             }
             return { vm: nextVm };
           }
+
+          persistProjectsSession({ openTabs: [], activeTabId: null });
 
           if (specwaveWindowKind === 'main') {
             void window.specwave?.fsWatchStart?.({ workspaceRoot: null, projectRoot: null });
@@ -1841,6 +1964,11 @@ void (async () => {
   });
 })();
 
-if (specwaveWindowKind === 'main' && bootProjectPath) {
-  useAppStore.getState().dispatch({ type: 'PROJECT_OPEN_RECENT', path: bootProjectPath });
+if (specwaveWindowKind === 'main') {
+  // 优先恢复 sessionStorage 里记住的项目页签；没有历史才用 bootProjectPath 打开初始项目。
+  if (restoredProjectsSession?.activeTabId) {
+    useAppStore.getState().dispatch({ type: 'PROJECT_TAB_SET_ACTIVE', id: restoredProjectsSession.activeTabId });
+  } else if (!restoredProjectsSession && bootProjectPath) {
+    useAppStore.getState().dispatch({ type: 'PROJECT_OPEN_RECENT', path: bootProjectPath });
+  }
 }
