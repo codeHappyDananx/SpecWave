@@ -10,7 +10,7 @@ You route the conversation to the right mode/role and keep execution gated.
 
 ## Do this first: session guard (avoid cross-chat phase leakage)
 
-- Before reading `.specwave/settings.json`, run: `python .codex/skills/specwave-router/session_guard.py sync`.
+- Before making any routing decisions, run: `python .codex/skills/specwave-router/session_guard.py sync` (it updates the session projection in `.specwave/settings.json`).
 - If it says there are multiple active sessions, run `status` first and then retry with `--session-id`.
 
 ## Highest priority: session lock (absolute in spec)

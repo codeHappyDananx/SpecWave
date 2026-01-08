@@ -10,7 +10,7 @@ license: MIT
 
 ## 先做一件事：会话自愈（防多会话串线）
 
-- 在读 `.specwave/settings.json` 之前，先执行一次会话守卫：`python .codex/skills/specwave-router/session_guard.py sync`。
+- 在做会话/阶段判断前，先执行一次会话守卫：`python .codex/skills/specwave-router/session_guard.py sync`（它会对齐 `.specwave/settings.json` 的会话投影）。
 - 如果提示“同项目存在多个活跃会话，无法自动绑定”，先用 `python .codex/skills/specwave-router/session_guard.py status` 看候选，再显式传 `--session-id` 重试。
 
 ## 最高优先级：会话锁定（进入 spec 后绝对服从）
