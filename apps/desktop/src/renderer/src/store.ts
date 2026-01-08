@@ -557,10 +557,23 @@ function extractTaskSummary(blockText: string) {
   const main = blockText.trimEnd().replaceAll('\r\n', '\n');
   const lines = main.split('\n');
   for (const line of lines) {
-    const m = line.match(/^\s*-\s*做什么[：:]\s*(.*)$/);
-    if (!m) continue;
-    return firstSentence(m[1] ?? '');
+    const m1 = line.match(/^\s*[-*+]\s*做什么[：:]\s*(.*)$/);
+    if (m1?.[1]) return firstSentence(m1[1]);
+    const m2 = line.match(/^\s*做什么[：:]\s*(.*)$/);
+    if (m2?.[1]) return firstSentence(m2[1]);
   }
+
+  // fallback：取任务块里第一条“有内容”的描述（跳过嵌套任务行）
+  for (let i = 1; i < lines.length; i++) {
+    const raw = lines[i] ?? '';
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    if (/^[-*+]\s*\[[ xX]\]\s+/.test(trimmed)) continue;
+    const cleaned = trimmed.replace(/^[-*+]\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+    if (!cleaned) continue;
+    return firstSentence(cleaned);
+  }
+
   return '';
 }
 
@@ -1620,7 +1633,16 @@ export const useAppStore = create<AppState>((set, get) => ({
           const item = board.items.find((t) => t.id === intent.taskId);
           if (!item) return { vm };
 
-          const template = `# ${item.title.trim()}`;
+          const effectiveText = effectiveContentText(vm.content);
+          const rawBlock = effectiveText.slice(item.source.blockStartPos, item.source.blockEndPos).trimEnd();
+          const lines = rawBlock.replaceAll('\r\n', '\n').split('\n');
+          const template = [
+            `# 开始：${item.title.trim()}`,
+            `# 来源：${file.name}`,
+            '# 任务内容：',
+            ...lines.map((l) => `# ${l}`),
+            '#'
+          ].join('\r\n');
 
           const ensurePanel = () => {
             const active = vm.terminal.activePanelId;

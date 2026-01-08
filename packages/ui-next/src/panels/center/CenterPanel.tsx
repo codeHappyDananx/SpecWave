@@ -276,7 +276,7 @@ export function CenterPanel(props: CenterPanelProps) {
                           {t.summary ? (
                             <div className={styles.taskSummary}>{t.summary}</div>
                           ) : (
-                            <div className={styles.taskSummaryMuted}>暂无摘要（建议在任务块里补 “- 做什么：”）</div>
+                            <div className={styles.taskSummaryMuted}>点击查看详情</div>
                           )}
                         </div>
                       </div>
