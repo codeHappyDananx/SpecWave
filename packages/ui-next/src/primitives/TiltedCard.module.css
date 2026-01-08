@@ -1,0 +1,13 @@
+.root{
+  position:relative;
+  width:100%;
+  height:100%;
+  perspective:900px;
+}
+
+.inner{
+  width:100%;
+  height:100%;
+  transform-style:preserve-3d;
+  will-change:transform;
+}

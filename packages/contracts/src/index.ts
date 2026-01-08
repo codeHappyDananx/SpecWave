@@ -64,18 +64,32 @@ export type ContentFileVM = {
 
 export type TaskSourceVM = {
   statusPos: number;
+  titleStartPos: number;
+  titleEndPos: number;
+  blockStartPos: number;
+  blockEndPos: number;
 };
 
 export type TaskItemVM = {
   id: string;
-  label: string;
+  title: string;
+  summary: string;
   checked: boolean;
   level: number;
   source: TaskSourceVM;
 };
 
+export type TaskDetailVM = {
+  isOpen: boolean;
+  mode: "view" | "edit";
+  draftTitle: string;
+  draftBody: string;
+};
+
 export type TaskBoardVM = {
   items: TaskItemVM[];
+  activeTaskId: string | null;
+  detail: TaskDetailVM;
 };
 
 export type ContentFindVM = {
@@ -121,6 +135,12 @@ export type UIIntent =
   | { type: "CONTENT_FIND_PREV" }
   | { type: "CONTENT_FIND_CLOSE" }
   | { type: "TASK_ITEM_TOGGLE"; taskId: string; source: TaskSourceVM }
+  | { type: "TASK_ITEM_OPEN"; taskId: string }
+  | { type: "TASK_DETAIL_CLOSE" }
+  | { type: "TASK_DETAIL_MODE_SET"; mode: TaskDetailVM["mode"] }
+  | { type: "TASK_DETAIL_DRAFT_SET"; title?: string; body?: string }
+  | { type: "TASK_DETAIL_SAVE" }
+  | { type: "TASK_ITEM_START"; taskId: string }
   | { type: "THEME_TOGGLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
   | { type: "TERMINAL_PANEL_SET_ACTIVE"; id: string }

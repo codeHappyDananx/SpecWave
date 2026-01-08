@@ -532,31 +532,135 @@ function defaultContentMode(kind: ContentKind): ContentMode {
   return 'editor' as const;
 }
 
-function parseTaskBoard(text: string): TaskBoardVM {
+const EMPTY_TASK_DETAIL: TaskBoardVM['detail'] = { isOpen: false, mode: 'view', draftTitle: '', draftBody: '' };
+
+function detectNewline(text: string) {
+  return text.includes('\r\n') ? '\r\n' : '\n';
+}
+
+function normalizeNewlines(text: string, newline: string) {
+  if (!text) return '';
+  const normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  if (newline === '\n') return normalized;
+  return normalized.replaceAll('\n', newline);
+}
+
+function firstSentence(text: string) {
+  const s = text.trim();
+  if (!s) return '';
+  const idx = s.search(/[。；;.!?]/);
+  if (idx < 0) return s;
+  return s.slice(0, idx).trim();
+}
+
+function extractTaskSummary(blockText: string) {
+  const main = blockText.trimEnd().replaceAll('\r\n', '\n');
+  const lines = main.split('\n');
+  for (const line of lines) {
+    const m = line.match(/^\s*-\s*做什么[：:]\s*(.*)$/);
+    if (!m) continue;
+    return firstSentence(m[1] ?? '');
+  }
+  return '';
+}
+
+function taskIdFromTitle(title: string, fallbackPos: number) {
+  const m = title.match(/\bT-\d{3}\b/);
+  if (m?.[0]) return `task-${m[0]}`;
+  return `task-${fallbackPos}`;
+}
+
+function extractTaskDrafts(fullText: string, item: TaskItemVM) {
+  const blockText = fullText.slice(item.source.blockStartPos, item.source.blockEndPos);
+  const trimmed = blockText.trimEnd();
+  const main = trimmed.replaceAll('\r\n', '\n');
+  const nlIdx = main.indexOf('\n');
+  const body = nlIdx < 0 ? '' : main.slice(nlIdx + 1).trimEnd();
+  const title = fullText.slice(item.source.titleStartPos, item.source.titleEndPos).replace(/\r$/, '');
+  return { title, body };
+}
+
+function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
   const items: TaskItemVM[] = [];
   const re = /^(?<indent>[ \t]*)-\s*\[(?<status>[ xX])\]\s+(?<label>.*)$/gm;
+  const hits: Array<{
+    lineStartPos: number;
+    rawLine: string;
+    level: number;
+    checked: boolean;
+    title: string;
+    statusPos: number;
+    titleStartPos: number;
+    titleEndPos: number;
+  }> = [];
+
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    const lineStart = m.index;
-    const fullLine = (m[0] ?? '').replace(/\r$/, '');
+    const lineStartPos = m.index;
+    const rawLine = m[0] ?? '';
     const indent = m.groups?.indent ?? '';
-    const status = (m.groups?.status ?? ' ').toLowerCase();
-    const labelRaw = (m.groups?.label ?? '').replace(/\r$/, '');
+    const checked = (m.groups?.status ?? ' ').toLowerCase() === 'x';
+    const title = (m.groups?.label ?? '').replace(/\r$/, '');
 
-    const bracketIdx = fullLine.indexOf('[');
+    const bracketIdx = rawLine.indexOf('[');
     if (bracketIdx < 0) continue;
-    const statusPos = lineStart + bracketIdx + 1;
+    const statusPos = lineStartPos + bracketIdx + 1;
+
+    const rawLineNoCr = rawLine.replace(/\r$/, '');
+    const titleStartInLine = rawLineNoCr.length - title.length;
+    const titleStartPos = lineStartPos + Math.max(0, titleStartInLine);
+    const titleEndPos = titleStartPos + title.length;
     const level = Math.max(0, Math.floor(indent.length / 2));
 
+    hits.push({ lineStartPos, rawLine, level, checked, title, statusPos, titleStartPos, titleEndPos });
+  }
+
+  for (let i = 0; i < hits.length; i++) {
+    const h = hits[i]!;
+    const next = (() => {
+      for (let j = i + 1; j < hits.length; j++) {
+        const cand = hits[j]!;
+        if (cand.level <= h.level) return cand;
+      }
+      return null;
+    })();
+    const blockStartPos = h.lineStartPos;
+    const blockEndPos = next ? next.lineStartPos : text.length;
+    const blockText = text.slice(blockStartPos, blockEndPos);
+
     items.push({
-      id: `task-${statusPos}`,
-      label: labelRaw,
-      checked: status === 'x',
-      level,
-      source: { statusPos }
+      id: taskIdFromTitle(h.title, h.statusPos),
+      title: h.title,
+      summary: extractTaskSummary(blockText),
+      checked: h.checked,
+      level: h.level,
+      source: {
+        statusPos: h.statusPos,
+        titleStartPos: h.titleStartPos,
+        titleEndPos: h.titleEndPos,
+        blockStartPos,
+        blockEndPos
+      }
     });
   }
-  return { items };
+
+  const nextActiveTaskId = (() => {
+    const prevId = prev?.activeTaskId;
+    if (!prevId) return null;
+    return items.some((t) => t.id === prevId) ? prevId : null;
+  })();
+
+  const nextDetail = (() => {
+    if (!nextActiveTaskId) return EMPTY_TASK_DETAIL;
+    if (!prev?.detail.isOpen) return EMPTY_TASK_DETAIL;
+    if (prev.detail.mode === 'edit') return prev.detail;
+    const item = items.find((t) => t.id === nextActiveTaskId);
+    if (!item) return EMPTY_TASK_DETAIL;
+    const { title, body } = extractTaskDrafts(text, item);
+    return { isOpen: true, mode: 'view' as const, draftTitle: title, draftBody: body };
+  })();
+
+  return { items, activeTaskId: nextActiveTaskId, detail: nextDetail };
 }
 
 function toggleCharAt(text: string, pos: number, nextChar: string) {
@@ -1149,7 +1253,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               }
 
               const mode = defaultContentMode(kind);
-              const taskBoard = kind === 'task' ? parseTaskBoard(res.text) : null;
+              const taskBoard = kind === 'task' ? parseTaskBoardV2(res.text, null) : null;
 
               return {
                 vm: {
@@ -1195,7 +1299,8 @@ export const useAppStore = create<AppState>((set, get) => ({
             return 'view' as const;
           })();
 
-          const nextTaskBoard = file.kind === 'task' && nextMode === 'task' ? parseTaskBoard(effectiveText) : vm.content.taskBoard;
+          const nextTaskBoard =
+            file.kind === 'task' && nextMode === 'task' ? parseTaskBoardV2(effectiveText, vm.content.taskBoard) : vm.content.taskBoard;
           return {
             vm: {
               ...vm,
@@ -1257,7 +1362,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     saveStatus: 'saved',
                     saveError: null,
                     file: { ...vm2.content.file, sha256: res.sha256 },
-                    taskBoard: kind === 'task' ? parseTaskBoard(nextText) : vm2.content.taskBoard
+                    taskBoard: kind === 'task' ? parseTaskBoardV2(nextText, vm2.content.taskBoard) : vm2.content.taskBoard
                   }
                 }
               };
@@ -1341,7 +1446,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     saveStatus: 'saved',
                     saveError: null,
                     file: { ...vm2.content.file!, sha256: res.sha256 },
-                    taskBoard: parseTaskBoard(nextText)
+                    taskBoard: parseTaskBoardV2(nextText, vm2.content.taskBoard)
                   }
                 }
               };
@@ -1351,7 +1456,230 @@ export const useAppStore = create<AppState>((set, get) => ({
           return {
             vm: {
               ...vm,
-              content: { ...vm.content, draftText: nextText, isDirty: true, saveStatus: 'saving', saveError: null, taskBoard: parseTaskBoard(nextText) }
+              content: {
+                ...vm.content,
+                draftText: nextText,
+                isDirty: true,
+                saveStatus: 'saving',
+                saveError: null,
+                taskBoard: parseTaskBoardV2(nextText, vm.content.taskBoard)
+              }
+            }
+          };
+        }
+        case 'TASK_ITEM_OPEN': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const text = effectiveContentText(vm.content);
+          const board = vm.content.taskBoard ?? parseTaskBoardV2(text, null);
+          const item = board.items.find((t) => t.id === intent.taskId);
+          if (!item) return { vm: { ...vm, content: { ...vm.content, taskBoard: board } } };
+          const { title, body } = extractTaskDrafts(text, item);
+          const nextBoard: TaskBoardVM = {
+            ...board,
+            activeTaskId: item.id,
+            detail: { isOpen: true, mode: 'view', draftTitle: title, draftBody: body }
+          };
+          return { vm: { ...vm, content: { ...vm.content, taskBoard: nextBoard } } };
+        }
+        case 'TASK_DETAIL_CLOSE': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const board = vm.content.taskBoard;
+          if (!board) return { vm };
+          return { vm: { ...vm, content: { ...vm.content, taskBoard: { ...board, activeTaskId: null, detail: EMPTY_TASK_DETAIL } } } };
+        }
+        case 'TASK_DETAIL_MODE_SET': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const board = vm.content.taskBoard;
+          if (!board?.activeTaskId) return { vm };
+          const text = effectiveContentText(vm.content);
+          const item = board.items.find((t) => t.id === board.activeTaskId);
+          if (!item) return { vm };
+          const { title, body } = extractTaskDrafts(text, item);
+          return {
+            vm: {
+              ...vm,
+              content: {
+                ...vm.content,
+                taskBoard: {
+                  ...board,
+                  detail: { isOpen: true, mode: intent.mode, draftTitle: title, draftBody: body }
+                }
+              }
+            }
+          };
+        }
+        case 'TASK_DETAIL_DRAFT_SET': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const board = vm.content.taskBoard;
+          if (!board?.detail.isOpen) return { vm };
+          const nextTitle = intent.title ?? board.detail.draftTitle;
+          const nextBody = intent.body ?? board.detail.draftBody;
+          return {
+            vm: {
+              ...vm,
+              content: {
+                ...vm.content,
+                taskBoard: { ...board, detail: { ...board.detail, draftTitle: nextTitle, draftBody: nextBody } }
+              }
+            }
+          };
+        }
+        case 'TASK_DETAIL_SAVE': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const board = vm.content.taskBoard;
+          if (!board?.activeTaskId || !board.detail.isOpen) return { vm };
+
+          const effectiveText = effectiveContentText(vm.content);
+          const item = board.items.find((t) => t.id === board.activeTaskId);
+          if (!item) return { vm };
+
+          const blockText = effectiveText.slice(item.source.blockStartPos, item.source.blockEndPos);
+          const trimmed = blockText.trimEnd();
+          const tail = blockText.slice(trimmed.length);
+
+          const statusChar = item.checked ? 'x' : ' ';
+          const beforeStatus = effectiveText.slice(item.source.blockStartPos, item.source.statusPos);
+          const afterStatus = effectiveText.slice(item.source.statusPos + 1, item.source.titleStartPos);
+          const nextTitle = board.detail.draftTitle.trim();
+          const headerLine = `${beforeStatus}${statusChar}${afterStatus}${nextTitle}`;
+
+          const newline = detectNewline(effectiveText);
+          const nextBody = normalizeNewlines(board.detail.draftBody, newline).trimEnd();
+
+          let nextBlock = headerLine;
+          if (nextBody) nextBlock += `${newline}${nextBody}`;
+          nextBlock += tail;
+
+          const nextText =
+            effectiveText.slice(0, item.source.blockStartPos) + nextBlock + effectiveText.slice(item.source.blockEndPos);
+
+          const optimisticPrev: TaskBoardVM = { ...board, detail: { ...board.detail, mode: 'view' } };
+          const optimisticBoard = parseTaskBoardV2(nextText, optimisticPrev);
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+            const current = get().vm.content.file;
+            if (!current || current.path !== file.path) return;
+            const res = await api.saveTextFile(current.path, nextText, current.sha256);
+            if (res.ok) selfWriteAtByPath.set(normalizeFsPath(current.path), Date.now());
+
+            set((state) => {
+              const vm2 = state.vm;
+              if (!vm2.content.file || vm2.content.file.path !== file.path) return { vm: vm2 };
+
+              if (!res.ok) {
+                if ('conflict' in res && res.conflict) {
+                  return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'conflict', saveError: res.error } } };
+                }
+                return { vm: { ...vm2, content: { ...vm2.content, saveStatus: 'error', saveError: res.error } } };
+              }
+
+              return {
+                vm: {
+                  ...vm2,
+                  content: {
+                    ...vm2.content,
+                    text: nextText,
+                    draftText: nextText,
+                    isDirty: false,
+                    saveStatus: 'saved',
+                    saveError: null,
+                    file: { ...vm2.content.file!, sha256: res.sha256 },
+                    taskBoard: parseTaskBoardV2(nextText, vm2.content.taskBoard)
+                  }
+                }
+              };
+            });
+          })();
+
+          return {
+            vm: {
+              ...vm,
+              content: {
+                ...vm.content,
+                draftText: nextText,
+                isDirty: true,
+                saveStatus: 'saving',
+                saveError: null,
+                taskBoard: optimisticBoard
+              }
+            }
+          };
+        }
+        case 'TASK_ITEM_START': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const board = vm.content.taskBoard;
+          if (!board) return { vm };
+          const item = board.items.find((t) => t.id === intent.taskId);
+          if (!item) return { vm };
+
+          const template = `# ${item.title.trim()}`;
+
+          const ensurePanel = () => {
+            const active = vm.terminal.activePanelId;
+            if (active && vm.terminal.panelIds.includes(active)) return active;
+            const fallback = vm.terminal.panelIds[0];
+            if (fallback) return fallback;
+            return '';
+          };
+
+          const existingId = ensurePanel();
+          if (existingId) {
+            void (async () => {
+              const api = window.specwave;
+              if (!api?.terminalWrite) return;
+              api.terminalWrite(existingId, template);
+            })();
+
+            return {
+              vm: {
+                ...vm,
+                rightVisible: true,
+                rightMode: 'terminal' as const,
+                terminal: { ...vm.terminal, activePanelId: existingId }
+              }
+            };
+          }
+
+          const nextId = `terminal-${Date.now()}`;
+          terminalUserTyped.delete(nextId);
+          const cwd = vm.explorer.projectRoot ?? null;
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api?.terminalCreateSession) return;
+            const res = await api.terminalCreateSession({ id: nextId, cwd });
+            if (!res.ok) {
+              set((state) => {
+                const vm2 = state.vm;
+                const prev = vm2.terminal.outputByPanel[nextId] ?? [];
+                const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
+                return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: { ...vm2.terminal.outputByPanel, [nextId]: next } } } };
+              });
+              return;
+            }
+            try {
+              api.terminalWrite?.(nextId, template);
+            } catch {}
+          })();
+
+          return {
+            vm: {
+              ...vm,
+              rightVisible: true,
+              rightMode: 'terminal' as const,
+              terminal: {
+                panelIds: [...vm.terminal.panelIds, nextId],
+                activePanelId: nextId,
+                outputByPanel: { ...vm.terminal.outputByPanel, [nextId]: ['正在启动终端…\r\n'] }
+              }
             }
           };
         }
@@ -1609,7 +1937,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                     saveStatus: 'saved',
                     saveError: null,
                     file: { ...vm2.content.file, sha256: res.sha256 },
-                    taskBoard: kind === 'task' ? parseTaskBoard(nextText) : vm2.content.taskBoard
+                    taskBoard: kind === 'task' ? parseTaskBoardV2(nextText, vm2.content.taskBoard) : vm2.content.taskBoard
                   }
                 }
               };
@@ -1919,7 +2247,7 @@ void (async () => {
             isDirty: false,
             saveStatus: 'idle',
             saveError: null,
-            taskBoard: kind === 'task' ? parseTaskBoard(res.text) : kind === 'image' ? null : vm.content.taskBoard,
+            taskBoard: kind === 'task' ? parseTaskBoardV2(res.text, vm.content.taskBoard) : kind === 'image' ? null : vm.content.taskBoard,
             find: nextFind
           }
         }

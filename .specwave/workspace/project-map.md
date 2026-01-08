@@ -45,16 +45,18 @@
 | `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果等展示 | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
-| `packages/ui-next/src/panels/center` | 中栏：编辑/预览/查找（含图片预览） | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
+| `packages/ui-next/src/panels/center` | 中栏：内容工作区（markdown 渲染/源码编辑/文件内查找/图片预览/任务卡片看板 + 详情编辑 + “开始”联动终端） | `primitives`、contracts | `shell` | 禁止 import 其他 panels；UI 不解析 markdown，只消费 VM |
 | `packages/ui-next/src/panels/right` | 右栏：终端/对话 tabs | `primitives` | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/primitives` | 可复用 UI 组件与样式 | tokens | panels/shell | 自写组件样式用 CSS Modules；shadcn 引入组件允许 Tailwind class（集中在 `primitives/shadcn`） |
-| `packages/ui-next/src/primitives/shadcn` | shadcn/ui 引入的可控组件（new-york v4） | Tailwind v4 + Radix + lucide | panels/left | 只在 primitives 内维护，避免散落；组件内部可带少量 reset（如 `list-none`）来保证样式稳定 |
+| `packages/ui-next/src/primitives/TiltedCard.tsx` | Tilted Card 动效容器（克制 tilt/scale，自动尊重“减少动态效果”） | `motion/react` | `panels/center` | 只做动效与降级，不绑定业务字段 |
+| `packages/ui-next/src/primitives/shadcn` | shadcn/ui 引入的可控组件（new-york v4） | Tailwind v4 + Radix + lucide | panels/left、panels/center | 只在 primitives 内维护，避免散落；组件内部可带少量 reset（如 `list-none`）来保证样式稳定 |
 | `packages/ui-next/src/primitives/shadcn/sidebar.tsx` | Sidebar 套件（Provider/Menu/Button 等） | Radix + lucide | `panels/left` | 与三栏布局共存：左栏固定用 `collapsible="none"` |
-| `packages/ui-next/src/primitives/shadcn/button.tsx` | Button（Sidebar 内部依赖） | Radix Slot + cva | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
-| `packages/ui-next/src/primitives/shadcn/input.tsx` | Input（Sidebar 内部依赖） | 无 | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
+| `packages/ui-next/src/primitives/shadcn/button.tsx` | Button（shadcn/ui） | Radix Slot + cva | `primitives/shadcn/sidebar.tsx`、`panels/center` | 统一按钮交互与 focus ring |
+| `packages/ui-next/src/primitives/shadcn/input.tsx` | Input（shadcn/ui） | 无 | `primitives/shadcn/sidebar.tsx`、`panels/center` | 统一输入框交互与 focus ring |
+| `packages/ui-next/src/primitives/shadcn/textarea.tsx` | Textarea（shadcn/ui） | 无 | `panels/center` | 任务详情编辑用多行输入 |
 | `packages/ui-next/src/primitives/shadcn/separator.tsx` | Separator（Sidebar 内部依赖） | Radix Separator | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
-| `packages/ui-next/src/primitives/shadcn/sheet.tsx` | Sheet（Sidebar 内部依赖，移动端/抽屉） | Radix Dialog + lucide | `primitives/shadcn/sidebar.tsx` | 桌面端当前不启用 offcanvas |
-| `packages/ui-next/src/primitives/shadcn/tooltip.tsx` | Tooltip（Sidebar 内部依赖） | Radix Tooltip | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
+| `packages/ui-next/src/primitives/shadcn/sheet.tsx` | Sheet（抽屉/侧滑面板：任务详情等） | Radix Dialog + lucide | `primitives/shadcn/sidebar.tsx`、`panels/center` | 视觉口径遵守 Flat：调用方按需用 `!shadow-none` 等覆盖 |
+| `packages/ui-next/src/primitives/shadcn/tooltip.tsx` | Tooltip（提示气泡） | Radix Tooltip | `primitives/shadcn/sidebar.tsx`、`panels/center` | 控制 hover/focus 提示，不承载业务逻辑 |
 | `packages/ui-next/src/primitives/shadcn/skeleton.tsx` | Skeleton（Sidebar 内部依赖） | 无 | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
 | `packages/ui-next/src/primitives/shadcn/use-mobile.ts` | `useIsMobile`（Sidebar 内部依赖） | React | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
 | `apps/desktop/src/renderer/src/tailwind.css` | Tailwind（preflight + utilities），专门给 shadcn/ui 的 class 用 | `tailwind.config.cjs` | renderer 入口 | 放在 renderer 内编译，避免 monorepo 下依赖包里的 `@tailwind` 指令漏编译 |
