@@ -15,7 +15,7 @@ license: MIT
 
 ## 最高优先级：会话锁定（进入 spec 后绝对服从）
 
-- 每次对话先读 `.specwave/settings.json`。
+- 每次对话都以 `.specwave/settings.json` 为准（如果前面做过 `sync`，就按对齐后的结果判断）。
 - 如果存在 `currentSession` 且 `mode === "spec"`：立刻进入 spec，按 `phase` 继续；不要再用“vibe 关键词”做判断。
 
 ## 模式判断（仅在没有 spec 会话时）

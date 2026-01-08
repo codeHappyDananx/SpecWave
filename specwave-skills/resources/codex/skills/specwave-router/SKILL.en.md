@@ -15,7 +15,7 @@ You route the conversation to the right mode/role and keep execution gated.
 
 ## Highest priority: session lock (absolute in spec)
 
-- Always read `.specwave/settings.json` first.
+- Always use `.specwave/settings.json` as the source of truth (if you ran `sync`, rely on the post-sync result).
 - If `currentSession.mode === "spec"`: you are in spec; continue by `phase`. Do not route back to vibe based on keywords.
 
 ## Mode routing (only when there is no spec session)

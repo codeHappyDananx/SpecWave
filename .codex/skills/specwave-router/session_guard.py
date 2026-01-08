@@ -311,6 +311,54 @@ def cmd_clear(args: argparse.Namespace) -> int:
     return 0
 
 
+def _reorder_argv_for_global_flags(argv: list[str]) -> list[str]:
+    """
+    兼容用户直觉写法：
+    - 支持 `status --project-root .` 这种把全局参数放在子命令后面的形式
+    - 解析前把这些全局参数挪到子命令前面，交给 argparse 正常处理
+    """
+
+    if not argv:
+        return argv
+
+    subcommands = {"status", "sync", "set", "clear"}
+    global_flags: dict[str, int] = {
+        "--project-root": 1,
+        "--sessions-root": 1,
+        "--session-id": 1,
+        "--recent-limit": 1,
+        "--ambiguity-seconds": 1,
+    }
+
+    cmd_idx = next((i for i, tok in enumerate(argv) if tok in subcommands), -1)
+    if cmd_idx < 0:
+        return argv
+
+    before = argv[:cmd_idx]
+    cmd = argv[cmd_idx]
+    after = argv[cmd_idx + 1 :]
+
+    extracted: list[str] = []
+    rest: list[str] = []
+    i = 0
+    while i < len(after):
+        tok = after[i]
+        if tok in global_flags:
+            need = global_flags[tok]
+            extracted.append(tok)
+            for j in range(need):
+                if i + 1 + j < len(after):
+                    extracted.append(after[i + 1 + j])
+            i += 1 + need
+            continue
+        rest.append(tok)
+        i += 1
+
+    if not extracted:
+        return argv
+    return before + extracted + [cmd] + rest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="session_guard.py", add_help=True)
     parser.add_argument(
@@ -354,10 +402,10 @@ def main() -> int:
 
     sub.add_parser("clear", help="清空当前会话的 currentSession").set_defaults(func=cmd_clear)
 
-    args = parser.parse_args()
+    argv = _reorder_argv_for_global_flags(sys.argv[1:])
+    args = parser.parse_args(argv)
     return int(args.func(args))
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

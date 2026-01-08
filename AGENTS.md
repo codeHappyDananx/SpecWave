@@ -7,6 +7,7 @@
 每次对话开始，你必须：
 
 1. **先读 settings.json**：读取 `.specwave/settings.json`
+   - 如果 settings 里存在 `sessionStore`：先执行一次会话自愈（`python .codex/skills/specwave-router/session_guard.py sync`），再检查 `currentSession`
 2. **检查 currentSession**：
    - 存在且 `mode === "spec"`：你在 **spec 模式**，加载 `.specwave/roles/需求分析师.md`，按 `phase` 继续
    - 不存在或为 `null`：你在 **vibe 模式**，直接干活，不走流程
