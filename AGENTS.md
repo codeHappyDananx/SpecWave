@@ -18,6 +18,16 @@
 
 ---
 
+## 【会话自愈（推荐）】
+
+同一项目可能同时开多个 Codex 会话。为避免“上个会话残留的执行阶段”影响新会话，进入对话前先对齐一次会话投影：
+
+- 对齐当前会话：`python .codex/skills/specwave-router/session_guard.py sync`
+- 并发会话时：先 `python .codex/skills/specwave-router/session_guard.py status` 看候选，再 `python .codex/skills/specwave-router/session_guard.py --session-id <id> sync`
+- 退出 spec：`python .codex/skills/specwave-router/session_guard.py clear`
+
+---
+
 ## 【硬规则】（违反即失败）
 
 | 规则 | 说明 |

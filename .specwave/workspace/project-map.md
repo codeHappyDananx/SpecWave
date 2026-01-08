@@ -70,6 +70,7 @@
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
+| `.codex/skills/specwave-router/session_guard.py` | 会话自愈脚本：把 `.specwave/settings.json` 的会话投影对齐到“当前 Codex 会话”，避免多会话串阶段 | Python | `AGENTS.md`、`specwave-router` | 并发会话会要求显式 `--session-id`；建议每次对话先 `sync` |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |
 | `specwave-skills` | skills/CLI 资源（可公开复用） | Node | `specwave` 命令 | 不属于业务源码 |
 

@@ -2595,6 +2595,12 @@ function getCodexInstallPlan({ packId, profile, lang }) {
   if (!fs.existsSync(routerSourcePath)) {
     exitWithError('找不到内置的 specwave-router 资源（打包资源缺失）');
   }
+  const routerAssetsDir = path.dirname(routerSourcePath);
+  const sessionGuardSourcePath = path.join(routerAssetsDir, 'session_guard.py');
+  const sessionGuardTargetPath = path.join(codexHome, 'skills', 'specwave-router', 'session_guard.py');
+  if (!fs.existsSync(sessionGuardSourcePath)) {
+    exitWithError('找不到内置的 session_guard.py（specwave-router 资源缺失）');
+  }
 
   const promptSource = getCodexPromptsSourceRoot(packId, profile);
   const promptFiles = listFilesRecursively(promptSource.promptsRoot).filter((filePath) =>
@@ -2639,6 +2645,7 @@ function getCodexInstallPlan({ packId, profile, lang }) {
     profile: promptSource.effectiveProfile,
     operations: [
       createCodexSkillPlanOp({ sourcePath: routerSourcePath, targetPath: routerTargetPath }),
+      createCodexSkillPlanOp({ sourcePath: sessionGuardSourcePath, targetPath: sessionGuardTargetPath }),
       ...pruneOps,
       ...promptOps
     ]

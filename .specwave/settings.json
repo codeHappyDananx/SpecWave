@@ -2,12 +2,7 @@
   "specwave": {
     "version": "0.3.0"
   },
-  "currentSession": {
-    "mode": "spec",
-    "storyId": "STORY-000008",
-    "phase": "执行",
-    "createdAt": "2026-01-07T17:27:19Z"
-  },
+  "currentSession": null,
   "executionGate": {
     "requiresExplicitApproval": true,
     "requiresRequirementConfirmation": true
@@ -31,5 +26,10 @@
       ".cache",
       ".tmp-specwave-userdata"
     ]
+  },
+  "sessionStore": {
+    "version": 1,
+    "bySessionId": {},
+    "legacy": {}
   }
 }
