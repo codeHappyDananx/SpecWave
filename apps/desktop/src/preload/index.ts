@@ -78,13 +78,15 @@ contextBridge.exposeInMainWorld('specwave', {
 
   clipboardReadText: () => clipboard.readText(),
   clipboardWriteText: (text: string) => {
+    let ok = false;
     try {
-      ipcRenderer.sendSync('specwave:clipboardWriteTextSync', { text });
-    } catch {
-      try {
-        clipboard.writeText(text);
-      } catch {}
-    }
+      const res = ipcRenderer.sendSync('specwave:clipboardWriteTextSync', { text }) as { ok: boolean } | undefined;
+      ok = Boolean(res?.ok);
+    } catch {}
+    if (ok) return;
+    try {
+      clipboard.writeText(text);
+    } catch {}
   },
 
   revealInFolder: (p: string) =>
