@@ -866,6 +866,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
         }
         case 'PANEL_TOGGLE_RIGHT': {
+          // eslint-disable-next-line no-debugger
+          debugger;
           console.log('[PANEL_TOGGLE_RIGHT] before:', { rightVisible: vm.rightVisible, rightPx: vm.layout.rightPx, centerPx: vm.layout.centerPx });
           const nextVm = { ...vm, rightVisible: !vm.rightVisible };
           const nextLayout = normalizeLayoutStable(nextVm);
@@ -885,6 +887,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         case 'RIGHT_MODE_SET':
           {
+            // eslint-disable-next-line no-debugger
+            debugger;
             console.log('[RIGHT_MODE_SET] before:', { rightVisible: vm.rightVisible, rightPx: vm.layout.rightPx, centerPx: vm.layout.centerPx });
             const nextVm = { ...vm, rightMode: intent.mode, rightVisible: true };
             const nextLayout = normalizeLayoutStable(nextVm);
