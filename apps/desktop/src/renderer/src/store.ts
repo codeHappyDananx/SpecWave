@@ -46,6 +46,15 @@ function loadSkin(): AppViewModel['ui']['skin'] {
   return 'blue';
 }
 
+function loadTheme(): AppViewModel['ui']['theme'] {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const v = window.localStorage.getItem('specwave_theme');
+    if (v === 'light' || v === 'dark') return v;
+  } catch {}
+  return 'light';
+}
+
 function loadExplorerShowIgnored(): boolean {
   if (typeof window === 'undefined') return false;
   try {
@@ -243,7 +252,7 @@ const initialVm: AppViewModel = {
       'chat-2': ''
     }
   },
-  ui: { theme: 'light', skin: loadSkin() },
+  ui: { theme: loadTheme(), skin: loadSkin() },
   panelMinW: {
     leftPx: 240,
     centerPx: Math.max(320, Math.round(1280 * 0.7)),
@@ -2216,6 +2225,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           };
         }
         case 'THEME_TOGGLE': {
+          const nextTheme: AppViewModel['ui']['theme'] = vm.ui.theme === 'dark' ? 'light' : 'dark';
+          try {
+            window.localStorage.setItem('specwave_theme', nextTheme);
+          } catch {}
+          return { vm: { ...vm, ui: { ...vm.ui, theme: nextTheme } } };
+        }
+        case 'SKIN_CYCLE': {
           const skins: AppViewModel['ui']['skin'][] = ['blue', 'purple', 'green', 'amber'];
           const idx = skins.indexOf(vm.ui.skin);
           const nextSkin = skins[(idx < 0 ? 0 : idx + 1) % skins.length] ?? 'blue';

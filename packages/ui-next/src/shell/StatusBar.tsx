@@ -8,7 +8,7 @@ export type StatusBarProps = {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
   saveError: string | null;
   explorerError: string | null;
-  theme: 'light';
+  theme: 'light' | 'dark';
 };
 
 export function StatusBar(props: StatusBarProps) {

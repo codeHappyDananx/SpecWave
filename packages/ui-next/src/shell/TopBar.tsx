@@ -20,6 +20,7 @@ type TopBarIntent = Extract<
   | { type: 'PANEL_TOGGLE_RIGHT' }
   | { type: 'RIGHT_MODE_SET' }
   | { type: 'THEME_TOGGLE' }
+  | { type: 'SKIN_CYCLE' }
 >;
 
 export type TopBarProps = {
@@ -117,7 +118,7 @@ export function TopBar(props: TopBarProps) {
           </div>
           <Input
             type="search"
-            className="text-[13px] h-8 pl-9 pr-9 border-transparent bg-[var(--sw-muted)] focus-visible:bg-white focus-visible:border-[var(--sw-primary)]"
+            className="text-[13px] h-8 pl-9 pr-9 border-transparent bg-[var(--sw-muted)] focus-visible:bg-[var(--sw-bg)] focus-visible:border-[var(--sw-primary)]"
             aria-label="搜索文件"
             placeholder="搜索文件…"
             value={searchValue}
@@ -198,12 +199,18 @@ export function TopBar(props: TopBarProps) {
                 size="icon-sm"
                 className="text-[13px]"
                 aria-label="皮肤"
-                onClick={() => props.dispatch({ type: 'THEME_TOGGLE' })}
+                onClick={(e) => {
+                  if (e.shiftKey) {
+                    props.dispatch({ type: 'SKIN_CYCLE' });
+                    return;
+                  }
+                  props.dispatch({ type: 'THEME_TOGGLE' });
+                }}
               >
                 <Icon name="theme" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>皮肤</TooltipContent>
+            <TooltipContent>皮肤（Shift 切主色）</TooltipContent>
           </Tooltip>
         </div>
       </div>

@@ -15,10 +15,11 @@ export type SpecWaveAppProps = {
 
 export function SpecWaveApp(props: SpecWaveAppProps) {
   const { vm, dispatch } = props;
+  const rootClassName = vm.ui.theme === 'dark' ? `${styles.root} dark` : styles.root;
 
   if (vm.app.mode === 'welcome') {
     return (
-      <div className={styles.root} data-skin={vm.ui.skin}>
+      <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
         <WelcomePage
           recentProjects={vm.app.recentProjects}
           isLoading={vm.explorer.isLoading}
@@ -32,7 +33,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
   const activeProject = vm.projects.activeTabId ? vm.projects.openTabs.find((t) => t.id === vm.projects.activeTabId) : null;
 
   return (
-    <div className={styles.root} data-skin={vm.ui.skin}>
+    <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
       <div className={styles.app} aria-label="工作区">
         <TopBar
           projects={vm.projects}
