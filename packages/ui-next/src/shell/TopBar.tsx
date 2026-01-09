@@ -117,7 +117,7 @@ export function TopBar(props: TopBarProps) {
           </div>
           <Input
             type="search"
-            className="text-[13px] h-10 pl-10 pr-10 border-transparent bg-[var(--sw-muted)] focus-visible:bg-white focus-visible:border-[var(--sw-primary)]"
+            className="text-[13px] h-8 pl-9 pr-9 border-transparent bg-[var(--sw-muted)] focus-visible:bg-white focus-visible:border-[var(--sw-primary)]"
             aria-label="搜索文件"
             placeholder="搜索文件…"
             value={searchValue}

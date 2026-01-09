@@ -1,4 +1,4 @@
-.topBar{height:60px;display:grid;grid-template-columns:1fr minmax(280px,520px) auto;align-items:center;gap:12px;padding:10px 12px;background:var(--sw-bg);border-bottom:2px solid var(--sw-border);}
+.topBar{height:60px;display:grid;grid-template-columns:1fr minmax(180px,320px) auto;align-items:center;gap:12px;padding:10px 12px;background:var(--sw-bg);border-bottom:2px solid var(--sw-border);}
 .left{min-width:0;display:flex;align-items:center;gap:10px;}
 .center{min-width:0;display:flex;align-items:center;}
 .right{display:flex;align-items:center;justify-content:flex-end;}
@@ -11,10 +11,14 @@
 
 /* 搜索框容器 */
 .searchWrap{position:relative;width:100%;max-width:720px;}
-.searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;color:#374151;pointer-events:none;z-index:1;}
-.searchClear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;border:0;background:#fff;color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);z-index:1;}
+.searchIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;color:#374151;pointer-events:none;z-index:1;}
+.searchClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:0;background:#fff;color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);z-index:1;}
 .searchClear:hover{transform:translateY(-50%) scale(1.06);background:#E5E7EB;}
 .searchClear:active{transform:translateY(-50%) scale(.98);}
 
 /* 图标按钮 active 状态 */
 .iconBar [data-active="true"]{background:color-mix(in srgb, var(--sw-primary) 14%, transparent);color:var(--sw-primary);}
+
+/* 图标按钮 hover/active 效果 */
+.iconBar button:hover{background:color-mix(in srgb, var(--sw-muted) 85%, transparent);}
+.iconBar button:active{transform:scale(.95);}

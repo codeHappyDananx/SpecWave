@@ -284,10 +284,7 @@ function normalizeLayoutStable(vm: AppViewModel) {
   let centerPx = vm.layout.centerPx;
   let rightPx = vm.layout.rightPx;
 
-  if (!vm.leftVisible) leftPx = 0;
-  if (!vm.centerVisible) centerPx = 0;
-  if (!vm.rightVisible) rightPx = 0;
-
+  // 只在面板可见时应用约束，隐藏时保留原值以便恢复
   if (vm.leftVisible) leftPx = clamp(leftPx, MIN_LEFT_PX, MAX_LEFT_PX);
   if (vm.centerVisible) centerPx = Math.max(MIN_CENTER_PX, centerPx);
   if (vm.rightVisible) rightPx = Math.max(MIN_RIGHT_PX, rightPx);
