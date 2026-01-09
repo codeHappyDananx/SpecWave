@@ -3,11 +3,19 @@
 :root {
   --sw-bg: #ffffff;
   --sw-fg: #111827;
+  --sw-fg-muted: #374151;
+  --sw-fg-dim: #4b5563;
+  --sw-fg-subtle: #6b7280;
+  --sw-fg-faint: #9ca3af;
+  --sw-fg-invert: #ffffff;
   --sw-primary: #3b82f6;
   --sw-secondary: #10b981;
   --sw-accent: #f59e0b;
   --sw-muted: #f3f4f6;
+  --sw-muted-hover: #e5e7eb;
   --sw-border: #e5e7eb;
+  --sw-bg-elevated: rgba(255, 255, 255, 0.94);
+  --sw-bg-card: rgba(255, 255, 255, 0.92);
   --sw-radius-md: 6px;
   --sw-radius-lg: 8px;
   --t-quick: 200ms;
@@ -55,11 +63,84 @@
   --sw-terminal-cursor: #3b82f6;
   --sw-terminal-selection: rgba(59, 130, 246, 0.28);
 
+  --sw-danger-bg: #fef2f2;
+  --sw-danger-border: #fca5a5;
+  --sw-danger-fg: #991b1b;
+
+  --sw-badge-primary-bg: #dbeafe;
+  --sw-badge-primary-fg: #1d4ed8;
+  --sw-badge-secondary-bg: #d1fae5;
+  --sw-badge-secondary-fg: #047857;
+  --sw-badge-accent-bg: #fef3c7;
+  --sw-badge-accent-fg: #b45309;
+  --sw-chat-user-bg: #dbeafe;
+  --sw-chat-ai-bg: #ecfdf5;
+
   /* 全局滚动条：默认隐藏（不显示滑轨）；hover 时只显示滑块，避免满屏“条条框框”。 */
   --sw-scrollbar-size: 6px;
   --sw-scrollbar-thumb: rgba(17, 24, 39, 0.18);
   --sw-scrollbar-thumb-hover: rgba(17, 24, 39, 0.28);
   --sw-scrollbar-thumb-active: rgba(17, 24, 39, 0.36);
+}
+
+[data-theme="dark"] {
+  --sw-bg: #111827;
+  --sw-fg: #e5e7eb;
+  --sw-fg-muted: #cbd5e1;
+  --sw-fg-dim: #94a3b8;
+  --sw-fg-subtle: #94a3b8;
+  --sw-fg-faint: #64748b;
+  --sw-fg-invert: #ffffff;
+  --sw-muted: #0b1220;
+  --sw-muted-hover: #1f2937;
+  --sw-border: #334155;
+  --sw-bg-elevated: rgba(17, 24, 39, 0.94);
+  --sw-bg-card: rgba(17, 24, 39, 0.92);
+
+  --sw-danger-bg: rgba(239, 68, 68, 0.12);
+  --sw-danger-border: rgba(239, 68, 68, 0.28);
+  --sw-danger-fg: #fecaca;
+
+  --sw-badge-primary-bg: rgba(59, 130, 246, 0.18);
+  --sw-badge-primary-fg: #93c5fd;
+  --sw-badge-secondary-bg: rgba(16, 185, 129, 0.18);
+  --sw-badge-secondary-fg: #6ee7b7;
+  --sw-badge-accent-bg: rgba(245, 158, 11, 0.2);
+  --sw-badge-accent-fg: #fcd34d;
+  --sw-chat-user-bg: rgba(59, 130, 246, 0.16);
+  --sw-chat-ai-bg: rgba(16, 185, 129, 0.14);
+
+  /* shadcn/ui tokens：dark 只改中性色，primary/ring 仍沿用现有蓝色口径 */
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+
+  /* Sidebar tokens（来自 shadcn/ui sidebar 的 cssVars）。 */
+  --sidebar-background: 222.2 84% 4.9%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 210 40% 98%;
+  --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+  --sidebar-accent: 217.2 32.6% 17.5%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217.2 32.6% 17.5%;
+
+  /* 暗色滚动条 */
+  --sw-scrollbar-thumb: rgba(241, 245, 249, 0.22);
+  --sw-scrollbar-thumb-hover: rgba(241, 245, 249, 0.32);
+  --sw-scrollbar-thumb-active: rgba(241, 245, 249, 0.42);
 }
 
 [data-skin="blue"] {

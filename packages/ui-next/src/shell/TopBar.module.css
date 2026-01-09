@@ -6,14 +6,14 @@
 .projectTabsScroll{min-width:0;flex:1 1 auto;display:flex;gap:8px;align-items:center;overflow-x:auto;overflow-y:hidden;padding:0 2px;}
 .projectActions{flex:0 0 auto;display:flex;align-items:center;gap:8px;}
 .emptyTop{display:flex;align-items:center;gap:10px;}
-.logo{width:44px;height:44px;border-radius:999px;background:var(--sw-primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.02em;}
+.logo{width:44px;height:44px;border-radius:999px;background:var(--sw-primary);color:var(--sw-fg-invert);display:inline-flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.02em;}
 .iconBar{display:flex;align-items:center;gap:4px;}
 
 /* 搜索框容器 */
 .searchWrap{position:relative;width:100%;max-width:720px;}
-.searchIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;color:#374151;pointer-events:none;z-index:1;}
-.searchClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:0;background:#fff;color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);z-index:1;}
-.searchClear:hover{transform:translateY(-50%) scale(1.06);background:#E5E7EB;}
+.searchIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;color:var(--sw-fg-muted);pointer-events:none;z-index:1;}
+.searchClear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:999px;border:0;background:var(--sw-bg);color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);z-index:1;}
+.searchClear:hover{transform:translateY(-50%) scale(1.06);background:var(--sw-muted-hover);}
 .searchClear:active{transform:translateY(-50%) scale(.98);}
 
 /* 图标按钮 active 状态 */

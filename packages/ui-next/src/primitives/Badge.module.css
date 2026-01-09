@@ -1,6 +1,5 @@
 .badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:var(--sw-radius-md);background:var(--sw-muted);font-weight:700;font-size:.82rem;white-space:nowrap;}
 .mono{font-family:var(--sw-font-mono);}
-.primary{background:#DBEAFE;color:#1D4ED8;}
-.secondary{background:#D1FAE5;color:#047857;}
-.accent{background:#FEF3C7;color:#B45309;}
-
+.primary{background:var(--sw-badge-primary-bg);color:var(--sw-badge-primary-fg);}
+.secondary{background:var(--sw-badge-secondary-bg);color:var(--sw-badge-secondary-fg);}
+.accent{background:var(--sw-badge-accent-bg);color:var(--sw-badge-accent-fg);}

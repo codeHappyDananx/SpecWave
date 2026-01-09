@@ -1,4 +1,3 @@
-.statusBar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;background:#fff;border-top:2px solid var(--sw-border);}
-.path{font-size:.82rem;font-weight:700;background:var(--sw-muted);border-radius:var(--sw-radius-md);padding:4px 8px;color:#374151;}
+.statusBar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;background:var(--sw-bg);border-top:2px solid var(--sw-border);}
+.path{font-size:.82rem;font-weight:700;background:var(--sw-muted);border-radius:var(--sw-radius-md);padding:4px 8px;color:var(--sw-fg-muted);}
 .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-

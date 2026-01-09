@@ -60,7 +60,7 @@
 | `packages/ui-next/src/primitives/shadcn/skeleton.tsx` | Skeleton（Sidebar 内部依赖） | 无 | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
 | `packages/ui-next/src/primitives/shadcn/use-mobile.ts` | `useIsMobile`（Sidebar 内部依赖） | React | `primitives/shadcn/sidebar.tsx` | 仅供 shadcn 组件复用 |
 | `apps/desktop/src/renderer/src/tailwind.css` | Tailwind（preflight + utilities），专门给 shadcn/ui 的 class 用 | `tailwind.config.cjs` | renderer 入口 | 放在 renderer 内编译，避免 monorepo 下依赖包里的 `@tailwind` 指令漏编译 |
-| `packages/ui-next/src/styles.css` | 全局 tokens/reset（不放 Tailwind 指令） | 无 | renderer 入口 | 禁止把业务组件样式写进这里；Tailwind 由 renderer 侧单独引入 |
+| `packages/ui-next/src/styles.css` | 全局 tokens/reset（不放 Tailwind 指令） | 无 | renderer 入口 | 禁止把业务组件样式写进这里；支持 `data-theme="dark"` 覆盖 tokens；Tailwind 由 renderer 侧单独引入 |
 | `tailwind.config.cjs` | Tailwind 配置 | 无 | renderer 构建链路 | content 覆盖 renderer + `ui-next`；补齐 shadcn tokens/colors 映射 |
 | `apps/desktop/src/renderer/postcss.config.cjs` | renderer 的 PostCSS/Tailwind 配置 | `@tailwindcss/postcss` | Vite renderer | Tailwind v4：通过 `base` 指到仓库根，确保能扫到 `packages/ui-next` 里的 class；Tailwind 配置由 `styles.css` 的 `@config` 指定 |
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
