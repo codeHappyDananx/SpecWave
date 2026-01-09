@@ -34,7 +34,14 @@ import {
   SidebarProvider
 } from '../../primitives/shadcn/sidebar';
 
-type LeftIntent = Extract<UIIntent, { type: 'EXPLORER_TOGGLE_DIR' } | { type: 'EXPLORER_OPEN_FILE' } | { type: 'EXPLORER_SHOW_IGNORED_SET' }>;
+type LeftIntent = Extract<
+  UIIntent,
+  | { type: 'EXPLORER_TOGGLE_DIR' }
+  | { type: 'EXPLORER_OPEN_FILE' }
+  | { type: 'EXPLORER_SHOW_IGNORED_SET' }
+  | { type: 'EXPLORER_REVEAL_IN_OS' }
+  | { type: 'TERMINAL_COPY' }
+>;
 
 export type LeftPanelProps = {
   explorer: AppViewModel['explorer'];
@@ -101,6 +108,73 @@ export function LeftPanel(props: LeftPanelProps) {
   const chevronClassName = 'text-ring/50 transition-transform';
   const menuButtonClassName = 'text-[11px]';
 
+  const [contextMenu, setContextMenu] = React.useState<{
+    open: boolean;
+    x: number;
+    y: number;
+    target: { path: string; name: string; kind: 'dir' | 'file' } | null;
+  }>({ open: false, x: 0, y: 0, target: null });
+  const contextMenuRef = React.useRef<HTMLDivElement | null>(null);
+
+  const closeContextMenu = React.useCallback(() => {
+    setContextMenu((prev) => (prev.open ? { open: false, x: prev.x, y: prev.y, target: null } : prev));
+  }, []);
+
+  React.useEffect(() => {
+    if (!contextMenu.open) return;
+    const onPointerDown = () => closeContextMenu();
+    const onBlur = () => closeContextMenu();
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('scroll', onPointerDown, true);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('scroll', onPointerDown, true);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [closeContextMenu, contextMenu.open]);
+
+  React.useLayoutEffect(() => {
+    if (!contextMenu.open) return;
+    const el = contextMenuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    let nextX = contextMenu.x;
+    let nextY = contextMenu.y;
+    if (rect.right > window.innerWidth - pad) nextX = Math.max(pad, contextMenu.x - rect.width);
+    if (rect.bottom > window.innerHeight - pad) nextY = Math.max(pad, contextMenu.y - rect.height);
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
+      setContextMenu((prev) => (prev.open ? { ...prev, x: nextX, y: nextY } : prev));
+    }
+  }, [contextMenu.open, contextMenu.x, contextMenu.y]);
+
+  const detectSep = (p: string) => (p.includes('/') ? '/' : '\\');
+  const normalizeFsPath = (p: string) => p.replaceAll('\\', '/').replaceAll(/\/+/g, '/').replaceAll(/\/+$/g, '');
+  const relativeToRoot = (candidatePath: string, root: string) => {
+    const candidateNorm = normalizeFsPath(candidatePath);
+    const rootNorm = normalizeFsPath(root);
+    const cLower = candidateNorm.toLowerCase();
+    const rLower = rootNorm.toLowerCase();
+    if (cLower === rLower) return '';
+    const prefix = `${rootNorm}/`;
+    if (!cLower.startsWith(prefix.toLowerCase())) return null;
+    const rel = candidateNorm.slice(prefix.length);
+    const sep = detectSep(candidatePath);
+    return sep === '/' ? rel : rel.replaceAll('/', sep);
+  };
+
+  const copyToClipboard = (text: string) => props.dispatch({ type: 'TERMINAL_COPY', text });
+
+  const openContextMenu = (
+    e: React.MouseEvent,
+    target: { path: string; name: string; kind: 'dir' | 'file' }
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ open: true, x: e.clientX, y: e.clientY, target });
+  };
+
   const visibleNodes = (nodes: AppViewModel['explorer']['workspace'][number][]) => {
     if (props.explorer.showIgnored) return nodes;
     return nodes.filter((n) => !n.isIgnored);
@@ -121,6 +195,7 @@ export function LeftPanel(props: LeftPanelProps) {
           aria-current={isSelected ? 'true' : 'false'}
           className={menuButtonClassName}
           onClick={() => props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: node.id })}
+          onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'file' })}
         >
           <Icon className={iconClassName} aria-hidden={true} />
           <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -139,7 +214,13 @@ export function LeftPanel(props: LeftPanelProps) {
           className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
         >
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton type="button" size="sm" className={menuButtonClassName} aria-label={`目录：${node.name}`}>
+            <SidebarMenuButton
+              type="button"
+              size="sm"
+              className={menuButtonClassName}
+              aria-label={`目录：${node.name}`}
+              onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'dir' })}
+            >
               <ChevronRight className={chevronClassName} aria-hidden={true} />
               <Folder className={iconClassName} aria-hidden={true} />
               <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -246,6 +327,7 @@ export function LeftPanel(props: LeftPanelProps) {
                                 if (m.kind === 'dir') props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree: m.tree, id: m.id });
                                 else props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: m.id });
                               }}
+                              onContextMenu={(e) => openContextMenu(e, { path: m.id, name: m.name, kind: m.kind })}
                             >
                               {m.kind === 'dir' ? (
                                 <Folder className={iconClassName} aria-hidden={true} />
@@ -297,6 +379,66 @@ export function LeftPanel(props: LeftPanelProps) {
           )}
         </Sidebar>
       </SidebarProvider>
+
+      {contextMenu.open && contextMenu.target ? (
+        <div
+          ref={contextMenuRef}
+          role="menu"
+          aria-label="文件操作"
+          className="fixed z-50 min-w-[220px] rounded-md border bg-background p-1 text-xs"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onContextMenu={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              copyToClipboard(contextMenu.target!.path);
+              closeContextMenu();
+            }}
+          >
+            复制绝对路径
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              const p = contextMenu.target!.path;
+              const relFromProject =
+                props.explorer.projectRoot ? relativeToRoot(p, props.explorer.projectRoot) : null;
+              const relFromWorkspace =
+                props.explorer.workspaceRoot ? relativeToRoot(p, props.explorer.workspaceRoot) : null;
+              const rel = relFromProject ?? relFromWorkspace ?? p;
+              copyToClipboard(rel);
+              closeContextMenu();
+            }}
+          >
+            复制全路径
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              copyToClipboard(contextMenu.target!.name);
+              closeContextMenu();
+            }}
+          >
+            复制文件名
+          </button>
+          <div className="my-1 h-px bg-border" aria-hidden={true} />
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              props.dispatch({ type: 'EXPLORER_REVEAL_IN_OS', path: contextMenu.target!.path });
+              closeContextMenu();
+            }}
+          >
+            打开所在文件夹
+          </button>
+        </div>
+      ) : null}
     </Panel>
   );
 }

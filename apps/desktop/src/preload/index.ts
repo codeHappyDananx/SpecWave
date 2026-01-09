@@ -28,6 +28,7 @@ export type MessageBoxResult = { ok: true; response: number } | { ok: false; err
 
 export type FsEventDTO = { event: 'rename' | 'change'; path: string };
 export type FsWatchStartResult = { ok: true } | { ok: false; error: string };
+export type RevealInFolderResult = { ok: true } | { ok: false; error: string };
 
 export type RecentProjectDTO = {
   path: string;
@@ -78,6 +79,9 @@ contextBridge.exposeInMainWorld('specwave', {
   clipboardReadText: () => clipboard.readText(),
   clipboardWriteText: (text: string) => clipboard.writeText(text),
 
+  revealInFolder: (p: string) =>
+    ipcRenderer.invoke('specwave:revealInFolder', { path: p }) as Promise<RevealInFolderResult>,
+
   terminalCreateSession: (args: { id: string; cwd?: string | null; cols?: number | null; rows?: number | null }) =>
     ipcRenderer.invoke('specwave:terminal:create', args) as Promise<TerminalCreateResult>,
   terminalKillSession: (id: string) => ipcRenderer.invoke('specwave:terminal:kill', { id }) as Promise<void>,
@@ -115,6 +119,8 @@ declare global {
 
       clipboardReadText: () => string;
       clipboardWriteText: (text: string) => void;
+
+      revealInFolder: (path: string) => Promise<RevealInFolderResult>;
 
       terminalCreateSession: (args: { id: string; cwd?: string | null; cols?: number | null; rows?: number | null }) => Promise<TerminalCreateResult>;
       terminalKillSession: (id: string) => Promise<void>;

@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { createHash } from 'node:crypto';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
@@ -34,6 +34,7 @@ type MessageBoxResult = { ok: true; response: number } | { ok: false; error: str
 type FsEventDTO = { event: 'rename' | 'change'; path: string };
 type FsWatchStartArgs = { workspaceRoot?: string | null; projectRoot?: string | null };
 type FsWatchStartResult = { ok: true } | { ok: false; error: string };
+type RevealInFolderResult = { ok: true } | { ok: false; error: string };
 
 export type AppShellBridge = {
   openMainWindow: (args: { projectPath?: string | null }) => Promise<void> | void;
@@ -282,6 +283,25 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
         noLink: true
       });
       return { ok: true, response: res.response };
+    } catch (err) {
+      return { ok: false, error: toErrorMessage(err) };
+    }
+  });
+
+  ipcMain.handle('specwave:revealInFolder', async (_evt, args: { path: string }): Promise<RevealInFolderResult> => {
+    const target = typeof args?.path === 'string' ? args.path : '';
+    if (!target.trim()) return { ok: false, error: '路径为空。' };
+    try {
+      if (!fsSync.existsSync(target)) return { ok: false, error: '路径不存在。' };
+      const st = fsSync.statSync(target);
+      if (st.isDirectory()) {
+        const err = await shell.openPath(target);
+        if (err) return { ok: false, error: err };
+        return { ok: true };
+      }
+
+      shell.showItemInFolder(target);
+      return { ok: true };
     } catch (err) {
       return { ok: false, error: toErrorMessage(err) };
     }

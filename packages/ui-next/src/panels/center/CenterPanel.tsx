@@ -6,11 +6,8 @@ import { Icon } from '../../primitives/Icons';
 import { Badge } from '../../primitives/Badge';
 import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
 import { TiltedCard } from '../../primitives/TiltedCard';
-import { Button } from '../../primitives/shadcn/button';
 import { Input } from '../../primitives/shadcn/input';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '../../primitives/shadcn/sheet';
 import { Textarea } from '../../primitives/shadcn/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../primitives/shadcn/tooltip';
 import styles from './CenterPanel.module.css';
 
 function LineNumberedCode(props: { text: string }) {
@@ -39,12 +36,16 @@ type CenterIntent = Extract<
   | { type: 'CONTENT_FIND_PREV' }
   | { type: 'CONTENT_FIND_CLOSE' }
   | { type: 'TASK_ITEM_TOGGLE' }
-  | { type: 'TASK_ITEM_OPEN' }
+  | { type: 'TASK_DETAIL_OPEN' }
   | { type: 'TASK_DETAIL_CLOSE' }
   | { type: 'TASK_DETAIL_MODE_SET' }
   | { type: 'TASK_DETAIL_DRAFT_SET' }
   | { type: 'TASK_DETAIL_SAVE' }
   | { type: 'TASK_ITEM_START' }
+  | { type: 'TASK_DECK_MODE_SET' }
+  | { type: 'TASK_DECK_PREV' }
+  | { type: 'TASK_DECK_NEXT' }
+  | { type: 'TASK_DECK_FOCUS' }
 >;
 
 export type CenterPanelProps = {
@@ -73,7 +74,11 @@ export function CenterPanel(props: CenterPanelProps) {
   const taskBoard = props.content.taskBoard;
   const taskItems = taskBoard?.items ?? [];
   const tiltDisabled = taskItems.length > 80;
-  const activeTask = taskBoard?.activeTaskId ? taskItems.find((t) => t.id === taskBoard.activeTaskId) : null;
+  const deckMode = taskBoard?.deckMode ?? 'single';
+  const activeTaskId = taskBoard?.activeTaskId ?? taskItems[0]?.id ?? null;
+  const activeIndex = activeTaskId ? Math.max(0, taskItems.findIndex((t) => t.id === activeTaskId)) : 0;
+  const activeTask = activeTaskId ? taskItems.find((t) => t.id === activeTaskId) : null;
+  const isEditing = Boolean(taskBoard?.detail.isOpen && taskBoard.detail.mode === 'edit');
   const findInputRef = React.useRef<HTMLInputElement | null>(null);
   const editorRef = React.useRef<HTMLTextAreaElement | null>(null);
 
@@ -211,180 +216,266 @@ export function CenterPanel(props: CenterPanelProps) {
       ) : file.kind === 'task' && props.content.mode === 'task' ? (
         <div className={styles.taskBoard} aria-label="任务看板">
           {taskItems.length ? (
-            <div className={styles.taskCards}>
-              {taskItems.map((t) => (
-                <div key={t.id} className={styles.taskCardRow} style={{ paddingLeft: `${t.level * 18}px` }}>
-                  <TiltedCard disabled={tiltDisabled} rotateAmplitude={6} scaleOnHover={1.02}>
-                    <article
-                      className={styles.taskCard}
-                      data-checked={t.checked ? 'true' : 'false'}
-                      data-active={t.id === taskBoard?.activeTaskId ? 'true' : 'false'}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`打开任务详情：${t.title}`}
-                      onClick={() => props.dispatch({ type: 'TASK_ITEM_OPEN', taskId: t.id })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          props.dispatch({ type: 'TASK_ITEM_OPEN', taskId: t.id });
+            <>
+              <div className={styles.previewStage} aria-label="预览舞台">
+                <div className={styles.stageBar} aria-label="舞台提示条">
+                  <div className={styles.stageBarTitle}>03-任务.md · 任务卡片</div>
+                  <div className={styles.stageBarHint}>
+                    {deckMode === 'all' ? `全部 · ${taskItems.length} 条` : `${activeIndex + 1}/${taskItems.length}`}
+                  </div>
+                </div>
+
+                <div className={styles.stageInner}>
+                  <div className={styles.taskDeckHeader} aria-label="任务导航">
+                    <div className={styles.taskDeckNav}>
+                      <button
+                        className={styles.textLink}
+                        type="button"
+                        disabled={taskItems.length < 2}
+                        onClick={() => props.dispatch({ type: 'TASK_DECK_PREV' })}
+                      >
+                        上一张
+                      </button>
+                      <span className={styles.taskDeckMeta}>
+                        {deckMode === 'all' ? `全部 · ${taskItems.length} 条` : `${activeIndex + 1}/${taskItems.length}`}
+                      </span>
+                      <button
+                        className={styles.textLink}
+                        type="button"
+                        disabled={taskItems.length < 2}
+                        onClick={() => props.dispatch({ type: 'TASK_DECK_NEXT' })}
+                      >
+                        下一张
+                      </button>
+                      <span className={styles.taskDeckSpacer} />
+                      <button
+                        className={styles.textLink}
+                        type="button"
+                        onClick={() =>
+                          props.dispatch({ type: 'TASK_DECK_MODE_SET', mode: deckMode === 'all' ? 'single' : 'all' })
                         }
-                      }}
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="outline"
-                            className={`${styles.taskStartBtn} !shadow-none`}
-                            aria-label={`开始：${t.title}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              props.dispatch({ type: 'TASK_ITEM_START', taskId: t.id });
-                            }}
+                      >
+                        {deckMode === 'all' ? '切回单张' : '一键展示全部'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {deckMode === 'single' ? (
+                    activeTask ? (
+                      <div className={styles.taskDeckStage} data-mode="single">
+                        <div className={styles.taskDeckStack}>
+                          <TiltedCard
+                            persistKey={`task-deck-${activeTask.id}`}
+                            disabled={tiltDisabled}
+                            rotateAmplitude={4}
+                            scaleOnHover={1.01}
                           >
-                            <Icon name="terminal" size={16} title="开始" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" sideOffset={8}>
-                          开始
-                        </TooltipContent>
-                      </Tooltip>
+                            <article
+                              className={`${styles.taskDeckCard} ${styles.rbFxPrism}`}
+                              data-checked={activeTask.checked ? 'true' : 'false'}
+                            >
+                              <div className={styles.taskDeckCardHeader}>
+                                <button
+                                  className={styles.taskToggle}
+                                  type="button"
+                                  role="checkbox"
+                                  aria-label={activeTask.checked ? '标记为未完成' : '标记为已完成'}
+                                  aria-checked={activeTask.checked}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    props.dispatch({ type: 'TASK_ITEM_TOGGLE', taskId: activeTask.id, source: activeTask.source });
+                                  }}
+                                >
+                                  <span className={styles.taskBox} aria-hidden="true">
+                                    {activeTask.checked ? '✓' : ''}
+                                  </span>
+                                </button>
 
-                      <div className={styles.taskHeaderRow}>
-                        <button
-                          className={styles.taskToggle}
-                          type="button"
-                          role="checkbox"
-                          aria-label={t.checked ? '标记为未完成' : '标记为已完成'}
-                          aria-checked={t.checked}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            props.dispatch({ type: 'TASK_ITEM_TOGGLE', taskId: t.id, source: t.source });
-                          }}
-                        >
-                          <span className={styles.taskBox} aria-hidden="true">
-                            {t.checked ? '✓' : ''}
-                          </span>
-                        </button>
+                                <div className={styles.taskDeckTitleWrap}>
+                                  <div
+                                    className={styles.taskTitle}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="双击编辑标题"
+                                    onDoubleClick={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: activeTask.id, mode: 'edit' })}
+                                  >
+                                    {activeTask.title}
+                                  </div>
+                                  {activeTask.summary ? <div className={styles.taskSummary}>{activeTask.summary}</div> : null}
+                                </div>
 
-                        <div className={styles.taskMain}>
-                          <div className={styles.taskTitleRow}>
-                            <div className={styles.taskTitle}>{t.title}</div>
-                            <Badge tone={t.checked ? 'secondary' : 'primary'}>{t.checked ? '完成' : '待办'}</Badge>
-                          </div>
-                          {t.summary ? (
-                            <div className={styles.taskSummary}>{t.summary}</div>
-                          ) : (
-                            <div className={styles.taskSummaryMuted}>点击查看详情</div>
-                          )}
+                                <div className={styles.taskDeckCardActions}>
+                                  <button
+                                    className={styles.btnStart}
+                                    type="button"
+                                    onClick={() => props.dispatch({ type: 'TASK_ITEM_START', taskId: activeTask.id })}
+                                  >
+                                    开始
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className={styles.taskDeckBody}>
+                                {isEditing && taskBoard ? (
+                                  <div className={styles.taskEdit}>
+                                    <Input
+                                      className="!shadow-none"
+                                      value={taskBoard.detail.draftTitle}
+                                      onChange={(e) => props.dispatch({ type: 'TASK_DETAIL_DRAFT_SET', title: e.currentTarget.value })}
+                                    />
+                                    <Textarea
+                                      className="!shadow-none"
+                                      value={taskBoard.detail.draftBody}
+                                      onChange={(e) => props.dispatch({ type: 'TASK_DETAIL_DRAFT_SET', body: e.currentTarget.value })}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Escape') {
+                                          e.preventDefault();
+                                          props.dispatch({ type: 'TASK_DETAIL_CLOSE' });
+                                          return;
+                                        }
+                                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                          e.preventDefault();
+                                          props.dispatch({ type: 'TASK_DETAIL_SAVE' });
+                                          props.dispatch({ type: 'TASK_DETAIL_CLOSE' });
+                                        }
+                                      }}
+                                      spellCheck={false}
+                                    />
+                                    <div className={styles.taskEditHint}>Ctrl+Enter 保存，Esc 退出编辑</div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={styles.taskBodyText}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="双击编辑正文"
+                                    onDoubleClick={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: activeTask.id, mode: 'edit' })}
+                                  >
+                                    {activeTask.body ? activeTask.body : '暂无详情。'}
+                                  </div>
+                                )}
+                              </div>
+                            </article>
+                          </TiltedCard>
                         </div>
                       </div>
-                    </article>
-                  </TiltedCard>
+                    ) : (
+                      <div className={styles.muted}>未解析到任务（只识别形如 “- [ ] xxx” 的任务行）。</div>
+                    )
+                  ) : (
+                    <div className={styles.taskDeckAllList} data-mode="all" aria-label="全部任务卡片">
+                      {taskItems.map((t) => {
+                        const editingThis = Boolean(isEditing && taskBoard?.activeTaskId === t.id);
+                        return (
+                          <div key={t.id} className={styles.taskDeckAllItem}>
+                            <TiltedCard
+                              persistKey={`task-deck-${t.id}`}
+                              disabled={tiltDisabled}
+                              rotateAmplitude={4}
+                              scaleOnHover={1.01}
+                            >
+                              <article className={`${styles.taskDeckCard} ${styles.rbFxPrism}`} data-checked={t.checked ? 'true' : 'false'}>
+                                <div className={styles.taskDeckCardHeader}>
+                                  <button
+                                    className={styles.taskToggle}
+                                    type="button"
+                                    role="checkbox"
+                                    aria-label={t.checked ? '标记为未完成' : '标记为已完成'}
+                                    aria-checked={t.checked}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      props.dispatch({ type: 'TASK_ITEM_TOGGLE', taskId: t.id, source: t.source });
+                                    }}
+                                  >
+                                    <span className={styles.taskBox} aria-hidden="true">
+                                      {t.checked ? '✓' : ''}
+                                    </span>
+                                  </button>
+
+                                  <div className={styles.taskDeckTitleWrap}>
+                                    {editingThis && taskBoard ? (
+                                      <Input
+                                        className="!shadow-none"
+                                        value={taskBoard.detail.draftTitle}
+                                        onChange={(e) =>
+                                          props.dispatch({ type: 'TASK_DETAIL_DRAFT_SET', title: e.currentTarget.value })
+                                        }
+                                      />
+                                    ) : (
+                                      <div
+                                        className={styles.taskTitle}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label="双击编辑标题"
+                                        onDoubleClick={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: t.id, mode: 'edit' })}
+                                      >
+                                        {t.title}
+                                      </div>
+                                    )}
+                                    {t.summary ? <div className={styles.taskSummary}>{t.summary}</div> : null}
+                                  </div>
+
+                                  <div className={styles.taskDeckCardActions}>
+                                    <button
+                                      className={styles.btnStart}
+                                      type="button"
+                                      onClick={() => props.dispatch({ type: 'TASK_ITEM_START', taskId: t.id })}
+                                    >
+                                      开始
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className={styles.taskDeckBody}>
+                                  {editingThis && taskBoard ? (
+                                    <div className={styles.taskEdit}>
+                                      <Textarea
+                                        className="!shadow-none"
+                                        value={taskBoard.detail.draftBody}
+                                        onChange={(e) =>
+                                          props.dispatch({ type: 'TASK_DETAIL_DRAFT_SET', body: e.currentTarget.value })
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') {
+                                            e.preventDefault();
+                                            props.dispatch({ type: 'TASK_DETAIL_CLOSE' });
+                                            return;
+                                          }
+                                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                                            e.preventDefault();
+                                            props.dispatch({ type: 'TASK_DETAIL_SAVE' });
+                                            props.dispatch({ type: 'TASK_DETAIL_CLOSE' });
+                                          }
+                                        }}
+                                        spellCheck={false}
+                                      />
+                                      <div className={styles.taskEditHint}>Ctrl+Enter 保存，Esc 退出编辑</div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      className={styles.taskBodyText}
+                                      role="button"
+                                      tabIndex={0}
+                                      aria-label="双击编辑正文"
+                                      onDoubleClick={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: t.id, mode: 'edit' })}
+                                    >
+                                      {t.body ? t.body : '暂无详情。'}
+                                    </div>
+                                  )}
+                                </div>
+                              </article>
+                            </TiltedCard>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            </>
           ) : (
             <div className={styles.muted}>未解析到任务（只识别形如 “- [ ] xxx” 的任务行）。</div>
           )}
-
-          <Sheet
-            open={Boolean(taskBoard?.detail.isOpen)}
-            onOpenChange={(open) => {
-              if (open) return;
-              props.dispatch({ type: 'TASK_DETAIL_CLOSE' });
-            }}
-          >
-            {taskBoard ? (
-              <SheetContent side="right" className={`${styles.taskSheet} !shadow-none`}>
-                <SheetHeader className={styles.taskSheetHeader}>
-                  <SheetTitle>{activeTask?.title ?? '任务详情'}</SheetTitle>
-                  <SheetDescription>
-                    {activeTask?.summary ? `摘要：${activeTask.summary}` : '在这里查看与编辑该任务块。'}
-                  </SheetDescription>
-                </SheetHeader>
-
-                <div className={styles.taskSheetBody}>
-                  {taskBoard.detail.mode === 'edit' ? (
-                    <div className={styles.taskForm}>
-                      <label className={styles.taskField}>
-                        <div className={styles.taskFieldLabel}>标题</div>
-                        <Input
-                          className="!shadow-none"
-                          value={taskBoard.detail.draftTitle}
-                          onChange={(e) =>
-                            props.dispatch({ type: 'TASK_DETAIL_DRAFT_SET', title: e.currentTarget.value })
-                          }
-                        />
-                      </label>
-
-                      <label className={styles.taskField}>
-                        <div className={styles.taskFieldLabel}>详情</div>
-                        <Textarea
-                          className="!shadow-none"
-                          value={taskBoard.detail.draftBody}
-                          onChange={(e) =>
-                            props.dispatch({ type: 'TASK_DETAIL_DRAFT_SET', body: e.currentTarget.value })
-                          }
-                          spellCheck={false}
-                        />
-                      </label>
-                    </div>
-                  ) : (
-                    <div className={styles.taskPreview} aria-label="任务详情预览">
-                      <div className={styles.taskPreviewTitle}>{taskBoard.detail.draftTitle}</div>
-                      <div className={styles.taskPreviewBody}>
-                        {taskBoard.detail.draftBody ? taskBoard.detail.draftBody : '暂无详情。'}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <SheetFooter className={styles.taskSheetFooter}>
-                  {taskBoard.detail.mode === 'edit' ? (
-                    <div className={styles.taskSheetActions}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="!shadow-none"
-                        onClick={() => props.dispatch({ type: 'TASK_DETAIL_MODE_SET', mode: 'view' })}
-                      >
-                        取消
-                      </Button>
-                      <Button
-                        type="button"
-                        className="!shadow-none"
-                        disabled={props.content.saveStatus === 'saving'}
-                        onClick={() => props.dispatch({ type: 'TASK_DETAIL_SAVE' })}
-                      >
-                        {props.content.saveStatus === 'saving' ? '保存中…' : '保存'}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className={styles.taskSheetActions}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="!shadow-none"
-                        onClick={() => props.dispatch({ type: 'TASK_DETAIL_MODE_SET', mode: 'edit' })}
-                      >
-                        编辑
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!shadow-none"
-                        onClick={() => props.dispatch({ type: 'TASK_DETAIL_CLOSE' })}
-                      >
-                        关闭
-                      </Button>
-                    </div>
-                  )}
-                </SheetFooter>
-              </SheetContent>
-            ) : null}
-          </Sheet>
         </div>
       ) : file.kind === 'image' ? (
         <div className={styles.imageWrap} aria-label="图片预览">

@@ -56,6 +56,7 @@ function loadExplorerShowIgnored(): boolean {
 // 关键处理节点：Renderer 意外刷新/热重载时，内存态的页签会丢失，表现为“过一会儿新增项目被关掉”。
 // 这里用 sessionStorage 记住当前窗口的 openTabs/activeTabId，避免刷新把用户刚开的项目吞掉。
 const PROJECTS_SESSION_KEY = 'specwave_projects_session_v1';
+const UI_SESSION_KEY = 'specwave_ui_session_v1';
 
 function loadProjectsSession(): AppViewModel['projects'] | null {
   if (typeof window === 'undefined') return null;
@@ -93,9 +94,68 @@ function persistProjectsSession(projects: AppViewModel['projects']) {
   } catch {}
 }
 
+type UiSessionSnapshot = {
+  leftVisible?: boolean;
+  centerVisible?: boolean;
+  rightVisible?: boolean;
+  rightMode?: AppViewModel['rightMode'];
+  explorerExpanded?: { workspace?: string[]; project?: string[] };
+  explorerSelectedPath?: string | null;
+  lastOpenFilePath?: string | null;
+  projectRoot?: string | null;
+  workspaceRoot?: string | null;
+};
+
+function loadUiSession(): UiSessionSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw =
+      window.sessionStorage.getItem(UI_SESSION_KEY) ??
+      // 关键处理节点：开发模式下可能触发“整窗重启”（main/preload 重启），sessionStorage 会丢；localStorage 用来兜底恢复。
+      window.localStorage.getItem(UI_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed == null) return null;
+    const obj = parsed as UiSessionSnapshot;
+
+    const snap: UiSessionSnapshot = {};
+    if (typeof obj.leftVisible === 'boolean') snap.leftVisible = obj.leftVisible;
+    if (typeof obj.centerVisible === 'boolean') snap.centerVisible = obj.centerVisible;
+    if (typeof obj.rightVisible === 'boolean') snap.rightVisible = obj.rightVisible;
+    if (obj.rightMode === 'terminal' || obj.rightMode === 'chat') snap.rightMode = obj.rightMode;
+    if (typeof obj.explorerSelectedPath === 'string' || obj.explorerSelectedPath === null) snap.explorerSelectedPath = obj.explorerSelectedPath;
+    if (typeof obj.lastOpenFilePath === 'string' || obj.lastOpenFilePath === null) snap.lastOpenFilePath = obj.lastOpenFilePath;
+    if (typeof obj.projectRoot === 'string' || obj.projectRoot === null) snap.projectRoot = obj.projectRoot;
+    if (typeof obj.workspaceRoot === 'string' || obj.workspaceRoot === null) snap.workspaceRoot = obj.workspaceRoot;
+
+    const expanded = obj.explorerExpanded;
+    if (expanded && typeof expanded === 'object') {
+      const workspace = (expanded as { workspace?: unknown }).workspace;
+      const project = (expanded as { project?: unknown }).project;
+      const nextExpanded: { workspace?: string[]; project?: string[] } = {};
+      if (Array.isArray(workspace) && workspace.every((x) => typeof x === 'string')) nextExpanded.workspace = workspace;
+      if (Array.isArray(project) && project.every((x) => typeof x === 'string')) nextExpanded.project = project;
+      if (nextExpanded.workspace || nextExpanded.project) snap.explorerExpanded = nextExpanded;
+    }
+
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
+function persistUiSession(snap: UiSessionSnapshot) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(UI_SESSION_KEY, JSON.stringify(snap));
+    window.localStorage.setItem(UI_SESSION_KEY, JSON.stringify(snap));
+  } catch {}
+}
+
 const specwaveWindowKind = getSpecwaveWindowKind();
 const bootProjectPath = getBootProjectPath();
 const restoredProjectsSession = specwaveWindowKind === 'main' ? loadProjectsSession() : null;
+const restoredUiSession = specwaveWindowKind === 'main' ? loadUiSession() : null;
 
 async function restartIdleTerminalSessionsToCwd(args: {
   api: Window['specwave'] | undefined;
@@ -137,8 +197,11 @@ const initialVm: AppViewModel = {
     projectRoot: null,
     workspace: [],
     project: [],
-    expanded: { workspace: [], project: [] },
-    selectedPath: null,
+    expanded: {
+      workspace: restoredUiSession?.explorerExpanded?.workspace ?? [],
+      project: restoredUiSession?.explorerExpanded?.project ?? []
+    },
+    selectedPath: restoredUiSession?.explorerSelectedPath ?? null,
     showIgnored: loadExplorerShowIgnored(),
     isLoading: false,
     error: null
@@ -154,10 +217,10 @@ const initialVm: AppViewModel = {
     taskBoard: null,
     find: { isOpen: false, query: '', matchStarts: [], activeIndex: 0 }
   },
-  leftVisible: true,
-  centerVisible: true,
-  rightVisible: true,
-  rightMode: 'terminal',
+  leftVisible: restoredUiSession?.leftVisible ?? true,
+  centerVisible: restoredUiSession?.centerVisible ?? true,
+  rightVisible: restoredUiSession?.rightVisible ?? true,
+  rightMode: restoredUiSession?.rightMode ?? 'terminal',
   globalSearchQuery: '',
   terminal: {
     activePanelId: 'terminal-1',
@@ -640,11 +703,17 @@ function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
     const blockStartPos = h.lineStartPos;
     const blockEndPos = next ? next.lineStartPos : text.length;
     const blockText = text.slice(blockStartPos, blockEndPos);
+    const body = (() => {
+      const main = blockText.trimEnd().replaceAll('\r\n', '\n');
+      const nlIdx = main.indexOf('\n');
+      return nlIdx < 0 ? '' : main.slice(nlIdx + 1).trimEnd();
+    })();
 
     items.push({
       id: taskIdFromTitle(h.title, h.statusPos),
       title: h.title,
       summary: extractTaskSummary(blockText),
+      body,
       checked: h.checked,
       level: h.level,
       source: {
@@ -657,15 +726,18 @@ function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
     });
   }
 
+  const nextDeckMode: TaskBoardVM['deckMode'] = prev?.deckMode ?? 'single';
+
   const nextActiveTaskId = (() => {
     const prevId = prev?.activeTaskId;
-    if (!prevId) return null;
-    return items.some((t) => t.id === prevId) ? prevId : null;
+    if (prevId && items.some((t) => t.id === prevId)) return prevId;
+    return items[0]?.id ?? null;
   })();
 
   const nextDetail = (() => {
     if (!nextActiveTaskId) return EMPTY_TASK_DETAIL;
     if (!prev?.detail.isOpen) return EMPTY_TASK_DETAIL;
+    if (prev.activeTaskId !== nextActiveTaskId) return EMPTY_TASK_DETAIL;
     if (prev.detail.mode === 'edit') return prev.detail;
     const item = items.find((t) => t.id === nextActiveTaskId);
     if (!item) return EMPTY_TASK_DETAIL;
@@ -673,7 +745,7 @@ function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
     return { isOpen: true, mode: 'view' as const, draftTitle: title, draftBody: body };
   })();
 
-  return { items, activeTaskId: nextActiveTaskId, detail: nextDetail };
+  return { items, activeTaskId: nextActiveTaskId, deckMode: nextDeckMode, detail: nextDetail };
 }
 
 function toggleCharAt(text: string, pos: number, nextChar: string) {
@@ -1239,6 +1311,21 @@ export const useAppStore = create<AppState>((set, get) => ({
           const kind = detectContentKind(filePath);
           suppressExternalChangePromptPath = null;
 
+          // 关键处理节点：开发模式可能被 full reload 打断，这里先把“最后打开的文件”同步写进 sessionStorage，保证能恢复回来。
+          try {
+            persistUiSession({
+              leftVisible: vm.leftVisible,
+              centerVisible: true,
+              rightVisible: vm.rightVisible,
+              rightMode: vm.rightMode,
+              explorerExpanded: vm.explorer.expanded,
+              explorerSelectedPath: filePath,
+              lastOpenFilePath: filePath,
+              projectRoot: vm.explorer.projectRoot,
+              workspaceRoot: vm.explorer.workspaceRoot
+            });
+          } catch {}
+
           void (async () => {
             const api = window.specwave;
             if (!api) return;
@@ -1295,6 +1382,16 @@ export const useAppStore = create<AppState>((set, get) => ({
               content: { ...vm.content, saveStatus: 'idle', saveError: null, find: { ...initialVm.content.find } }
             }
           };
+        }
+        case 'EXPLORER_REVEAL_IN_OS': {
+          void (async () => {
+            const api = window.specwave;
+            if (!api?.revealInFolder) return;
+            try {
+              await api.revealInFolder(intent.path);
+            } catch {}
+          })();
+          return { vm };
         }
         case 'CONTENT_TOGGLE_VIEW_MODE': {
           const file = vm.content.file;
@@ -1491,7 +1588,23 @@ export const useAppStore = create<AppState>((set, get) => ({
           const nextBoard: TaskBoardVM = {
             ...board,
             activeTaskId: item.id,
+            deckMode: 'single',
             detail: { isOpen: true, mode: 'view', draftTitle: title, draftBody: body }
+          };
+          return { vm: { ...vm, content: { ...vm.content, taskBoard: nextBoard } } };
+        }
+        case 'TASK_DETAIL_OPEN': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const text = effectiveContentText(vm.content);
+          const board = vm.content.taskBoard ?? parseTaskBoardV2(text, null);
+          const item = board.items.find((t) => t.id === intent.taskId);
+          if (!item) return { vm: { ...vm, content: { ...vm.content, taskBoard: board } } };
+          const { title, body } = extractTaskDrafts(text, item);
+          const nextBoard: TaskBoardVM = {
+            ...board,
+            activeTaskId: item.id,
+            detail: { isOpen: true, mode: intent.mode, draftTitle: title, draftBody: body }
           };
           return { vm: { ...vm, content: { ...vm.content, taskBoard: nextBoard } } };
         }
@@ -1500,7 +1613,61 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (!file || file.kind !== 'task') return { vm };
           const board = vm.content.taskBoard;
           if (!board) return { vm };
-          return { vm: { ...vm, content: { ...vm.content, taskBoard: { ...board, activeTaskId: null, detail: EMPTY_TASK_DETAIL } } } };
+          return { vm: { ...vm, content: { ...vm.content, taskBoard: { ...board, detail: EMPTY_TASK_DETAIL } } } };
+        }
+        case 'TASK_DECK_MODE_SET': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const text = effectiveContentText(vm.content);
+          const board = vm.content.taskBoard ?? parseTaskBoardV2(text, null);
+          const nextActive = board.activeTaskId ?? board.items[0]?.id ?? null;
+          return {
+            vm: {
+              ...vm,
+              content: {
+                ...vm.content,
+                taskBoard: { ...board, activeTaskId: nextActive, deckMode: intent.mode, detail: EMPTY_TASK_DETAIL }
+              }
+            }
+          };
+        }
+        case 'TASK_DECK_PREV':
+        case 'TASK_DECK_NEXT': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const text = effectiveContentText(vm.content);
+          const board = vm.content.taskBoard ?? parseTaskBoardV2(text, null);
+          const items = board.items;
+          if (!items.length) return { vm: { ...vm, content: { ...vm.content, taskBoard: board } } };
+          const idx = Math.max(0, items.findIndex((t) => t.id === board.activeTaskId));
+          const delta = intent.type === 'TASK_DECK_NEXT' ? 1 : -1;
+          const nextIdx = (idx + delta + items.length) % items.length;
+          const nextId = items[nextIdx]?.id ?? items[0]!.id;
+          return {
+            vm: {
+              ...vm,
+              content: {
+                ...vm.content,
+                taskBoard: { ...board, activeTaskId: nextId, deckMode: 'single', detail: EMPTY_TASK_DETAIL }
+              }
+            }
+          };
+        }
+        case 'TASK_DECK_FOCUS': {
+          const file = vm.content.file;
+          if (!file || file.kind !== 'task') return { vm };
+          const text = effectiveContentText(vm.content);
+          const board = vm.content.taskBoard ?? parseTaskBoardV2(text, null);
+          if (!board.items.some((t) => t.id === intent.taskId)) return { vm: { ...vm, content: { ...vm.content, taskBoard: board } } };
+          return {
+            vm: {
+              ...vm,
+              content: {
+                ...vm.content,
+                taskBoard: { ...board, activeTaskId: intent.taskId, deckMode: 'single', detail: EMPTY_TASK_DETAIL }
+              }
+            }
+          };
         }
         case 'TASK_DETAIL_MODE_SET': {
           const file = vm.content.file;
@@ -2107,22 +2274,26 @@ void (async () => {
       if (!root) return { vm };
 
       const isRoot = normalizeFsPath(dirPath) === normalizeFsPath(root);
-      const nextNodesRaw = res.ok ? toExplorerNodes(res.entries) : [];
+      const nextNodesRaw = res.ok ? toExplorerNodes(res.entries) : null;
 
       if (isRoot) {
         const prevRootNodes = tree === 'workspace' ? vm.explorer.workspace : vm.explorer.project;
-        const merged = mergeExplorerChildren(prevRootNodes, nextNodesRaw);
-        return { vm: { ...vm, explorer: { ...vm.explorer, [tree]: merged } } };
+        if (!res.ok) {
+          // 关键处理节点：外部修改文件时，readDirectory 可能短暂失败（例如编辑器写入/锁定窗口期）。
+          // 这里不能用空数组覆盖根节点，否则会表现为“左侧树清空/闪烁/像被重置”。保留旧数据并记录错误即可。
+          return { vm: { ...vm, explorer: { ...vm.explorer, error: res.error } } };
+        }
+        const merged = mergeExplorerChildren(prevRootNodes, nextNodesRaw ?? []);
+        return { vm: { ...vm, explorer: { ...vm.explorer, [tree]: merged, error: null } } };
       }
 
       const treeNodes = tree === 'workspace' ? vm.explorer.workspace : vm.explorer.project;
       const hit = findNodeById(treeNodes, dirPath);
       if (!hit || hit.kind !== 'dir') return { vm };
 
-      const mergedChildren = mergeExplorerChildren(hit.children, nextNodesRaw);
       const nextTree = updateNodeById(treeNodes, dirPath, (node) => ({
         ...node,
-        children: mergedChildren,
+        children: res.ok ? mergeExplorerChildren(hit.children, nextNodesRaw ?? []) : hit.children,
         isLoading: false,
         error: res.ok ? undefined : res.error
       }));
@@ -2314,11 +2485,116 @@ void (async () => {
   });
 })();
 
+let uiSessionSubscribed = false;
+void (() => {
+  if (typeof window === 'undefined') return;
+  if (specwaveWindowKind !== 'main') return;
+  if (uiSessionSubscribed) return;
+  uiSessionSubscribed = true;
+
+  let scheduled = false;
+  let pending: UiSessionSnapshot | null = null;
+
+  const flush = () => {
+    scheduled = false;
+    if (!pending) return;
+    persistUiSession(pending);
+    pending = null;
+  };
+
+  const schedule = (snap: UiSessionSnapshot) => {
+    pending = snap;
+    if (scheduled) return;
+    scheduled = true;
+    window.setTimeout(flush, 120);
+  };
+
+  let prevKey = '';
+  useAppStore.subscribe((state) => {
+    const vm = state.vm;
+    const snap: UiSessionSnapshot = {
+      leftVisible: vm.leftVisible,
+      centerVisible: vm.centerVisible,
+      rightVisible: vm.rightVisible,
+      rightMode: vm.rightMode,
+      explorerExpanded: vm.explorer.expanded,
+      explorerSelectedPath: vm.explorer.selectedPath,
+      lastOpenFilePath: vm.content.file?.path ?? vm.explorer.selectedPath ?? null,
+      projectRoot: vm.explorer.projectRoot,
+      workspaceRoot: vm.explorer.workspaceRoot
+    };
+    const key = JSON.stringify(snap);
+    if (key === prevKey) return;
+    prevKey = key;
+    schedule(snap);
+  });
+
+  // 关键处理节点：整页刷新前可能来不及走节流（例如 Vite full reload），这里在卸载前再强制落一次。
+  window.addEventListener('beforeunload', () => {
+    try {
+      const vm = useAppStore.getState().vm;
+      persistUiSession({
+        leftVisible: vm.leftVisible,
+        centerVisible: vm.centerVisible,
+        rightVisible: vm.rightVisible,
+        rightMode: vm.rightMode,
+        explorerExpanded: vm.explorer.expanded,
+        explorerSelectedPath: vm.explorer.selectedPath,
+        lastOpenFilePath: vm.content.file?.path ?? vm.explorer.selectedPath ?? null,
+        projectRoot: vm.explorer.projectRoot,
+        workspaceRoot: vm.explorer.workspaceRoot
+      });
+    } catch {}
+  });
+})();
+
 if (specwaveWindowKind === 'main') {
   // 优先恢复 sessionStorage 里记住的项目页签；没有历史才用 bootProjectPath 打开初始项目。
   if (restoredProjectsSession?.activeTabId) {
     useAppStore.getState().dispatch({ type: 'PROJECT_TAB_SET_ACTIVE', id: restoredProjectsSession.activeTabId });
   } else if (!restoredProjectsSession && bootProjectPath) {
     useAppStore.getState().dispatch({ type: 'PROJECT_OPEN_RECENT', path: bootProjectPath });
+  }
+
+  // 关键处理节点：开发模式下外部文件变动可能触发整页刷新（HMR full-reload），导致“看起来被重置/文件都关了”。
+  // 这里用 sessionStorage 记住最后打开的文件路径，并在启动后自动恢复一次，尽量让刷新变得“无感”。
+  const lastOpen = restoredUiSession?.lastOpenFilePath ?? restoredUiSession?.explorerSelectedPath ?? null;
+  const lastOpenProjectRoot = restoredUiSession?.projectRoot ?? null;
+  const lastOpenWorkspaceRoot = restoredUiSession?.workspaceRoot ?? null;
+  if (lastOpen) {
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const vm = useAppStore.getState().vm;
+      if (vm.content.file?.path === lastOpen) {
+        window.clearInterval(timer);
+        return;
+      }
+      // 等项目根就绪后再恢复，避免被后续“打开项目/切页签”把 content 重置掉。
+      if (!vm.explorer.projectRoot && !vm.explorer.workspaceRoot) {
+        if (attempts > 40) window.clearInterval(timer);
+        return;
+      }
+      const rootsMatch = (() => {
+        if (lastOpenProjectRoot && vm.explorer.projectRoot && normalizeFsPath(lastOpenProjectRoot) !== normalizeFsPath(vm.explorer.projectRoot)) return false;
+        if (lastOpenWorkspaceRoot && vm.explorer.workspaceRoot && normalizeFsPath(lastOpenWorkspaceRoot) !== normalizeFsPath(vm.explorer.workspaceRoot)) return false;
+        return true;
+      })();
+      if (!rootsMatch) {
+        window.clearInterval(timer);
+        return;
+      }
+      const withinAnyRoot =
+        (vm.explorer.projectRoot && isWithinRoot(lastOpen, vm.explorer.projectRoot)) ||
+        (vm.explorer.workspaceRoot && isWithinRoot(lastOpen, vm.explorer.workspaceRoot));
+      if (!withinAnyRoot) {
+        window.clearInterval(timer);
+        return;
+      }
+      try {
+        useAppStore.getState().dispatch({ type: 'EXPLORER_OPEN_FILE', path: lastOpen });
+      } catch {}
+      if (attempts > 40) window.clearInterval(timer);
+    }, 150);
   }
 }
