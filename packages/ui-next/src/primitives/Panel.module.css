@@ -4,7 +4,7 @@
 .panel[data-has-header="false"]{grid-template-rows:1fr;}
 .panel[data-body-bleed="true"]{padding:0;gap:0;}
 .panel[data-body-bleed="true"] .header{padding:12px 12px 10px;}
-.panel[data-body-bleed="true"] .bodyScroll{overflow:hidden;}
+.panel[data-body-bleed="true"] .bodyScroll{overflow:auto;}
 .panel[data-variant="terminal"][data-body-bleed="true"] .header{padding:0;}
 .panel[data-variant="terminal"] .header{padding-bottom:0;}
 .header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:10px;min-width:0;max-width:100%;}
