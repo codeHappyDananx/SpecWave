@@ -284,8 +284,6 @@ function normalizeLayoutStable(vm: AppViewModel) {
   let centerPx = vm.layout.centerPx;
   let rightPx = vm.layout.rightPx;
 
-  console.log('[normalizeLayoutStable] input:', { leftPx, centerPx, rightPx, leftVisible: vm.leftVisible, centerVisible: vm.centerVisible, rightVisible: vm.rightVisible });
-
   // 应用最小值约束
   if (vm.leftVisible) leftPx = clamp(leftPx, MIN_LEFT_PX, MAX_LEFT_PX);
   if (vm.centerVisible) centerPx = Math.max(MIN_CENTER_PX, centerPx);
@@ -301,11 +299,9 @@ function normalizeLayoutStable(vm: AppViewModel) {
   // 如果总宽度超出可用空间，从 centerPx 中扣除
   if (total > available && vm.centerVisible) {
     const overflow = total - available;
-    console.log('[normalizeLayoutStable] overflow:', { total, available, overflow });
     centerPx = Math.max(MIN_CENTER_PX, centerPx - overflow);
   }
 
-  console.log('[normalizeLayoutStable] output:', { leftPx, centerPx, rightPx });
   return { leftPx, centerPx, rightPx };
 }
 
@@ -833,10 +829,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ intentLog: [`${new Date().toLocaleTimeString()} ${intent.type}`, ...state.intentLog].slice(0, 30) }));
     // 统一入口：先保证可观测，再逐步接入真实用例/副作用。
     console.log('[UIIntent]', intent);
-    
-    // 调试：打印当前 layout 状态
-    const currentVm = get().vm;
-    console.log('[UIIntent] current layout:', { rightPx: currentVm.layout.rightPx, centerPx: currentVm.layout.centerPx, rightVisible: currentVm.rightVisible });
 
     set((state) => {
       const vm = state.vm;
@@ -866,12 +858,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
         }
         case 'PANEL_TOGGLE_RIGHT': {
-          // eslint-disable-next-line no-debugger
-          debugger;
-          console.log('[PANEL_TOGGLE_RIGHT] before:', { rightVisible: vm.rightVisible, rightPx: vm.layout.rightPx, centerPx: vm.layout.centerPx });
           const nextVm = { ...vm, rightVisible: !vm.rightVisible };
           const nextLayout = normalizeLayoutStable(nextVm);
-          console.log('[PANEL_TOGGLE_RIGHT] after:', { rightVisible: nextVm.rightVisible, rightPx: nextLayout.rightPx, centerPx: nextLayout.centerPx });
           return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
         }
         case 'APP_QUIT_REQUEST': {
@@ -887,12 +875,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         case 'RIGHT_MODE_SET':
           {
-            // eslint-disable-next-line no-debugger
-            debugger;
-            console.log('[RIGHT_MODE_SET] before:', { rightVisible: vm.rightVisible, rightPx: vm.layout.rightPx, centerPx: vm.layout.centerPx });
             const nextVm = { ...vm, rightMode: intent.mode, rightVisible: true };
             const nextLayout = normalizeLayoutStable(nextVm);
-            console.log('[RIGHT_MODE_SET] after:', { rightVisible: nextVm.rightVisible, rightPx: nextLayout.rightPx, centerPx: nextLayout.centerPx });
             return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
           }
         case 'GLOBAL_SEARCH_SET':
