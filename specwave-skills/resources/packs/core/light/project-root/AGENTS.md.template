@@ -7,7 +7,7 @@
 每次对话开始，你必须：
 
 1. **先读 settings.json**：读取 `.specwave/settings.json`
-   - 如果 settings 里存在 `sessionStore`：先执行一次会话自愈（`python .codex/skills/specwave-router/session_guard.py sync`），再检查 `currentSession`
+   - 如果 settings 里存在 `sessionStore`：先执行一次会话自愈（`python ~/.codex/skills/specwave-router/session_guard.py sync`），再检查 `currentSession`
 2. **检查 currentSession**：
    - 存在且 `mode === "spec"`：你在 **spec 模式**，加载 `.specwave/roles/需求分析师.md`，按 `phase` 继续
    - 不存在或为 `null`：你在 **vibe 模式**，直接干活，不走流程
@@ -21,11 +21,13 @@
 
 ## 【会话自愈（推荐）】
 
-同一项目可能同时开多个 Codex 会话。为避免“上个会话残留的执行阶段”影响新会话，进入对话前先对齐一次会话投影：
+同一项目可能同时开多个 Codex 会话。为避免"上个会话残留的执行阶段"影响新会话，进入对话前先对齐一次会话投影：
 
-- 对齐当前会话：`python .codex/skills/specwave-router/session_guard.py sync`
-- 并发会话时：先 `python .codex/skills/specwave-router/session_guard.py status` 看候选，再 `python .codex/skills/specwave-router/session_guard.py --session-id <id> sync`
-- 退出 spec：`python .codex/skills/specwave-router/session_guard.py clear`
+> **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `~/.codex/skills/specwave-router/`）。
+
+- 对齐当前会话：`python ~/.codex/skills/specwave-router/session_guard.py sync`
+- 并发会话时：先 `python ~/.codex/skills/specwave-router/session_guard.py status` 看候选，再 `python ~/.codex/skills/specwave-router/session_guard.py --session-id <id> sync`
+- 退出 spec：`python ~/.codex/skills/specwave-router/session_guard.py clear`
 
 ---
 
@@ -33,8 +35,8 @@
 
 | 规则 | 说明 |
 |------|------|
-| 🚫 需求分析师禁止改代码 | 诉求→需求→设计→任务阶段，只能落盘文档，不能动代码 |
-| 🚫 开发执行者禁止自行扩展 | 只执行 `03-任务.md` 里的任务，发现问题必须暂停 |
+| � 需求段分析师禁止改代码 | 诉求→需求→设计→任务阶段，只能落盘文档，不能动代码 |
+| � 开发执行即者禁止自行扩展 | 只执行 `03-任务.md` 里的任务，发现问题必须暂停 |
 | 📝 每阶段必须落盘 | 不能只在对话里输出，必须写入对应文件（01/02/03） |
 | 📝 执行完成即更新 | 每完成一条任务必须立即勾选（`- [x]`）并更新当前焦点 |
 | ⏸️ 执行要授权 | 用户说"开始"之前，禁止执行任何代码改动 |
@@ -107,8 +109,8 @@ STORY-000001(概要)/
 ### 阶段
 | 状态 | 含义 |
 |------|------|
-| 🎯 诉求对齐 | 理解用户想要什么 |
-| 📝 需求编写 | 把诉求变成需求文档 |
+| � 诉求对齐 |  理解用户想要什么 |
+| � 任需求编写 | 把诉求变成需求文档 |
 | 🏗️ 设计方案 | 技术架构和组件设计 |
 | 📋 任务拆解 | 把设计拆成可执行任务 |
 | 🚀 执行 | 动手写代码 |
@@ -128,7 +130,7 @@ STORY-000001(概要)/
 ### 执行状态
 | 状态 | 含义 |
 |------|------|
-| 🔒 锁定 | 还没到执行阶段 |
+| � 锁定  | 还没到执行阶段 |
 | 🟢 可执行 | 可以开始了 |
 | 🔄 执行中 | 正在做 |
 | ✅ 已完成 | 做完了 |

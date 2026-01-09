@@ -168,6 +168,7 @@ export type UIIntent =
   | { type: "TASK_LINKED_DOC_JUMP"; refId: string; sourceFile: string; lineNumber: number }
   | { type: "TASK_LINKED_DOCS_TOGGLE_SECTION"; section: 'req' | 'ac' }
   | { type: "THEME_TOGGLE" }
+  | { type: "SKIN_CYCLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
   | { type: "TERMINAL_PANEL_SET_ACTIVE"; id: string }
   | { type: "TERMINAL_COPY"; text: string }
@@ -225,7 +226,7 @@ export type AppViewModel = {
     draftBySession: Record<string, string>;
   };
 
-  ui: { theme: "light"; skin: "blue" | "purple" | "green" | "amber" };
+  ui: { theme: "light" | "dark"; skin: "blue" | "purple" | "green" | "amber" };
 
   panelMinW: {
     leftPx: number;

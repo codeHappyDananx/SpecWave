@@ -4,9 +4,9 @@
   },
   "currentSession": {
     "mode": "spec",
-    "storyId": "STORY-000011",
-    "phase": "设计方案",
-    "createdAt": "2026-01-09T16:15:10Z"
+    "storyId": "STORY-000012",
+    "phase": "执行",
+    "createdAt": "2026-01-09T20:10:20.4421157Z"
   },
   "executionGate": {
     "requiresExplicitApproval": true,
@@ -38,19 +38,19 @@
       "019ba04a-d75e-7483-8b60-ac8eef7c7537": {
         "currentSession": {
           "mode": "spec",
-          "storyId": "STORY-000011",
-          "phase": "设计方案",
-          "createdAt": "2026-01-09T16:15:10Z"
+          "storyId": "STORY-000012",
+          "phase": "执行",
+          "createdAt": "2026-01-09T20:10:20.4421157Z"
         },
-        "updatedAt": "2026-01-09T16:42:14Z"
+        "updatedAt": "2026-01-09T20:10:20.4421157Z"
       }
     },
     "legacy": {
       "globalCurrentSession": {
         "mode": "spec",
-        "storyId": "STORY-000011",
-        "phase": "设计方案",
-        "createdAt": "2026-01-09T16:15:10Z"
+        "storyId": "STORY-000012",
+        "phase": "执行",
+        "createdAt": "2026-01-09T20:10:20.4421157Z"
       }
     }
   }
