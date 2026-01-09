@@ -1,4 +1,4 @@
 .statusBar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;background:#fff;border-top:2px solid var(--sw-border);}
-.path{font-family:var(--sw-font-mono);font-size:.9rem;background:var(--sw-muted);border-radius:var(--sw-radius-md);padding:6px 10px;color:#374151;}
+.path{font-size:.9rem;background:var(--sw-muted);border-radius:var(--sw-radius-md);padding:6px 10px;color:#374151;}
 .left,.right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 

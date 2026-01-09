@@ -1,9 +1,11 @@
 import React from 'react';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { Icon } from '../primitives/Icons';
-import { IconButton } from '../primitives/IconButton';
 import { ProjectTab } from '../primitives/ProjectTab';
-import { SearchInput } from '../primitives/SearchInput';
+import { Button } from '../primitives/shadcn/button';
+import { Input } from '../primitives/shadcn/input';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../primitives/shadcn/tooltip';
+import { Separator } from '../primitives/shadcn/separator';
 import styles from './TopBar.module.css';
 
 type TopBarIntent = Extract<
@@ -32,6 +34,23 @@ export type TopBarProps = {
 
 export function TopBar(props: TopBarProps) {
   const activeTab = props.projects.activeTabId ? props.projects.openTabs.find((t) => t.id === props.projects.activeTabId) : null;
+  const [searchValue, setSearchValue] = React.useState(props.globalSearchQuery);
+
+  // 同步外部 globalSearchQuery 变化
+  React.useEffect(() => {
+    setSearchValue(props.globalSearchQuery);
+  }, [props.globalSearchQuery]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const text = e.currentTarget.value;
+    setSearchValue(text);
+    props.dispatch({ type: 'GLOBAL_SEARCH_SET', query: text });
+  };
+
+  const handleSearchClear = () => {
+    setSearchValue('');
+    props.dispatch({ type: 'GLOBAL_SEARCH_SET', query: '' });
+  };
 
   return (
     <header className={styles.topBar} aria-label="TopBar">
@@ -51,21 +70,28 @@ export function TopBar(props: TopBarProps) {
             </div>
             <div className={styles.projectActions} aria-label="项目操作">
               {activeTab?.path == null ? (
-                <button
-                  className={styles.openProjectButton}
-                  type="button"
+                <Button
+                  variant="secondary"
+                  className="text-[13px] font-bold h-9 px-3"
                   onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
                 >
                   打开项目
-                </button>
+                </Button>
               ) : null}
-              <IconButton
-                active
-                title="新建项目页签"
-                ariaLabel="新建项目页签"
-                icon={<Icon name="plus" />}
-                onClick={() => props.dispatch({ type: 'PROJECT_TAB_ADD_EMPTY' })}
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-[13px]"
+                    aria-label="新建项目页签"
+                    onClick={() => props.dispatch({ type: 'PROJECT_TAB_ADD_EMPTY' })}
+                  >
+                    <Icon name="plus" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>新建项目页签</TooltipContent>
+              </Tooltip>
             </div>
           </div>
         ) : (
@@ -73,62 +99,112 @@ export function TopBar(props: TopBarProps) {
             <div className={styles.logo} aria-label="Logo">
               SW
             </div>
-            <button
-              className={styles.openProjectButton}
-              type="button"
+            <Button
+              variant="secondary"
+              className="text-[13px] font-bold h-9 px-3"
               onClick={() => props.dispatch({ type: 'PROJECT_SELECT' })}
             >
               打开项目
-            </button>
+            </Button>
           </div>
         )}
       </div>
 
       <div className={styles.center} aria-label="搜索">
-        <SearchInput
-          value={props.globalSearchQuery}
-          placeholder="搜索文件…"
-          ariaLabel="搜索文件"
-          onChangeText={(text) => props.dispatch({ type: 'GLOBAL_SEARCH_SET', query: text })}
-        />
+        <div className={styles.searchWrap}>
+          <div className={styles.searchIcon} aria-hidden="true">
+            <Icon name="search" size={18} />
+          </div>
+          <Input
+            type="search"
+            className="text-[13px] h-10 pl-10 pr-10 border-transparent bg-[var(--sw-muted)] focus-visible:bg-white focus-visible:border-[var(--sw-primary)]"
+            aria-label="搜索文件"
+            placeholder="搜索文件…"
+            value={searchValue}
+            onChange={handleSearchChange}
+          />
+          {searchValue ? (
+            <button
+              className={styles.searchClear}
+              type="button"
+              aria-label="清空"
+              title="清空"
+              onClick={handleSearchClear}
+            >
+              <Icon name="close" size={16} />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className={styles.right} aria-label="功能区">
         <div className={styles.iconBar} aria-label="快捷功能">
-          <IconButton
-            active={props.leftVisible}
-            variant="soft"
-            title="文件"
-            icon={<Icon name="folder" />}
-            onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_LEFT' })}
-          />
-          <IconButton
-            active={props.centerVisible}
-            variant="soft"
-            title="任务"
-            icon={<Icon name="tasks" />}
-            onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_CENTER' })}
-          />
-          <IconButton
-            active={props.rightVisible && props.rightMode === 'terminal'}
-            variant="soft"
-            title="终端"
-            icon={<Icon name="terminal" />}
-            onClick={() => {
-              if (props.rightVisible && props.rightMode === 'terminal') {
-                props.dispatch({ type: 'PANEL_TOGGLE_RIGHT' });
-                return;
-              }
-              props.dispatch({ type: 'RIGHT_MODE_SET', mode: 'terminal' });
-            }}
-          />
-          <IconButton
-            active={false}
-            variant="soft"
-            title="皮肤"
-            icon={<Icon name="theme" />}
-            onClick={() => props.dispatch({ type: 'THEME_TOGGLE' })}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-[13px]"
+                data-active={props.leftVisible}
+                aria-label="文件"
+                onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_LEFT' })}
+              >
+                <Icon name="folder" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>文件</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-[13px]"
+                data-active={props.centerVisible}
+                aria-label="任务"
+                onClick={() => props.dispatch({ type: 'PANEL_TOGGLE_CENTER' })}
+              >
+                <Icon name="tasks" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>任务</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-[13px]"
+                data-active={props.rightVisible && props.rightMode === 'terminal'}
+                aria-label="终端"
+                onClick={() => {
+                  if (props.rightVisible && props.rightMode === 'terminal') {
+                    props.dispatch({ type: 'PANEL_TOGGLE_RIGHT' });
+                    return;
+                  }
+                  props.dispatch({ type: 'RIGHT_MODE_SET', mode: 'terminal' });
+                }}
+              >
+                <Icon name="terminal" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>终端</TooltipContent>
+          </Tooltip>
+          <Separator orientation="vertical" className="h-5 mx-1" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-[13px]"
+                aria-label="皮肤"
+                onClick={() => props.dispatch({ type: 'THEME_TOGGLE' })}
+              >
+                <Icon name="theme" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>皮肤</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </header>

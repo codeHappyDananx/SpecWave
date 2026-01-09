@@ -2,7 +2,12 @@
   "specwave": {
     "version": "0.3.0"
   },
-  "currentSession": null,
+  "currentSession": {
+    "mode": "spec",
+    "storyId": "STORY-000011",
+    "phase": "设计方案",
+    "createdAt": "2026-01-09T16:15:10Z"
+  },
   "executionGate": {
     "requiresExplicitApproval": true,
     "requiresRequirementConfirmation": true
@@ -29,7 +34,24 @@
   },
   "sessionStore": {
     "version": 1,
-    "bySessionId": {},
-    "legacy": {}
+    "bySessionId": {
+      "019ba04a-d75e-7483-8b60-ac8eef7c7537": {
+        "currentSession": {
+          "mode": "spec",
+          "storyId": "STORY-000011",
+          "phase": "设计方案",
+          "createdAt": "2026-01-09T16:15:10Z"
+        },
+        "updatedAt": "2026-01-09T16:42:14Z"
+      }
+    },
+    "legacy": {
+      "globalCurrentSession": {
+        "mode": "spec",
+        "storyId": "STORY-000011",
+        "phase": "设计方案",
+        "createdAt": "2026-01-09T16:15:10Z"
+      }
+    }
   }
 }

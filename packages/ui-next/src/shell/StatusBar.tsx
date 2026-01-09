@@ -28,7 +28,7 @@ export function StatusBar(props: StatusBarProps) {
         <span className={styles.path} title={props.projectPath ?? '未打开项目'}>
           {props.projectPath ? `项目：${props.projectPath}` : '未打开项目'}
         </span>
-        {fileLabel ? <Badge mono>文件：{fileLabel}</Badge> : null}
+        {fileLabel ? <Badge>文件：{fileLabel}</Badge> : null}
       </div>
       <div className={styles.right}>
         {saveBadge}

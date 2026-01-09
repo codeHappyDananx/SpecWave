@@ -7,7 +7,14 @@
 .projectActions{flex:0 0 auto;display:flex;align-items:center;gap:8px;}
 .emptyTop{display:flex;align-items:center;gap:10px;}
 .logo{width:44px;height:44px;border-radius:999px;background:var(--sw-primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:-.02em;}
-.openProjectButton{border:0;border-radius:var(--sw-radius-md);padding:8px 10px;font:inherit;font-weight:700;letter-spacing:-.01em;cursor:pointer;transition:transform var(--t-quick),background var(--t-quick),color var(--t-quick),border-color var(--t-quick);user-select:none;line-height:1;background:var(--sw-muted);color:var(--sw-fg);}
-.openProjectButton:hover{background:#E5E7EB;transform:scale(1.02);}
-.openProjectButton:active{transform:scale(.98);}
-.iconBar{display:flex;align-items:center;gap:10px;}
+.iconBar{display:flex;align-items:center;gap:4px;}
+
+/* 搜索框容器 */
+.searchWrap{position:relative;width:100%;max-width:720px;}
+.searchIcon{position:absolute;left:12px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;color:#374151;pointer-events:none;z-index:1;}
+.searchClear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:999px;border:0;background:#fff;color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);z-index:1;}
+.searchClear:hover{transform:translateY(-50%) scale(1.06);background:#E5E7EB;}
+.searchClear:active{transform:translateY(-50%) scale(.98);}
+
+/* 图标按钮 active 状态 */
+.iconBar [data-active="true"]{background:color-mix(in srgb, var(--sw-primary) 14%, transparent);color:var(--sw-primary);}
