@@ -166,14 +166,21 @@ export function LeftPanel(props: LeftPanelProps) {
 
   const copyToClipboard = (text: string) => props.dispatch({ type: 'TERMINAL_COPY', text });
 
-  const openContextMenu = (
-    e: React.MouseEvent,
-    target: { path: string; name: string; kind: 'dir' | 'file' }
-  ) => {
+  const openContextMenu = (e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number }, target: {
+    path: string;
+    name: string;
+    kind: 'dir' | 'file';
+  }) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ open: true, x: e.clientX, y: e.clientY, target });
   };
+
+  const openContextMenuOnRightPointerDown =
+    (target: { path: string; name: string; kind: 'dir' | 'file' }) => (e: React.PointerEvent) => {
+      if (e.button !== 2) return;
+      openContextMenu(e, target);
+    };
 
   const visibleNodes = (nodes: AppViewModel['explorer']['workspace'][number][]) => {
     if (props.explorer.showIgnored) return nodes;
@@ -195,6 +202,7 @@ export function LeftPanel(props: LeftPanelProps) {
           aria-current={isSelected ? 'true' : 'false'}
           className={menuButtonClassName}
           onClick={() => props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: node.id })}
+          onPointerDown={openContextMenuOnRightPointerDown({ path: node.id, name: node.name, kind: 'file' })}
           onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'file' })}
         >
           <Icon className={iconClassName} aria-hidden={true} />
@@ -214,16 +222,17 @@ export function LeftPanel(props: LeftPanelProps) {
           className="group/collapsible [&[data-state=open]>button>svg:first-child]:rotate-90"
         >
           <CollapsibleTrigger asChild>
-            <SidebarMenuButton
-              type="button"
-              size="sm"
-              className={menuButtonClassName}
-              aria-label={`目录：${node.name}`}
-              onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'dir' })}
-            >
-              <ChevronRight className={chevronClassName} aria-hidden={true} />
-              <Folder className={iconClassName} aria-hidden={true} />
-              <span className="min-w-0 flex-1 truncate">{node.name}</span>
+              <SidebarMenuButton
+                type="button"
+                size="sm"
+                className={menuButtonClassName}
+                aria-label={`目录：${node.name}`}
+                onPointerDown={openContextMenuOnRightPointerDown({ path: node.id, name: node.name, kind: 'dir' })}
+                onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'dir' })}
+              >
+                <ChevronRight className={chevronClassName} aria-hidden={true} />
+                <Folder className={iconClassName} aria-hidden={true} />
+                <span className="min-w-0 flex-1 truncate">{node.name}</span>
               {node.isLoading ? <span className="text-[11px] text-muted-foreground">加载中…</span> : null}
             </SidebarMenuButton>
           </CollapsibleTrigger>
@@ -327,6 +336,7 @@ export function LeftPanel(props: LeftPanelProps) {
                                 if (m.kind === 'dir') props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree: m.tree, id: m.id });
                                 else props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: m.id });
                               }}
+                              onPointerDown={openContextMenuOnRightPointerDown({ path: m.id, name: m.name, kind: m.kind })}
                               onContextMenu={(e) => openContextMenu(e, { path: m.id, name: m.name, kind: m.kind })}
                             >
                               {m.kind === 'dir' ? (
