@@ -184,7 +184,7 @@ export function CenterPanel(props: CenterPanelProps) {
               </div>
             ) : null}
           </div>
-          {file && file.kind !== 'image' ? (
+          {file && file.kind !== 'image' && file.kind !== 'binary' ? (
             <div className={styles.headerActions}>
               <button
                 className={styles.modeButton}
@@ -202,6 +202,11 @@ export function CenterPanel(props: CenterPanelProps) {
         <div className={styles.empty} aria-label="空内容">
           <p className={styles.emptyTitle}>还没有打开任何文件</p>
           <p className={styles.emptyDesc}>打开项目后，在左区点击一个文件即可在这里预览/编辑。</p>
+        </div>
+      ) : file.kind === 'binary' ? (
+        <div className={styles.empty} aria-label="不支持预览">
+          <p className={styles.emptyTitle}>该文件暂不支持预览</p>
+          <p className={styles.emptyDesc}>这是二进制文件（例如 .exe）。为避免卡死，SpecWave 不会打开它。</p>
         </div>
       ) : props.content.mode === 'editor' ? (
         <div className={styles.editorWrap} aria-label="源码编辑">

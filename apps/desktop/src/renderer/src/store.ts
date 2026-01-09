@@ -466,6 +466,13 @@ function basename(p: string) {
   return idx >= 0 ? normalized.slice(idx + 1) : normalized;
 }
 
+function extname(p: string) {
+  const b = basename(p);
+  const idx = b.lastIndexOf('.');
+  if (idx <= 0) return '';
+  return b.slice(idx).toLowerCase();
+}
+
 function dirname(p: string) {
   const sep = detectSep(p);
   const normalized = p.replace(/[\\/]+$/g, '');
@@ -585,6 +592,35 @@ function detectContentKind(filePath: string): ContentKind {
   if (name === 'tasks.md' || name === 'work.md' || name === '02-任务.md' || name === '03-任务.md') return 'task';
   if (/\.(png|jpg|jpeg|gif|webp|bmp|svg|ico)$/.test(lower)) return 'image';
   if (lower.endsWith('.md')) return 'markdown';
+
+  // 关键处理节点：二进制文件一律不预览（避免读入/转码导致卡死）。
+  // 这里只做“按扩展名”的保护；不做大小阈值限制（按产品诉求允许打开大文本）。
+  const ext = extname(filePath);
+  if (
+    ext === '.exe' ||
+    ext === '.dll' ||
+    ext === '.msi' ||
+    ext === '.bin' ||
+    ext === '.dat' ||
+    ext === '.zip' ||
+    ext === '.rar' ||
+    ext === '.7z' ||
+    ext === '.tar' ||
+    ext === '.gz' ||
+    ext === '.tgz' ||
+    ext === '.bz2' ||
+    ext === '.xz' ||
+    ext === '.pdf' ||
+    ext === '.db' ||
+    ext === '.sqlite' ||
+    ext === '.sqlite3' ||
+    ext === '.woff' ||
+    ext === '.woff2' ||
+    ext === '.ttf' ||
+    ext === '.otf'
+  ) {
+    return 'binary';
+  }
   return 'text';
 }
 
@@ -592,6 +628,7 @@ function defaultContentMode(kind: ContentKind): ContentMode {
   if (kind === 'task') return 'task' as const;
   if (kind === 'markdown') return 'view' as const;
   if (kind === 'image') return 'view' as const;
+  if (kind === 'binary') return 'view' as const;
   return 'editor' as const;
 }
 
@@ -1326,6 +1363,28 @@ export const useAppStore = create<AppState>((set, get) => ({
             });
           } catch {}
 
+          if (kind === 'binary') {
+            return {
+              vm: {
+                ...vm,
+                centerVisible: true,
+                explorer: { ...vm.explorer, selectedPath: filePath },
+                content: {
+                  ...vm.content,
+                  find: { ...initialVm.content.find },
+                  file: { path: filePath, name: basename(filePath), kind, sha256: '' },
+                  text: '',
+                  draftText: '',
+                  mode: 'view',
+                  isDirty: false,
+                  saveStatus: 'idle',
+                  saveError: null,
+                  taskBoard: null
+                }
+              }
+            };
+          }
+
           void (async () => {
             const api = window.specwave;
             if (!api) return;
@@ -1397,6 +1456,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const file = vm.content.file;
           if (!file) return { vm };
           if (file.kind === 'image') return { vm };
+          if (file.kind === 'binary') return { vm };
           const effectiveText = vm.content.isDirty ? vm.content.draftText : vm.content.text;
 
           const nextMode = (() => {
@@ -2457,6 +2517,31 @@ void (async () => {
     suppressExternalChangePromptPath = null;
 
     const kind = detectContentKind(filePath);
+    if (kind === 'binary') {
+      useAppStore.setState((state) => {
+        const vm = state.vm;
+        const file = vm.content.file;
+        if (!file || normalizeFsPath(file.path) !== normalizeFsPath(filePath)) return { vm };
+        return {
+          vm: {
+            ...vm,
+            content: {
+              ...vm.content,
+              find: { ...initialVm.content.find },
+              file: { ...file, kind, sha256: '' },
+              text: '',
+              draftText: '',
+              mode: 'view',
+              isDirty: false,
+              saveStatus: 'idle',
+              saveError: null,
+              taskBoard: null
+            }
+          }
+        };
+      });
+      return;
+    }
     const res = await (async () => {
       if (kind !== 'image') return api2.readTextFile(filePath);
       if (!api2.readBinaryFile) return { ok: false, error: '当前桌面端版本不支持图片预览。' } as const;
