@@ -442,35 +442,35 @@ export function LeftPanel(props: LeftPanelProps) {
               onContextMenu={(e) => e.preventDefault()}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-                onClick={() => {
-                  copyToClipboard(contextMenu.target!.path);
-                  closeContextMenu();
-                }}
-              >
-                复制绝对路径
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-                onClick={() => {
-                  const p = contextMenu.target!.path;
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              const p = contextMenu.target!.path;
                   const relFromProject = props.explorer.projectRoot ? relativeToRoot(p, props.explorer.projectRoot) : null;
                   const relFromWorkspace = props.explorer.workspaceRoot ? relativeToRoot(p, props.explorer.workspaceRoot) : null;
-                  const rel = relFromProject ?? relFromWorkspace ?? p;
-                  copyToClipboard(rel);
-                  closeContextMenu();
-                }}
-              >
-                复制全路径
-              </button>
-              <button
-                type="button"
-                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-                onClick={() => {
-                  copyToClipboard(contextMenu.target!.name);
+              const rel = relFromProject ?? relFromWorkspace ?? p;
+              copyToClipboard(rel);
+              closeContextMenu();
+            }}
+          >
+            复制相对路径
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              copyToClipboard(contextMenu.target!.path);
+              closeContextMenu();
+            }}
+          >
+            复制绝对路径
+          </button>
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+            onClick={() => {
+              copyToClipboard(contextMenu.target!.name);
                   closeContextMenu();
                 }}
               >
