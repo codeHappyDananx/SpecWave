@@ -3010,7 +3010,27 @@ if (specwaveWindowKind === 'main') {
         return;
       }
       try {
-        useAppStore.getState().dispatch({ type: 'EXPLORER_OPEN_FILE', path: lastOpen });
+        // 先检查文件是否存在，不存在则清除记忆并跳过
+        void (async () => {
+          const api = window.specwave;
+          if (!api) return;
+          const exists = await api.readTextFile(lastOpen);
+          if (!exists.ok) {
+            // 文件不存在，清除 sessionStorage 中的记忆
+            try {
+              const raw = sessionStorage.getItem(UI_SESSION_KEY);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                delete parsed.lastOpenFilePath;
+                delete parsed.explorerSelectedPath;
+                sessionStorage.setItem(UI_SESSION_KEY, JSON.stringify(parsed));
+              }
+            } catch {}
+            window.clearInterval(timer);
+            return;
+          }
+          useAppStore.getState().dispatch({ type: 'EXPLORER_OPEN_FILE', path: lastOpen });
+        })();
       } catch {}
       if (attempts > 40) window.clearInterval(timer);
     }, 150);
