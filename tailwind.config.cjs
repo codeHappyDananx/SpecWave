@@ -5,6 +5,10 @@ module.exports = {
   content: ['./apps/desktop/src/renderer/src/**/*.{ts,tsx}', './packages/ui-next/src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--sw-font-sans)'],
+        mono: ['var(--sw-font-mono)'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
