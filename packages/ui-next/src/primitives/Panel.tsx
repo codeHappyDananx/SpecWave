@@ -7,6 +7,7 @@ export type PanelProps = {
   header?: React.ReactNode;
   headerAriaLabel?: string;
   bodyAriaLabel?: string;
+  variant?: 'default' | 'terminal';
   minwPx?: number;
   bodyBleed?: boolean;
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export function Panel(props: PanelProps) {
       aria-label={props.ariaLabel}
       data-has-header={hasHeader ? 'true' : 'false'}
       data-body-bleed={props.bodyBleed ? 'true' : 'false'}
+      data-variant={props.variant ?? 'default'}
     >
       {props.header ? (
         <div className={styles.header} aria-label={props.headerAriaLabel}>

@@ -37,7 +37,7 @@ export function TerminalView(props: TerminalViewProps) {
     () => (
       <div className={styles.root} aria-label="终端空态">
         <div className={styles.emptyHint} aria-label="终端提示">
-          <div>还没有终端面板</div>
+          <div className={styles.emptyHintTitle}>还没有终端面板</div>
           <div className={styles.emptyHintMuted}>点击右上角 “+” 新建一个终端</div>
         </div>
       </div>
@@ -53,10 +53,10 @@ export function TerminalView(props: TerminalViewProps) {
     el.innerHTML = '';
     const css = getComputedStyle(el);
     const termTheme = {
-      background: cssVar(css, '--sw-terminal-bg', '#FFF7ED'),
-      foreground: cssVar(css, '--sw-terminal-fg', '#111827'),
-      cursor: cssVar(css, '--sw-terminal-cursor', '#111827'),
-      selectionBackground: cssVar(css, '--sw-terminal-selection', 'rgba(59,130,246,.22)')
+      background: cssVar(css, '--sw-terminal-bg', '#0F172A'),
+      foreground: cssVar(css, '--sw-terminal-fg', '#F1F5F9'),
+      cursor: cssVar(css, '--sw-terminal-cursor', '#3B82F6'),
+      selectionBackground: cssVar(css, '--sw-terminal-selection', 'rgba(59, 130, 246, 0.28)')
     };
     const term = new Terminal({
       cursorBlink: true,
@@ -201,7 +201,9 @@ export function TerminalView(props: TerminalViewProps) {
 
   return (
     <div className={styles.root} aria-label="终端面板">
-      <div ref={containerRef} className={styles.xtermHost} aria-label="终端输出" />
+      <div className={styles.pad} aria-label="终端内边距">
+        <div ref={containerRef} className={styles.xtermHost} aria-label="终端输出" />
+      </div>
     </div>
   );
 }

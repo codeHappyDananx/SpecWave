@@ -8,3 +8,11 @@
 .modeTab:hover{transform:scale(1.05);}
 .modeTab:active{transform:scale(.98);}
 .headerAdd{grid-column:3;grid-row:1;flex:0 0 auto;}
+
+.header[data-mode="terminal"]{grid-template-rows:40px;column-gap:10px;padding:8px 10px;background:var(--sw-bg);border-bottom:2px solid var(--sw-border);}
+.header[data-mode="terminal"] .headerTabs{align-items:center;gap:6px;padding:0;}
+.header[data-mode="terminal"] .modeTabs{gap:8px;}
+.header[data-mode="terminal"] .modeTab{background:transparent;border:0;color:rgba(241,245,249,0.78);width:32px;height:32px;}
+.header[data-mode="terminal"] .modeTab[aria-selected="true"]{background:rgba(241,245,249,0.12);color:#fff;}
+.header[data-mode="terminal"] .modeTab:hover{transform:none;background:rgba(241,245,249,0.10);}
+.header[data-mode="terminal"] .modeTab:active{transform:none;background:rgba(241,245,249,0.16);}

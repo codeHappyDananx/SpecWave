@@ -49,11 +49,11 @@
   --sidebar-border: 220 13% 91%;
   --sidebar-ring: 217.2 91.2% 59.8%;
 
-  /* 终端（xterm）主题：保持“白天模式”清爽、字形清晰 */
-  --sw-terminal-bg: #fff7ed;
-  --sw-terminal-fg: #111827;
-  --sw-terminal-cursor: #111827;
-  --sw-terminal-selection: rgba(59, 130, 246, 0.22);
+  /* 终端（xterm）主题：深色（对标 Windows Terminal 观感），但只用于终端区域 */
+  --sw-terminal-bg: #0f172a;
+  --sw-terminal-fg: #f1f5f9;
+  --sw-terminal-cursor: #3b82f6;
+  --sw-terminal-selection: rgba(59, 130, 246, 0.28);
 
   /* 全局滚动条：默认隐藏（不显示滑轨）；hover 时只显示滑块，避免满屏“条条框框”。 */
   --sw-scrollbar-size: 6px;
@@ -72,18 +72,24 @@
   --sw-primary: #8b5cf6;
   --sw-secondary: #10b981;
   --sw-accent: #f59e0b;
+  --sw-terminal-cursor: #8b5cf6;
+  --sw-terminal-selection: rgba(139, 92, 246, 0.28);
 }
 
 [data-skin="green"] {
   --sw-primary: #10b981;
   --sw-secondary: #3b82f6;
   --sw-accent: #f59e0b;
+  --sw-terminal-cursor: #10b981;
+  --sw-terminal-selection: rgba(16, 185, 129, 0.28);
 }
 
 [data-skin="amber"] {
   --sw-primary: #f59e0b;
   --sw-secondary: #3b82f6;
   --sw-accent: #10b981;
+  --sw-terminal-cursor: #f59e0b;
+  --sw-terminal-selection: rgba(245, 158, 11, 0.28);
 }
 
 *,

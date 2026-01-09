@@ -33,6 +33,7 @@ export type RightPanelProps = {
 };
 
 export function RightPanel(props: RightPanelProps) {
+  const panelVariant = props.rightMode === 'terminal' ? 'terminal' : 'default';
   const headerTabs =
     props.rightMode === 'terminal' ? (
       <div className={styles.headerTabs} role="tablist" aria-label="终端页签">
@@ -41,6 +42,7 @@ export function RightPanel(props: RightPanelProps) {
             key={id}
             selected={id === props.terminal.activePanelId}
             title={`PS${idx + 1}`}
+            variant="terminal"
             onSelect={() => props.dispatch({ type: 'TERMINAL_PANEL_SET_ACTIVE', id })}
             onClose={() => props.dispatch({ type: 'TERMINAL_PANEL_CLOSE', id })}
           />
@@ -53,6 +55,7 @@ export function RightPanel(props: RightPanelProps) {
             key={id}
             selected={id === props.chat.activeSessionId}
             title={`AI${idx + 1}`}
+            variant="default"
             onSelect={() => props.dispatch({ type: 'CHAT_SESSION_SET_ACTIVE', id })}
             onClose={() => props.dispatch({ type: 'CHAT_SESSION_CLOSE', id })}
           />
@@ -68,8 +71,9 @@ export function RightPanel(props: RightPanelProps) {
       bodyAriaLabel="右区滚动区"
       minwPx={props.minwPx}
       bodyBleed
+      variant={panelVariant}
       header={
-        <div className={styles.header} aria-label="右区头部内容">
+        <div className={styles.header} data-mode={props.rightMode} aria-label="右区头部内容">
           <div className={styles.headerLeft} aria-label="右区切换区">
             <div className={styles.modeTabs} role="tablist" aria-label="终端/对话切换">
               <button
@@ -99,7 +103,8 @@ export function RightPanel(props: RightPanelProps) {
           </div>
           <IconButton
             className={styles.headerAdd}
-            active
+            active={props.rightMode !== 'terminal'}
+            variant={props.rightMode === 'terminal' ? 'soft' : 'solid'}
             title="新增"
             ariaLabel="新增面板"
             icon={<Icon name="plus" />}
