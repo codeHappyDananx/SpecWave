@@ -147,3 +147,157 @@
 .codeText{white-space:pre;flex:0 0 auto;}
 
 .error{margin-top:10px;border-radius:var(--sw-radius-lg);background:#FEF2F2;border:2px solid #FCA5A5;color:#991B1B;padding:10px;font-weight:800;}
+
+
+/* === 任务卡片排版优化 === */
+/* 标题：突出 */
+.taskDeckTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--sw-fg);
+  line-height: 1.35;
+}
+
+/* 字段标签：弱化 */
+.taskFieldLabelMuted {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* 字段内容：正常 */
+.taskFieldValue {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #374151;
+  line-height: 1.5;
+}
+
+/* 关联引用 badge */
+.linkedRefBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 4px;
+  background: var(--sw-muted);
+  color: var(--sw-primary);
+  cursor: pointer;
+  transition: background var(--t-quick), transform var(--t-quick);
+  white-space: nowrap;
+}
+.linkedRefBadge:hover {
+  background: #E5E7EB;
+  transform: scale(1.02);
+}
+.linkedRefBadge:active {
+  transform: scale(0.98);
+}
+
+.linkedRefList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* === 关联文档区样式 === */
+.linkedDocsDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px;
+  color: #6B7280;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.linkedDocsDivider::before,
+.linkedDocsDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--sw-border);
+}
+
+.linkedDocsSection {
+  margin-bottom: 16px;
+}
+
+.linkedDocsSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  transition: color var(--t-quick);
+}
+.linkedDocsSectionHeader:hover {
+  color: var(--sw-fg);
+}
+
+.linkedDocsSectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.linkedDocCard {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--sw-bg);
+  border: 1px solid var(--sw-border);
+  cursor: pointer;
+  transition: border-color var(--t-quick);
+}
+.linkedDocCard:hover {
+  border-color: var(--sw-primary);
+}
+
+.linkedDocCardTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--sw-fg);
+  margin-bottom: 8px;
+}
+
+.linkedDocCardContent {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: #374151;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.linkedDocsLoading {
+  padding: 16px;
+  text-align: center;
+  color: #6B7280;
+  font-size: 0.875rem;
+}
+
+.linkedDocsEmpty {
+  padding: 16px;
+  text-align: center;
+  color: #9CA3AF;
+  font-size: 0.875rem;
+}
+
+/* 单张模式整体容器 */
+.taskDeckSingleContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.linkedDocsArea {
+  padding: 0 12px 12px;
+}

@@ -78,6 +78,8 @@ export type TaskItemVM = {
   checked: boolean;
   level: number;
   source: TaskSourceVM;
+  // 新增：关联引用列表
+  linkedRefs: string[];  // ['REQ-001', 'AC-001', 'AC-002']
 };
 
 export type TaskDetailVM = {
@@ -87,11 +89,25 @@ export type TaskDetailVM = {
   draftBody: string;
 };
 
+// 新增：关联文档数据结构
+export type LinkedDocVM = {
+  refId: string;           // 'REQ-001' | 'AC-001'
+  type: 'req' | 'ac';      // 需求 | 验收口径
+  title: string;           // 需求标题
+  content: string;         // 完整内容（markdown）
+  sourceFile: string;      // '01-需求.md'
+  lineNumber: number;      // 用于跳转定位
+};
+
 export type TaskBoardVM = {
   items: TaskItemVM[];
   activeTaskId: string | null;
   deckMode: 'single' | 'all';
   detail: TaskDetailVM;
+  // 新增：当前任务的关联文档
+  linkedDocs: LinkedDocVM[];
+  linkedDocsLoading: boolean;
+  linkedDocsError: string | null;
 };
 
 export type ContentFindVM = {
@@ -149,6 +165,8 @@ export type UIIntent =
   | { type: "TASK_DECK_PREV" }
   | { type: "TASK_DECK_NEXT" }
   | { type: "TASK_DECK_FOCUS"; taskId: string }
+  | { type: "TASK_LINKED_DOC_JUMP"; refId: string; sourceFile: string; lineNumber: number }
+  | { type: "TASK_LINKED_DOCS_TOGGLE_SECTION"; section: 'req' | 'ac' }
   | { type: "THEME_TOGGLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
   | { type: "TERMINAL_PANEL_SET_ACTIVE"; id: string }

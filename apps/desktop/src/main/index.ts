@@ -122,6 +122,7 @@ function createMainWindow(args?: { projectPath?: string | null; onReadyToShow?: 
     height: 800,
     show: false,
     backgroundColor: '#F3F4F6',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

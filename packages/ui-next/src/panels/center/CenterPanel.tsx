@@ -45,6 +45,8 @@ type CenterIntent = Extract<
   | { type: 'TASK_DECK_PREV' }
   | { type: 'TASK_DECK_NEXT' }
   | { type: 'TASK_DECK_FOCUS' }
+  | { type: 'TASK_LINKED_DOC_JUMP' }
+  | { type: 'TASK_LINKED_DOCS_TOGGLE_SECTION' }
 >;
 
 export type CenterPanelProps = {
@@ -342,10 +344,85 @@ export function CenterPanel(props: CenterPanelProps) {
                                     {activeTask.body ? activeTask.body : '暂无详情。'}
                                   </div>
                                 )}
+
+                                {/* 关联引用 Badge */}
+                                {activeTask.linkedRefs.length > 0 && (
+                                  <div style={{ padding: '12px' }}>
+                                    <div className={styles.taskFieldLabelMuted}>关联</div>
+                                    <div className={styles.linkedRefList}>
+                                      {activeTask.linkedRefs.map((ref) => {
+                                        const linkedDoc = taskBoard?.linkedDocs.find((d) => d.refId === ref);
+                                        return (
+                                          <button
+                                            key={ref}
+                                            className={styles.linkedRefBadge}
+                                            type="button"
+                                            onClick={() => {
+                                              if (linkedDoc) {
+                                                props.dispatch({
+                                                  type: 'TASK_LINKED_DOC_JUMP',
+                                                  refId: ref,
+                                                  sourceFile: linkedDoc.sourceFile,
+                                                  lineNumber: linkedDoc.lineNumber
+                                                });
+                                              }
+                                            }}
+                                          >
+                                            {ref}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </article>
                           </TiltedCard>
                         </div>
+
+                        {/* 关联文档区 */}
+                        {taskBoard && taskBoard.linkedDocs.length > 0 && (
+                          <div className={styles.linkedDocsArea}>
+                            <div className={styles.linkedDocsDivider}>关联文档</div>
+                            {(() => {
+                              const reqDocs = taskBoard.linkedDocs.filter((d) => d.type === 'req');
+                              if (!reqDocs.length) return null;
+                              return (
+                                <div className={styles.linkedDocsSection}>
+                                  <div className={styles.linkedDocsSectionHeader}>▼ 关联需求 ({reqDocs.length})</div>
+                                  <div className={styles.linkedDocsSectionContent}>
+                                    {reqDocs.map((doc) => (
+                                      <div key={doc.refId} className={styles.linkedDocCard} role="button" tabIndex={0}
+                                        onClick={() => props.dispatch({ type: 'TASK_LINKED_DOC_JUMP', refId: doc.refId, sourceFile: doc.sourceFile, lineNumber: doc.lineNumber })}>
+                                        <div className={styles.linkedDocCardTitle}>{doc.refId} {doc.title}</div>
+                                        <div className={styles.linkedDocCardContent}>{doc.content}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                            {(() => {
+                              const acDocs = taskBoard.linkedDocs.filter((d) => d.type === 'ac');
+                              if (!acDocs.length) return null;
+                              return (
+                                <div className={styles.linkedDocsSection}>
+                                  <div className={styles.linkedDocsSectionHeader}>▼ 验收口径 ({acDocs.length})</div>
+                                  <div className={styles.linkedDocsSectionContent}>
+                                    {acDocs.map((doc) => (
+                                      <div key={doc.refId} className={styles.linkedDocCard} role="button" tabIndex={0}
+                                        onClick={() => props.dispatch({ type: 'TASK_LINKED_DOC_JUMP', refId: doc.refId, sourceFile: doc.sourceFile, lineNumber: doc.lineNumber })}>
+                                        <div className={styles.linkedDocCardTitle}>{doc.refId}</div>
+                                        <div className={styles.linkedDocCardContent}>{doc.content}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                        {taskBoard?.linkedDocsLoading && <div className={styles.linkedDocsLoading}>加载关联文档中...</div>}
                       </div>
                     ) : (
                       <div className={styles.muted}>未解析到任务（只识别形如 “- [ ] xxx” 的任务行）。</div>

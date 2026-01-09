@@ -5,6 +5,7 @@ import type {
   ContentKind,
   ContentMode,
   ExplorerNodeVM,
+  LinkedDocVM,
   TaskBoardVM,
   TaskItemVM,
   UIIntent
@@ -704,6 +705,111 @@ function extractTaskDrafts(fullText: string, item: TaskItemVM) {
   return { title, body };
 }
 
+/**
+ * 解析任务块中的关联引用
+ * 匹配 "关联需求：REQ-001, AC-001, AC-002" 或 "关联需求: REQ-001, AC-001"
+ */
+function parseLinkedRefs(blockText: string): string[] {
+  const match = blockText.match(/关联需求[：:]\s*(.+)$/m);
+  if (!match?.[1]) return [];
+
+  // 分割并清理，支持中英文逗号和分号
+  return match[1]
+    .split(/[,，;；]/)
+    .map((s) => s.trim())
+    .filter((s) => /^(REQ|AC)-\d+$/.test(s));
+}
+
+/**
+ * 从文档中提取 REQ-xxx / AC-xxx 段落
+ */
+function extractDocSection(
+  docText: string,
+  refId: string
+): { title: string; content: string; lineNumber: number } | null {
+  const lines = docText.split('\n');
+
+  if (refId.startsWith('REQ-')) {
+    // 查找 "### REQ-001" 开头的段落
+    const pattern = new RegExp(`^###\\s+${refId}\\b`);
+    const startIdx = lines.findIndex((line) => pattern.test(line));
+    if (startIdx < 0) return null;
+
+    // 提取标题（去掉 ### REQ-xxx 前缀）
+    const titleLine = lines[startIdx] ?? '';
+    const title = titleLine.replace(/^###\s+REQ-\d+\s*/, '').trim();
+
+    // 找到下一个 ### 或文档结束
+    let endIdx = lines.findIndex((line, i) => i > startIdx && /^###\s+/.test(line));
+    if (endIdx < 0) endIdx = lines.length;
+
+    return {
+      title,
+      content: lines.slice(startIdx, endIdx).join('\n').trim(),
+      lineNumber: startIdx + 1
+    };
+  }
+
+  if (refId.startsWith('AC-')) {
+    // 查找 "- **AC-001**" 开头的行
+    const pattern = new RegExp(`^-\\s+\\*\\*${refId}\\*\\*`);
+    const lineIdx = lines.findIndex((line) => pattern.test(line));
+    if (lineIdx < 0) return null;
+
+    const line = lines[lineIdx] ?? '';
+    // 提取内容（去掉 - **AC-xxx**： 前缀）
+    const content = line.replace(/^-\s+\*\*AC-\d+\*\*[：:]\s*/, '').trim();
+
+    return {
+      title: refId,
+      content,
+      lineNumber: lineIdx + 1
+    };
+  }
+
+  return null;
+}
+
+/**
+ * 加载关联文档内容
+ * 从当前任务文件同目录的 01-需求.md 中提取关联的 REQ/AC 内容
+ */
+async function loadLinkedDocs(
+  taskFilePath: string,
+  linkedRefs: string[]
+): Promise<LinkedDocVM[]> {
+  if (!linkedRefs.length) return [];
+
+  const api = window.specwave;
+  if (!api) return [];
+
+  // 从任务文件路径推导需求文件路径（同目录的 01-需求.md）
+  const dirPath = taskFilePath.replace(/[/\\][^/\\]+$/, '');
+  const reqFilePath = `${dirPath}/01-需求.md`;
+
+  // 读取需求文件
+  const res = await api.readTextFile(reqFilePath);
+  if (!res.ok) return [];
+
+  const docs: LinkedDocVM[] = [];
+
+  for (const refId of linkedRefs) {
+    const section = extractDocSection(res.text, refId);
+    if (!section) continue;
+
+    docs.push({
+      refId,
+      type: refId.startsWith('REQ-') ? 'req' : 'ac',
+      title: section.title,
+      content: section.content,
+      sourceFile: '01-需求.md',
+      lineNumber: section.lineNumber
+    });
+  }
+
+  return docs;
+}
+
 function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
   const items: TaskItemVM[] = [];
   const re = /^(?<indent>[ \t]*)-\s*\[(?<status>[ xX])\]\s+(?<label>.*)$/gm;
@@ -770,7 +876,8 @@ function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
         titleEndPos: h.titleEndPos,
         blockStartPos,
         blockEndPos
-      }
+      },
+      linkedRefs: parseLinkedRefs(blockText)
     });
   }
 
@@ -793,7 +900,15 @@ function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
     return { isOpen: true, mode: 'view' as const, draftTitle: title, draftBody: body };
   })();
 
-  return { items, activeTaskId: nextActiveTaskId, deckMode: nextDeckMode, detail: nextDetail };
+  return { 
+    items, 
+    activeTaskId: nextActiveTaskId, 
+    deckMode: nextDeckMode, 
+    detail: nextDetail,
+    linkedDocs: [],
+    linkedDocsLoading: false,
+    linkedDocsError: null
+  };
 }
 
 function toggleCharAt(text: string, pos: number, nextChar: string) {
@@ -827,8 +942,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   drag: null,
   dispatch: (intent) => {
     set((state) => ({ intentLog: [`${new Date().toLocaleTimeString()} ${intent.type}`, ...state.intentLog].slice(0, 30) }));
-    // 统一入口：先保证可观测，再逐步接入真实用例/副作用。
-    console.log('[UIIntent]', intent);
 
     set((state) => {
       const vm = state.vm;
@@ -1714,12 +1827,42 @@ export const useAppStore = create<AppState>((set, get) => ({
           const delta = intent.type === 'TASK_DECK_NEXT' ? 1 : -1;
           const nextIdx = (idx + delta + items.length) % items.length;
           const nextId = items[nextIdx]?.id ?? items[0]!.id;
+          const nextItem = items[nextIdx];
+
+          // 异步加载关联文档
+          if (nextItem && nextItem.linkedRefs.length > 0) {
+            void (async () => {
+              const linkedDocs = await loadLinkedDocs(file.path, nextItem.linkedRefs);
+              set((state) => {
+                const currentBoard = state.vm.content.taskBoard;
+                if (!currentBoard || currentBoard.activeTaskId !== nextId) return { vm: state.vm };
+                return {
+                  vm: {
+                    ...state.vm,
+                    content: {
+                      ...state.vm.content,
+                      taskBoard: { ...currentBoard, linkedDocs, linkedDocsLoading: false, linkedDocsError: null }
+                    }
+                  }
+                };
+              });
+            })();
+          }
+
           return {
             vm: {
               ...vm,
               content: {
                 ...vm.content,
-                taskBoard: { ...board, activeTaskId: nextId, deckMode: 'single', detail: EMPTY_TASK_DETAIL }
+                taskBoard: {
+                  ...board,
+                  activeTaskId: nextId,
+                  deckMode: 'single',
+                  detail: EMPTY_TASK_DETAIL,
+                  linkedDocs: [],
+                  linkedDocsLoading: nextItem?.linkedRefs.length ? true : false,
+                  linkedDocsError: null
+                }
               }
             }
           };
@@ -1729,16 +1872,95 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (!file || file.kind !== 'task') return { vm };
           const text = effectiveContentText(vm.content);
           const board = vm.content.taskBoard ?? parseTaskBoardV2(text, null);
-          if (!board.items.some((t) => t.id === intent.taskId)) return { vm: { ...vm, content: { ...vm.content, taskBoard: board } } };
+          const targetItem = board.items.find((t) => t.id === intent.taskId);
+          if (!targetItem) return { vm: { ...vm, content: { ...vm.content, taskBoard: board } } };
+
+          // 异步加载关联文档
+          if (targetItem.linkedRefs.length > 0) {
+            void (async () => {
+              const linkedDocs = await loadLinkedDocs(file.path, targetItem.linkedRefs);
+              set((state) => {
+                const currentBoard = state.vm.content.taskBoard;
+                if (!currentBoard || currentBoard.activeTaskId !== intent.taskId) return { vm: state.vm };
+                return {
+                  vm: {
+                    ...state.vm,
+                    content: {
+                      ...state.vm.content,
+                      taskBoard: { ...currentBoard, linkedDocs, linkedDocsLoading: false, linkedDocsError: null }
+                    }
+                  }
+                };
+              });
+            })();
+          }
+
           return {
             vm: {
               ...vm,
               content: {
                 ...vm.content,
-                taskBoard: { ...board, activeTaskId: intent.taskId, deckMode: 'single', detail: EMPTY_TASK_DETAIL }
+                taskBoard: {
+                  ...board,
+                  activeTaskId: intent.taskId,
+                  deckMode: 'single',
+                  detail: EMPTY_TASK_DETAIL,
+                  linkedDocs: [],
+                  linkedDocsLoading: targetItem.linkedRefs.length > 0,
+                  linkedDocsError: null
+                }
               }
             }
           };
+        }
+        case 'TASK_LINKED_DOC_JUMP': {
+          // 跳转到关联文档：打开对应的需求文件并设置搜索查询以高亮定位
+          const file = vm.content.file;
+          if (!file) return { vm };
+
+          // 从当前任务文件路径推导需求文件路径
+          const dirPath = file.path.replace(/[/\\][^/\\]+$/, '');
+          const targetPath = `${dirPath}/${intent.sourceFile}`;
+
+          // 触发打开文件并设置搜索查询
+          void (async () => {
+            // 先打开文件
+            set((state) => state);
+            const api = window.specwave;
+            if (!api) return;
+
+            // 读取目标文件
+            const res = await api.readTextFile(targetPath);
+            if (!res.ok) return;
+
+            set((state) => {
+              const vm2 = state.vm;
+              return {
+                vm: {
+                  ...vm2,
+                  centerVisible: true,
+                  explorer: { ...vm2.explorer, selectedPath: targetPath },
+                  content: {
+                    find: { isOpen: true, query: intent.refId, matchStarts: [], activeIndex: 0 },
+                    file: { path: targetPath, name: intent.sourceFile, kind: 'markdown', sha256: res.sha256 },
+                    text: res.text,
+                    draftText: res.text,
+                    mode: 'view',
+                    isDirty: false,
+                    saveStatus: 'idle',
+                    saveError: null,
+                    taskBoard: null
+                  }
+                }
+              };
+            });
+          })();
+
+          return { vm };
+        }
+        case 'TASK_LINKED_DOCS_TOGGLE_SECTION': {
+          // 折叠/展开关联文档区域（暂时不实现，保持默认展开）
+          return { vm };
         }
         case 'TASK_DETAIL_MODE_SET': {
           const file = vm.content.file;
