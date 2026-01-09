@@ -3,7 +3,7 @@ import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icon } from '../../primitives/Icons';
-import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
+import { Panel } from '../../primitives/Panel';
 import { TiltedCard } from '../../primitives/TiltedCard';
 import { Input } from '../../primitives/shadcn/input';
 import { Textarea } from '../../primitives/shadcn/textarea';
@@ -127,9 +127,7 @@ export function CenterPanel(props: CenterPanelProps) {
       minwPx={props.minwPx}
       header={
         <div className={styles.header}>
-          <PanelHeaderIcon ariaLabel="内容">
-            <Icon name="tasks" />
-          </PanelHeaderIcon>
+
           <div className={styles.headerMain}>
             <div className={styles.filePath}>{file ? file.path : '先点击顶部“打开项目”，再在左区选择文件。'}</div>
             {file && find.isOpen ? (
