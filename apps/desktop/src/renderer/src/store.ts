@@ -858,8 +858,10 @@ export const useAppStore = create<AppState>((set, get) => ({
           return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
         }
         case 'PANEL_TOGGLE_RIGHT': {
+          console.log('[PANEL_TOGGLE_RIGHT] before:', { rightVisible: vm.rightVisible, rightPx: vm.layout.rightPx, centerPx: vm.layout.centerPx });
           const nextVm = { ...vm, rightVisible: !vm.rightVisible };
           const nextLayout = normalizeLayoutStable(nextVm);
+          console.log('[PANEL_TOGGLE_RIGHT] after:', { rightVisible: nextVm.rightVisible, rightPx: nextLayout.rightPx, centerPx: nextLayout.centerPx });
           return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
         }
         case 'APP_QUIT_REQUEST': {
@@ -875,8 +877,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         case 'RIGHT_MODE_SET':
           {
+            console.log('[RIGHT_MODE_SET] before:', { rightVisible: vm.rightVisible, rightPx: vm.layout.rightPx, centerPx: vm.layout.centerPx });
             const nextVm = { ...vm, rightMode: intent.mode, rightVisible: true };
             const nextLayout = normalizeLayoutStable(nextVm);
+            console.log('[RIGHT_MODE_SET] after:', { rightVisible: nextVm.rightVisible, rightPx: nextLayout.rightPx, centerPx: nextLayout.centerPx });
             return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
           }
         case 'GLOBAL_SEARCH_SET':
