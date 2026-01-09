@@ -833,6 +833,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ intentLog: [`${new Date().toLocaleTimeString()} ${intent.type}`, ...state.intentLog].slice(0, 30) }));
     // 统一入口：先保证可观测，再逐步接入真实用例/副作用。
     console.log('[UIIntent]', intent);
+    
+    // 调试：打印当前 layout 状态
+    const currentVm = get().vm;
+    console.log('[UIIntent] current layout:', { rightPx: currentVm.layout.rightPx, centerPx: currentVm.layout.centerPx, rightVisible: currentVm.rightVisible });
 
     set((state) => {
       const vm = state.vm;
