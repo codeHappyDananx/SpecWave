@@ -3,7 +3,6 @@ import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icon } from '../../primitives/Icons';
-import { Badge } from '../../primitives/Badge';
 import { Panel, PanelHeaderIcon } from '../../primitives/Panel';
 import { TiltedCard } from '../../primitives/TiltedCard';
 import { Input } from '../../primitives/shadcn/input';
@@ -119,16 +118,6 @@ export function CenterPanel(props: CenterPanelProps) {
     return '切到渲染';
   })();
 
-  const saveBadge = (() => {
-    if (!file) return null;
-    if (props.content.saveStatus === 'saving') return <Badge tone="accent">保存中</Badge>;
-    if (props.content.saveStatus === 'saved') return <Badge tone="secondary">已保存</Badge>;
-    if (props.content.saveStatus === 'conflict') return <Badge tone="accent">冲突</Badge>;
-    if (props.content.saveStatus === 'error') return <Badge tone="accent">错误</Badge>;
-    if (props.content.isDirty) return <Badge tone="primary">未保存</Badge>;
-    return <Badge>就绪</Badge>;
-  })();
-
   return (
     <Panel
       as="section"
@@ -142,10 +131,6 @@ export function CenterPanel(props: CenterPanelProps) {
             <Icon name="tasks" />
           </PanelHeaderIcon>
           <div className={styles.headerMain}>
-            <div className={styles.titleRow}>
-              <div className={styles.fileName}>{file ? file.name : '未打开文件'}</div>
-              {saveBadge}
-            </div>
             <div className={styles.filePath}>{file ? file.path : '先点击顶部“打开项目”，再在左区选择文件。'}</div>
             {file && find.isOpen ? (
               <div className={styles.findBar} aria-label="文件内查找">
