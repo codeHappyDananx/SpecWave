@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SpecWave</title>
+    <script>
+      (() => {
+        try {
+          const skin = window.localStorage.getItem('specwave_skin');
+          const theme = window.localStorage.getItem('specwave_theme');
+          const el = document.documentElement;
+          if (skin === 'blue' || skin === 'purple' || skin === 'green' || skin === 'amber') el.dataset.skin = skin;
+          if (theme === 'light' || theme === 'dark') el.dataset.theme = theme;
+          if (theme === 'dark') el.classList.add('dark');
+          else el.classList.remove('dark');
+        } catch {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

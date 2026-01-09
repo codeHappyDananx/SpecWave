@@ -7,6 +7,14 @@ export function App() {
   const dispatch = useAppStore((s) => s.dispatch);
 
   React.useEffect(() => {
+    const el = document.documentElement;
+    el.dataset.theme = vm.ui.theme;
+    el.dataset.skin = vm.ui.skin;
+    if (vm.ui.theme === 'dark') el.classList.add('dark');
+    else el.classList.remove('dark');
+  }, [vm.ui.skin, vm.ui.theme]);
+
+  React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
