@@ -52,3 +52,25 @@ license: MIT
 |------|------|------|
 | 需求分析师 | 诉求→需求→设计→任务 | 禁止改代码 |
 | 开发执行者 | 执行任务清单 | 不自行扩展 |
+
+
+## 归档工具
+
+当用户说"归档"/"归档需求"/"归档 STORY-xxx" 时，使用归档工具：
+
+```bash
+# 列出可归档的 Story
+python .codex/skills/specwave-router/archive_story.py list
+
+# 归档指定 Story（需要所有任务已完成）
+python .codex/skills/specwave-router/archive_story.py STORY-000001
+
+# 强制归档（跳过任务完成检查）
+python .codex/skills/specwave-router/archive_story.py STORY-000001 --force
+```
+
+### 归档规则
+
+- 归档前检查：所有任务必须已勾选（除非用户明确要求强制归档）
+- 归档操作：将 Story 目录从 `stories/` 移动到 `archive/`
+- 归档后：Story 仍可查阅，但不再参与日常开发流程
