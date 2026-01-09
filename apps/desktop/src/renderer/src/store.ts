@@ -284,6 +284,8 @@ function normalizeLayoutStable(vm: AppViewModel) {
   let centerPx = vm.layout.centerPx;
   let rightPx = vm.layout.rightPx;
 
+  console.log('[normalizeLayoutStable] input:', { leftPx, centerPx, rightPx, leftVisible: vm.leftVisible, centerVisible: vm.centerVisible, rightVisible: vm.rightVisible });
+
   // 应用最小值约束
   if (vm.leftVisible) leftPx = clamp(leftPx, MIN_LEFT_PX, MAX_LEFT_PX);
   if (vm.centerVisible) centerPx = Math.max(MIN_CENTER_PX, centerPx);
@@ -299,9 +301,11 @@ function normalizeLayoutStable(vm: AppViewModel) {
   // 如果总宽度超出可用空间，从 centerPx 中扣除
   if (total > available && vm.centerVisible) {
     const overflow = total - available;
+    console.log('[normalizeLayoutStable] overflow:', { total, available, overflow });
     centerPx = Math.max(MIN_CENTER_PX, centerPx - overflow);
   }
 
+  console.log('[normalizeLayoutStable] output:', { leftPx, centerPx, rightPx });
   return { leftPx, centerPx, rightPx };
 }
 
