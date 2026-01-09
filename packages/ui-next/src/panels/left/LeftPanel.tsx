@@ -223,6 +223,11 @@ export function LeftPanel(props: LeftPanelProps) {
           aria-current={isSelected ? 'true' : 'false'}
           className={menuButtonClassName}
           onClick={() => props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: node.id })}
+          onPointerDown={(e) => {
+            if (e.button !== 2) return;
+            openContextMenu(e, { path: node.id, name: node.name, kind: 'file' });
+          }}
+          onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'file' })}
           data-sw-node-path={node.id}
           data-sw-node-name={node.name}
           data-sw-node-kind="file"
@@ -249,6 +254,11 @@ export function LeftPanel(props: LeftPanelProps) {
                 size="sm"
                 className={menuButtonClassName}
                 aria-label={`目录：${node.name}`}
+                onPointerDown={(e) => {
+                  if (e.button !== 2) return;
+                  openContextMenu(e, { path: node.id, name: node.name, kind: 'dir' });
+                }}
+                onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'dir' })}
                 data-sw-node-path={node.id}
                 data-sw-node-name={node.name}
                 data-sw-node-kind="dir"
@@ -360,6 +370,11 @@ export function LeftPanel(props: LeftPanelProps) {
                                 if (m.kind === 'dir') props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree: m.tree, id: m.id });
                                 else props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: m.id });
                               }}
+                              onPointerDown={(e) => {
+                                if (e.button !== 2) return;
+                                openContextMenu(e, { path: m.id, name: m.name, kind: m.kind });
+                              }}
+                              onContextMenu={(e) => openContextMenu(e, { path: m.id, name: m.name, kind: m.kind })}
                               data-sw-node-path={m.id}
                               data-sw-node-name={m.name}
                               data-sw-node-kind={m.kind}
