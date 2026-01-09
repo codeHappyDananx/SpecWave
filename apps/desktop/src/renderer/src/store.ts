@@ -739,8 +739,8 @@ function extractDocSection(
     const titleLine = lines[startIdx] ?? '';
     const title = titleLine.replace(/^###\s+REQ-\d+\s*/, '').trim();
 
-    // 找到下一个 ### 或文档结束
-    let endIdx = lines.findIndex((line, i) => i > startIdx && /^###\s+/.test(line));
+    // 找到下一个 ## 或 ### 标题，或文档结束
+    let endIdx = lines.findIndex((line, i) => i > startIdx && /^#{2,3}\s+/.test(line));
     if (endIdx < 0) endIdx = lines.length;
 
     return {
@@ -756,9 +756,24 @@ function extractDocSection(
     const lineIdx = lines.findIndex((line) => pattern.test(line));
     if (lineIdx < 0) return null;
 
-    const line = lines[lineIdx] ?? '';
-    // 提取内容（去掉 - **AC-xxx**： 前缀）
-    const content = line.replace(/^-\s+\*\*AC-\d+\*\*[：:]\s*/, '').trim();
+    // AC 可能有子列表，需要找到下一个同级或更高级的列表项
+    let endIdx = lineIdx + 1;
+    while (endIdx < lines.length) {
+      const line = lines[endIdx] ?? '';
+      // 遇到下一个 AC 项、空行后的非缩进内容、或标题，则结束
+      if (/^-\s+\*\*AC-\d+\*\*/.test(line)) break;
+      if (/^#{1,3}\s+/.test(line)) break;
+      // 空行后如果下一行不是缩进的，也结束
+      if (line.trim() === '' && endIdx + 1 < lines.length) {
+        const nextLine = lines[endIdx + 1] ?? '';
+        if (nextLine.trim() && !nextLine.startsWith('  ') && !nextLine.startsWith('\t')) {
+          break;
+        }
+      }
+      endIdx++;
+    }
+
+    const content = lines.slice(lineIdx, endIdx).join('\n').trim();
 
     return {
       title: refId,
@@ -860,7 +875,14 @@ function parseTaskBoardV2(text: string, prev: TaskBoardVM | null): TaskBoardVM {
     const body = (() => {
       const main = blockText.trimEnd().replaceAll('\r\n', '\n');
       const nlIdx = main.indexOf('\n');
-      return nlIdx < 0 ? '' : main.slice(nlIdx + 1).trimEnd();
+      if (nlIdx < 0) return '';
+      // 移除"关联需求"行，避免与 badge 区域重复显示
+      return main
+        .slice(nlIdx + 1)
+        .split('\n')
+        .filter((line) => !/^[-\s]*关联需求[：:]/.test(line))
+        .join('\n')
+        .trimEnd();
     })();
 
     items.push({
@@ -1538,6 +1560,33 @@ export const useAppStore = create<AppState>((set, get) => ({
               const mode = defaultContentMode(kind);
               const taskBoard = kind === 'task' ? parseTaskBoardV2(res.text, null) : null;
 
+              // 初始加载关联文档
+              if (taskBoard && taskBoard.activeTaskId) {
+                const activeItem = taskBoard.items.find((t) => t.id === taskBoard.activeTaskId);
+                if (activeItem && activeItem.linkedRefs.length > 0) {
+                  void (async () => {
+                    const linkedDocs = await loadLinkedDocs(filePath, activeItem.linkedRefs);
+                    set((state) => {
+                      const currentBoard = state.vm.content.taskBoard;
+                      if (!currentBoard) return { vm: state.vm };
+                      return {
+                        vm: {
+                          ...state.vm,
+                          content: {
+                            ...state.vm.content,
+                            taskBoard: {
+                              ...currentBoard,
+                              linkedDocs,
+                              linkedDocsLoading: false
+                            }
+                          }
+                        }
+                      };
+                    });
+                  })();
+                }
+              }
+
               return {
                 vm: {
                   ...vm2,
@@ -1924,14 +1973,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
           // 触发打开文件并设置搜索查询
           void (async () => {
-            // 先打开文件
-            set((state) => state);
             const api = window.specwave;
             if (!api) return;
 
             // 读取目标文件
             const res = await api.readTextFile(targetPath);
             if (!res.ok) return;
+
+            // 计算匹配位置
+            const hits = findMatchStarts(res.text, intent.refId);
 
             set((state) => {
               const vm2 = state.vm;
@@ -1941,7 +1991,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                   centerVisible: true,
                   explorer: { ...vm2.explorer, selectedPath: targetPath },
                   content: {
-                    find: { isOpen: true, query: intent.refId, matchStarts: [], activeIndex: 0 },
+                    find: { isOpen: true, query: intent.refId, matchStarts: hits, activeIndex: 0 },
                     file: { path: targetPath, name: intent.sourceFile, kind: 'markdown', sha256: res.sha256 },
                     text: res.text,
                     draftText: res.text,

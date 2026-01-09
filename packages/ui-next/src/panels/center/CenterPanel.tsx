@@ -9,6 +9,24 @@ import { Input } from '../../primitives/shadcn/input';
 import { Textarea } from '../../primitives/shadcn/textarea';
 import styles from './CenterPanel.module.css';
 
+/** 高亮文本中的查询词 */
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query.trim()) return text;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <mark key={i} className={styles.highlight}>
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+}
+
 function LineNumberedCode(props: { text: string }) {
   const lines = React.useMemo(() => props.text.replaceAll('\r\n', '\n').split('\n'), [props.text]);
 
@@ -67,6 +85,58 @@ const markdownComponents: Components = {
     );
   }
 };
+
+/** 创建带高亮功能的 markdown 组件 */
+function createHighlightComponents(query: string): Components {
+  return {
+    table({ node: _node, className, children, ...props }) {
+      const mergedClassName = className ? `${styles.table} ${className}` : styles.table;
+      return (
+        <div className={styles.tableWrap}>
+          <table className={mergedClassName} {...props}>
+            {children}
+          </table>
+        </div>
+      );
+    },
+    // 高亮文本节点
+    p({ children, ...props }) {
+      return <p {...props}>{highlightChildren(children, query)}</p>;
+    },
+    li({ children, ...props }) {
+      return <li {...props}>{highlightChildren(children, query)}</li>;
+    },
+    h1({ children, ...props }) {
+      return <h1 {...props}>{highlightChildren(children, query)}</h1>;
+    },
+    h2({ children, ...props }) {
+      return <h2 {...props}>{highlightChildren(children, query)}</h2>;
+    },
+    h3({ children, ...props }) {
+      return <h3 {...props}>{highlightChildren(children, query)}</h3>;
+    },
+    h4({ children, ...props }) {
+      return <h4 {...props}>{highlightChildren(children, query)}</h4>;
+    },
+    strong({ children, ...props }) {
+      return <strong {...props}>{highlightChildren(children, query)}</strong>;
+    },
+    em({ children, ...props }) {
+      return <em {...props}>{highlightChildren(children, query)}</em>;
+    }
+  };
+}
+
+/** 递归高亮子节点中的文本 */
+function highlightChildren(children: React.ReactNode, query: string): React.ReactNode {
+  if (!query.trim()) return children;
+  return React.Children.map(children, (child) => {
+    if (typeof child === 'string') {
+      return highlightText(child, query);
+    }
+    return child;
+  });
+}
 
 export function CenterPanel(props: CenterPanelProps) {
   const file = props.content.file;
@@ -395,7 +465,11 @@ export function CenterPanel(props: CenterPanelProps) {
                                       <div key={doc.refId} className={styles.linkedDocCard} role="button" tabIndex={0}
                                         onClick={() => props.dispatch({ type: 'TASK_LINKED_DOC_JUMP', refId: doc.refId, sourceFile: doc.sourceFile, lineNumber: doc.lineNumber })}>
                                         <div className={styles.linkedDocCardTitle}>{doc.refId} {doc.title}</div>
-                                        <div className={styles.linkedDocCardContent}>{doc.content}</div>
+                                        <div className={`${styles.linkedDocCardContent} ${styles.markdown}`}>
+                                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                                            {doc.content}
+                                          </ReactMarkdown>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -413,7 +487,11 @@ export function CenterPanel(props: CenterPanelProps) {
                                       <div key={doc.refId} className={styles.linkedDocCard} role="button" tabIndex={0}
                                         onClick={() => props.dispatch({ type: 'TASK_LINKED_DOC_JUMP', refId: doc.refId, sourceFile: doc.sourceFile, lineNumber: doc.lineNumber })}>
                                         <div className={styles.linkedDocCardTitle}>{doc.refId}</div>
-                                        <div className={styles.linkedDocCardContent}>{doc.content}</div>
+                                        <div className={`${styles.linkedDocCardContent} ${styles.markdown}`}>
+                                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                                            {doc.content}
+                                          </ReactMarkdown>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -548,7 +626,10 @@ export function CenterPanel(props: CenterPanelProps) {
         </div>
       ) : file.kind === 'markdown' || file.kind === 'task' ? (
         <div className={styles.markdown} aria-label="渲染预览">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={find.isOpen && find.query.trim() ? createHighlightComponents(find.query) : markdownComponents}
+          >
             {effectiveText}
           </ReactMarkdown>
         </div>

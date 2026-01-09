@@ -301,3 +301,11 @@
 .linkedDocsArea {
   padding: 0 12px 12px;
 }
+
+/* === 查找高亮样式 === */
+.highlight {
+  background-color: #FBBF24;
+  color: #1F2937;
+  padding: 0 2px;
+  border-radius: 2px;
+}
