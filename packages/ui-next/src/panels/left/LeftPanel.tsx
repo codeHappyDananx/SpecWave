@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import {
   Check,
@@ -166,6 +167,19 @@ export function LeftPanel(props: LeftPanelProps) {
 
   const copyToClipboard = (text: string) => props.dispatch({ type: 'TERMINAL_COPY', text });
 
+  const getNodeFromEventTarget = (
+    target: EventTarget | null
+  ): { path: string; name: string; kind: 'dir' | 'file' } | null => {
+    const el = (target as Element | null)?.closest?.('[data-sw-node-path]');
+    if (!el) return null;
+    const path = el.getAttribute('data-sw-node-path') ?? '';
+    const name = el.getAttribute('data-sw-node-name') ?? '';
+    const kindAttr = el.getAttribute('data-sw-node-kind');
+    const kind = kindAttr === 'dir' || kindAttr === 'file' ? (kindAttr as 'dir' | 'file') : null;
+    if (!path || !name || !kind) return null;
+    return { path, name, kind };
+  };
+
   const openContextMenu = (e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number }, target: {
     path: string;
     name: string;
@@ -176,11 +190,18 @@ export function LeftPanel(props: LeftPanelProps) {
     setContextMenu({ open: true, x: e.clientX, y: e.clientY, target });
   };
 
-  const openContextMenuOnRightPointerDown =
-    (target: { path: string; name: string; kind: 'dir' | 'file' }) => (e: React.PointerEvent) => {
-      if (e.button !== 2) return;
-      openContextMenu(e, target);
-    };
+  const onRightPointerDownCapture = (e: React.PointerEvent) => {
+    if (e.button !== 2) return;
+    const node = getNodeFromEventTarget(e.target);
+    if (!node) return;
+    openContextMenu(e, node);
+  };
+
+  const onContextMenuCapture = (e: React.MouseEvent) => {
+    const node = getNodeFromEventTarget(e.target);
+    if (!node) return;
+    openContextMenu(e, node);
+  };
 
   const visibleNodes = (nodes: AppViewModel['explorer']['workspace'][number][]) => {
     if (props.explorer.showIgnored) return nodes;
@@ -202,8 +223,9 @@ export function LeftPanel(props: LeftPanelProps) {
           aria-current={isSelected ? 'true' : 'false'}
           className={menuButtonClassName}
           onClick={() => props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: node.id })}
-          onPointerDown={openContextMenuOnRightPointerDown({ path: node.id, name: node.name, kind: 'file' })}
-          onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'file' })}
+          data-sw-node-path={node.id}
+          data-sw-node-name={node.name}
+          data-sw-node-kind="file"
         >
           <Icon className={iconClassName} aria-hidden={true} />
           <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -227,8 +249,9 @@ export function LeftPanel(props: LeftPanelProps) {
                 size="sm"
                 className={menuButtonClassName}
                 aria-label={`目录：${node.name}`}
-                onPointerDown={openContextMenuOnRightPointerDown({ path: node.id, name: node.name, kind: 'dir' })}
-                onContextMenu={(e) => openContextMenu(e, { path: node.id, name: node.name, kind: 'dir' })}
+                data-sw-node-path={node.id}
+                data-sw-node-name={node.name}
+                data-sw-node-kind="dir"
               >
                 <ChevronRight className={chevronClassName} aria-hidden={true} />
                 <Folder className={iconClassName} aria-hidden={true} />
@@ -284,8 +307,9 @@ export function LeftPanel(props: LeftPanelProps) {
       minwPx={props.minwPx}
       bodyBleed
     >
+      <div onPointerDownCapture={onRightPointerDownCapture} onContextMenuCapture={onContextMenuCapture}>
         <SidebarProvider className="h-full min-h-0 w-full">
-        <Sidebar collapsible="none" className="h-full w-full">
+          <Sidebar collapsible="none" className="h-full w-full">
           {!props.explorer.projectRoot ? (
             <div className="p-3" aria-label="未打开项目">
               <div className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">
@@ -336,8 +360,9 @@ export function LeftPanel(props: LeftPanelProps) {
                                 if (m.kind === 'dir') props.dispatch({ type: 'EXPLORER_TOGGLE_DIR', tree: m.tree, id: m.id });
                                 else props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: m.id });
                               }}
-                              onPointerDown={openContextMenuOnRightPointerDown({ path: m.id, name: m.name, kind: m.kind })}
-                              onContextMenu={(e) => openContextMenu(e, { path: m.id, name: m.name, kind: m.kind })}
+                              data-sw-node-path={m.id}
+                              data-sw-node-name={m.name}
+                              data-sw-node-kind={m.kind}
                             >
                               {m.kind === 'dir' ? (
                                 <Folder className={iconClassName} aria-hidden={true} />
@@ -389,66 +414,68 @@ export function LeftPanel(props: LeftPanelProps) {
           )}
         </Sidebar>
       </SidebarProvider>
+      </div>
 
-      {contextMenu.open && contextMenu.target ? (
-        <div
-          ref={contextMenuRef}
-          role="menu"
-          aria-label="文件操作"
-          className="fixed z-50 min-w-[220px] rounded-md border bg-background p-1 text-xs"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onContextMenu={(e) => e.preventDefault()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-            onClick={() => {
-              copyToClipboard(contextMenu.target!.path);
-              closeContextMenu();
-            }}
-          >
-            复制绝对路径
-          </button>
-          <button
-            type="button"
-            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-            onClick={() => {
-              const p = contextMenu.target!.path;
-              const relFromProject =
-                props.explorer.projectRoot ? relativeToRoot(p, props.explorer.projectRoot) : null;
-              const relFromWorkspace =
-                props.explorer.workspaceRoot ? relativeToRoot(p, props.explorer.workspaceRoot) : null;
-              const rel = relFromProject ?? relFromWorkspace ?? p;
-              copyToClipboard(rel);
-              closeContextMenu();
-            }}
-          >
-            复制全路径
-          </button>
-          <button
-            type="button"
-            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-            onClick={() => {
-              copyToClipboard(contextMenu.target!.name);
-              closeContextMenu();
-            }}
-          >
-            复制文件名
-          </button>
-          <div className="my-1 h-px bg-border" aria-hidden={true} />
-          <button
-            type="button"
-            className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
-            onClick={() => {
-              props.dispatch({ type: 'EXPLORER_REVEAL_IN_OS', path: contextMenu.target!.path });
-              closeContextMenu();
-            }}
-          >
-            打开所在文件夹
-          </button>
-        </div>
-      ) : null}
+      {contextMenu.open && contextMenu.target && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              ref={contextMenuRef}
+              role="menu"
+              aria-label="文件操作"
+              className="fixed z-[1000] min-w-[220px] rounded-md border bg-background p-1 text-xs"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onContextMenu={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+                onClick={() => {
+                  copyToClipboard(contextMenu.target!.path);
+                  closeContextMenu();
+                }}
+              >
+                复制绝对路径
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+                onClick={() => {
+                  const p = contextMenu.target!.path;
+                  const relFromProject = props.explorer.projectRoot ? relativeToRoot(p, props.explorer.projectRoot) : null;
+                  const relFromWorkspace = props.explorer.workspaceRoot ? relativeToRoot(p, props.explorer.workspaceRoot) : null;
+                  const rel = relFromProject ?? relFromWorkspace ?? p;
+                  copyToClipboard(rel);
+                  closeContextMenu();
+                }}
+              >
+                复制全路径
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+                onClick={() => {
+                  copyToClipboard(contextMenu.target!.name);
+                  closeContextMenu();
+                }}
+              >
+                复制文件名
+              </button>
+              <div className="my-1 h-px bg-border" aria-hidden={true} />
+              <button
+                type="button"
+                className="w-full rounded-sm px-2 py-1.5 text-left hover:bg-muted"
+                onClick={() => {
+                  props.dispatch({ type: 'EXPLORER_REVEAL_IN_OS', path: contextMenu.target!.path });
+                  closeContextMenu();
+                }}
+              >
+                打开所在文件夹
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
     </Panel>
   );
 }
