@@ -77,7 +77,15 @@ contextBridge.exposeInMainWorld('specwave', {
   },
 
   clipboardReadText: () => clipboard.readText(),
-  clipboardWriteText: (text: string) => clipboard.writeText(text),
+  clipboardWriteText: (text: string) => {
+    try {
+      ipcRenderer.sendSync('specwave:clipboardWriteTextSync', { text });
+    } catch {
+      try {
+        clipboard.writeText(text);
+      } catch {}
+    }
+  },
 
   revealInFolder: (p: string) =>
     ipcRenderer.invoke('specwave:revealInFolder', { path: p }) as Promise<RevealInFolderResult>,

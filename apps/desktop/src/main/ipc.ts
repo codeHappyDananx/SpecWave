@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
 import { createHash } from 'node:crypto';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
@@ -35,6 +35,7 @@ type FsEventDTO = { event: 'rename' | 'change'; path: string };
 type FsWatchStartArgs = { workspaceRoot?: string | null; projectRoot?: string | null };
 type FsWatchStartResult = { ok: true } | { ok: false; error: string };
 type RevealInFolderResult = { ok: true } | { ok: false; error: string };
+type ClipboardWriteTextResult = { ok: true } | { ok: false; error: string };
 
 export type AppShellBridge = {
   openMainWindow: (args: { projectPath?: string | null }) => Promise<void> | void;
@@ -286,6 +287,17 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
     } catch (err) {
       return { ok: false, error: toErrorMessage(err) };
     }
+  });
+
+  ipcMain.on('specwave:clipboardWriteTextSync', (evt, args: { text: string }): ClipboardWriteTextResult => {
+    const text = typeof args?.text === 'string' ? args.text : '';
+    try {
+      clipboard.writeText(text);
+      evt.returnValue = { ok: true };
+    } catch (err) {
+      evt.returnValue = { ok: false, error: toErrorMessage(err) };
+    }
+    return evt.returnValue;
   });
 
   ipcMain.handle('specwave:revealInFolder', async (_evt, args: { path: string }): Promise<RevealInFolderResult> => {
