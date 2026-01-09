@@ -284,10 +284,24 @@ function normalizeLayoutStable(vm: AppViewModel) {
   let centerPx = vm.layout.centerPx;
   let rightPx = vm.layout.rightPx;
 
-  // 只在面板可见时应用约束，隐藏时保留原值以便恢复
+  // 应用最小值约束
   if (vm.leftVisible) leftPx = clamp(leftPx, MIN_LEFT_PX, MAX_LEFT_PX);
   if (vm.centerVisible) centerPx = Math.max(MIN_CENTER_PX, centerPx);
   if (vm.rightVisible) rightPx = Math.max(MIN_RIGHT_PX, rightPx);
+
+  // 计算可用空间，确保面板重新显示时能正确分配空间
+  const splitters = splitterCountFlags(vm) * SPLITTER_PX;
+  const available = Math.max(0, vm.layout.containerWidthPx - splitters);
+  const visibleLeft = vm.leftVisible ? leftPx : 0;
+  const visibleRight = vm.rightVisible ? rightPx : 0;
+  const total = visibleLeft + centerPx + visibleRight;
+
+  // 如果总宽度超出可用空间，从 centerPx 中扣除
+  if (total > available && vm.centerVisible) {
+    const overflow = total - available;
+    centerPx = Math.max(MIN_CENTER_PX, centerPx - overflow);
+  }
+
   return { leftPx, centerPx, rightPx };
 }
 
