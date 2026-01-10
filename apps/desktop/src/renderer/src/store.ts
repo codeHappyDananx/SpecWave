@@ -789,20 +789,21 @@ function detectStoryContext(
 ): { storyId: string; storyPath: string } | null {
   if (!workspaceRoot) return null;
 
-  const storiesDir = joinPath(workspaceRoot, 'stories');
+  // Story 目录在 .specwave/workspace/stories/ 下
+  const storiesDir = joinPath(workspaceRoot, '.specwave/workspace/stories');
   const normalizedPath = normalizeFsPath(filePath);
   const normalizedStoriesDir = normalizeFsPath(storiesDir);
 
   if (!normalizedPath.startsWith(normalizedStoriesDir + '/')) return null;
 
-  // 提取 Story 目录名
+  // 提取 Story 目录名（如 STORY-000001(xxx)）
   const relativePath = normalizedPath.slice(normalizedStoriesDir.length + 1);
   const storyDirName = relativePath.split('/')[0];
-  if (!storyDirName?.startsWith('story-')) return null;
+  if (!storyDirName?.toUpperCase().startsWith('STORY-')) return null;
 
-  // 还原原始大小写的路径
+  // 还原原始路径
   const sep = detectSep(filePath);
-  const storyPath = `${storiesDir}${sep}${storyDirName.toUpperCase().replace('STORY-', 'STORY-')}`;
+  const storyPath = `${storiesDir}${sep}${storyDirName}`;
 
   return { storyId: storyDirName, storyPath };
 }
@@ -1760,6 +1761,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                 vm: { ...state.vm, phaseIndicator: indicator }
               }));
             })();
+          } else {
+            // 非 Story 文件，隐藏阶段指示器
+            set((state) => ({
+              vm: {
+                ...state.vm,
+                phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] }
+              }
+            }));
           }
 
           suppressExternalChangePromptPath = null;
