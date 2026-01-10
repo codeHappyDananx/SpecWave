@@ -1979,20 +1979,24 @@ export const useAppStore = create<AppState>((set, get) => ({
               else if (fileName === '02-设计.md') newPhase = 'design';
               else if (fileName === '03-任务.md') newPhase = 'task';
               if (newPhase !== vm.storyStepper.currentPhase) {
-                set((state) => ({
-                  vm: { ...state.vm, storyStepper: { ...state.vm.storyStepper, currentPhase: newPhase } }
-                }));
+                queueMicrotask(() => {
+                  set((state) => ({
+                    vm: { ...state.vm, storyStepper: { ...state.vm.storyStepper, currentPhase: newPhase } }
+                  }));
+                });
               }
             }
           } else {
             // 非 Story 文件，隐藏阶段指示器和 Stepper
-            set((state) => ({
-              vm: {
-                ...state.vm,
-                phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] },
-                storyStepper: { visible: false, storyId: null, storyTitle: null, currentPhase: 'requirement', phases: [] }
-              }
-            }));
+            queueMicrotask(() => {
+              set((state) => ({
+                vm: {
+                  ...state.vm,
+                  phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] },
+                  storyStepper: { visible: false, storyId: null, storyTitle: null, currentPhase: 'requirement', phases: [] }
+                }
+              }));
+            });
           }
 
           suppressExternalChangePromptPath = null;
