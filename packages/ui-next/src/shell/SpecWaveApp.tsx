@@ -1,3 +1,4 @@
+import React from 'react';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { CenterPanel } from '../panels/center/CenterPanel';
 import { LeftPanel } from '../panels/left/LeftPanel';
@@ -17,9 +18,27 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
   const { vm, dispatch } = props;
   const rootClassName = vm.ui.theme === 'dark' ? `${styles.root} dark` : styles.root;
 
+  // 主题切换遮罩：检测 theme 变化时短暂显示遮罩
+  const [maskActive, setMaskActive] = React.useState(false);
+  const prevThemeRef = React.useRef(vm.ui.theme);
+
+  React.useEffect(() => {
+    if (prevThemeRef.current !== vm.ui.theme) {
+      prevThemeRef.current = vm.ui.theme;
+      setMaskActive(true);
+      const timer = setTimeout(() => setMaskActive(false), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [vm.ui.theme]);
+
+  const maskClassName = vm.ui.theme === 'dark'
+    ? `${styles.themeMask} ${styles.themeMaskDark}`
+    : `${styles.themeMask} ${styles.themeMaskLight}`;
+
   if (vm.app.mode === 'welcome') {
     return (
       <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
+        <div className={maskClassName} data-active={maskActive} />
         <WelcomePage
           recentProjects={vm.app.recentProjects}
           isLoading={vm.explorer.isLoading}
@@ -34,6 +53,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
 
   return (
     <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
+      <div className={maskClassName} data-active={maskActive} />
       <div className={styles.app} aria-label="工作区">
         <TopBar
           projects={vm.projects}
@@ -51,10 +71,10 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           showCenter={vm.centerVisible}
           showRight={vm.rightVisible}
           dispatch={dispatch}
-          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} dispatch={dispatch} minwPx={vm.panelMinW.leftPx} />}
+          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} leftViewMode={vm.leftViewMode} storyBoard={vm.storyBoard} dispatch={dispatch} minwPx={vm.panelMinW.leftPx} />}
           // 中区不再用“内容最小宽度”强行撑开：避免出现必须横向拖拽才能读任务/markdown 的体验。
           // 需要横向滚动的场景（如 code/pre）由内容自身的样式决定。
-          center={<CenterPanel content={vm.content} dispatch={dispatch} minwPx={0} />}
+          center={<CenterPanel content={vm.content} phaseIndicator={vm.phaseIndicator} dispatch={dispatch} minwPx={0} />}
           right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={dispatch} minwPx={vm.panelMinW.rightPx} />}
         />
 

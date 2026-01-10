@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import type { AppViewModel, UIIntent } from '@specwave/contracts';
+import type { AppViewModel, LeftViewMode, UIIntent } from '@specwave/contracts';
 import {
   Check,
   ChevronRight,
@@ -17,7 +17,9 @@ import {
   FileTerminal,
   FileText,
   FileVideo,
-  Folder
+  Folder,
+  FolderKanban,
+  FolderTree
 } from 'lucide-react';
 import { Panel } from '../../primitives/Panel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../primitives/shadcn/collapsible';
@@ -34,6 +36,7 @@ import {
   SidebarMenuSub,
   SidebarProvider
 } from '../../primitives/shadcn/sidebar';
+import { StoryBoardView } from './StoryBoardView';
 
 type LeftIntent = Extract<
   UIIntent,
@@ -42,11 +45,17 @@ type LeftIntent = Extract<
   | { type: 'EXPLORER_SHOW_IGNORED_SET' }
   | { type: 'EXPLORER_REVEAL_IN_OS' }
   | { type: 'TERMINAL_COPY' }
+  | { type: 'LEFT_VIEW_MODE_SET' }
+  | { type: 'STORY_BOARD_LOAD' }
+  | { type: 'STORY_BOARD_REFRESH' }
+  | { type: 'STORY_CARD_CLICK' }
 >;
 
 export type LeftPanelProps = {
   explorer: AppViewModel['explorer'];
   globalSearchQuery: string;
+  leftViewMode: LeftViewMode;
+  storyBoard: AppViewModel['storyBoard'];
   dispatch: (intent: LeftIntent) => void;
   minwPx: number;
 };
@@ -329,6 +338,29 @@ export function LeftPanel(props: LeftPanelProps) {
           ) : (
             <>
             <SidebarHeader>
+              <div className="flex items-center gap-1 border-b pb-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => props.dispatch({ type: 'LEFT_VIEW_MODE_SET', mode: 'explorer' })}
+                  className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors ${
+                    props.leftViewMode === 'explorer' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
+                  }`}
+                >
+                  <FolderTree className="h-3.5 w-3.5" />
+                  文件
+                </button>
+                <button
+                  type="button"
+                  onClick={() => props.dispatch({ type: 'LEFT_VIEW_MODE_SET', mode: 'storyBoard' })}
+                  className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors ${
+                    props.leftViewMode === 'storyBoard' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
+                  }`}
+                >
+                  <FolderKanban className="h-3.5 w-3.5" />
+                  Story
+                </button>
+              </div>
+              {props.leftViewMode === 'explorer' && (
               <SidebarMenu aria-label="浏览选项">
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -344,8 +376,12 @@ export function LeftPanel(props: LeftPanelProps) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
+              )}
             </SidebarHeader>
 
+            {props.leftViewMode === 'storyBoard' ? (
+              <StoryBoardView storyBoard={props.storyBoard} dispatch={props.dispatch} />
+            ) : (
             <SidebarContent>
               {q ? (
                 <SidebarGroup>
@@ -425,6 +461,7 @@ export function LeftPanel(props: LeftPanelProps) {
                 </div>
               ) : null}
             </SidebarContent>
+            )}
             </>
           )}
         </Sidebar>

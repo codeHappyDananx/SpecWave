@@ -5,7 +5,12 @@ import type {
   ContentKind,
   ContentMode,
   ExplorerNodeVM,
+  LeftViewMode,
   LinkedDocVM,
+  PhaseIndicatorVM,
+  StoryBoardVM,
+  StoryCardVM,
+  StoryPhase,
   TaskBoardVM,
   TaskItemVM,
   UIIntent
@@ -228,6 +233,7 @@ const initialVm: AppViewModel = {
     find: { isOpen: false, query: '', matchStarts: [], activeIndex: 0 }
   },
   leftVisible: restoredUiSession?.leftVisible ?? true,
+  leftViewMode: 'explorer',
   centerVisible: restoredUiSession?.centerVisible ?? true,
   rightVisible: restoredUiSession?.rightVisible ?? true,
   rightMode: restoredUiSession?.rightMode ?? 'terminal',
@@ -258,7 +264,18 @@ const initialVm: AppViewModel = {
     centerPx: Math.max(320, Math.round(1280 * 0.7)),
     rightPx: 320
   },
-  layout: { containerWidthPx: 1280, isDragging: false, leftPx: 280, centerPx: 640, rightPx: 360 }
+  layout: { containerWidthPx: 1280, isDragging: false, leftPx: 280, centerPx: 640, rightPx: 360 },
+  storyBoard: {
+    isLoading: false,
+    stories: [],
+    error: null
+  },
+  phaseIndicator: {
+    visible: false,
+    storyId: null,
+    currentPhase: 'appeal',
+    availablePhases: []
+  }
 };
 
 const SPLITTER_PX = 8;
@@ -715,6 +732,135 @@ function extractTaskDrafts(fullText: string, item: TaskItemVM) {
 }
 
 /**
+ * 检测 Story 阶段
+ * 根据文件列表和任务内容判断 Story 当前阶段
+ */
+function detectStoryPhase(files: string[], taskContent?: string): StoryPhase {
+  const has01 = files.some(f => f === '01-需求.md');
+  const has02 = files.some(f => f === '02-设计.md');
+  const has03 = files.some(f => f === '03-任务.md');
+
+  if (!has01 && !has02 && !has03) return 'appeal';
+  if (has01 && !has02 && !has03) return 'requirement';
+  if (has02 && !has03) return 'design';
+
+  if (has03 && taskContent) {
+    const { completed, total } = parseStoryTaskProgress(taskContent);
+    if (total > 0 && completed === total) return 'completed';
+    if (completed > 0) return 'executing';
+  }
+
+  return 'task';
+}
+
+/**
+ * 解析 Story 任务进度
+ * 从任务文档内容中提取已完成/总数
+ */
+function parseStoryTaskProgress(content: string): { completed: number; total: number } {
+  const taskRegex = /^[ \t]*-\s*\[([xX ])\]/gm;
+  let total = 0;
+  let completed = 0;
+
+  let match;
+  while ((match = taskRegex.exec(content)) !== null) {
+    total++;
+    if (match[1]?.toLowerCase() === 'x') completed++;
+  }
+
+  return { completed, total };
+}
+
+/**
+ * 从 Story 目录名提取标题
+ * 如 "STORY-000001(概要)" -> "概要"
+ */
+function extractStoryTitle(dirName: string): string {
+  const match = dirName.match(/\(([^)]+)\)$/);
+  return match?.[1] ?? dirName;
+}
+
+/**
+ * 检测文件是否在 Story 目录下，返回 Story 信息
+ */
+function detectStoryContext(
+  filePath: string,
+  workspaceRoot: string | null
+): { storyId: string; storyPath: string } | null {
+  if (!workspaceRoot) return null;
+
+  const storiesDir = joinPath(workspaceRoot, 'stories');
+  const normalizedPath = normalizeFsPath(filePath);
+  const normalizedStoriesDir = normalizeFsPath(storiesDir);
+
+  if (!normalizedPath.startsWith(normalizedStoriesDir + '/')) return null;
+
+  // 提取 Story 目录名
+  const relativePath = normalizedPath.slice(normalizedStoriesDir.length + 1);
+  const storyDirName = relativePath.split('/')[0];
+  if (!storyDirName?.startsWith('story-')) return null;
+
+  // 还原原始大小写的路径
+  const sep = detectSep(filePath);
+  const storyPath = `${storiesDir}${sep}${storyDirName.toUpperCase().replace('STORY-', 'STORY-')}`;
+
+  return { storyId: storyDirName, storyPath };
+}
+
+/**
+ * 构建阶段指示器数据
+ */
+async function buildPhaseIndicator(
+  storyPath: string,
+  storyId: string
+): Promise<PhaseIndicatorVM> {
+  const api = window.specwave;
+  if (!api) {
+    return { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] };
+  }
+
+  const res = await api.readDirectory(storyPath);
+  if (!res.ok) {
+    return { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] };
+  }
+
+  const fileNames = res.entries.filter((e) => e.kind === 'file').map((e) => e.name);
+  let taskContent: string | undefined;
+
+  if (fileNames.includes('03-任务.md')) {
+    const taskPath = joinPath(storyPath, '03-任务.md');
+    const taskRes = await api.readTextFile(taskPath);
+    if (taskRes.ok) taskContent = taskRes.text;
+  }
+
+  const currentPhase = detectStoryPhase(fileNames, taskContent);
+
+  const phases: StoryPhase[] = ['appeal', 'requirement', 'design', 'task', 'executing', 'completed'];
+  const phaseFileMap: Record<string, string | null> = {
+    appeal: null,
+    requirement: '01-需求.md',
+    design: '02-设计.md',
+    task: '03-任务.md',
+    executing: '03-任务.md',
+    completed: '03-任务.md'
+  };
+
+  const availablePhases = phases.map((phase) => {
+    const fileName = phaseFileMap[phase];
+    const enabled = fileName ? fileNames.includes(fileName) : phase === 'appeal';
+    const filePath = fileName && enabled ? joinPath(storyPath, fileName) : null;
+    return { phase, enabled, filePath };
+  });
+
+  return {
+    visible: true,
+    storyId,
+    currentPhase,
+    availablePhases
+  };
+}
+
+/**
  * 解析任务块中的关联引用
  * 匹配 "关联需求：REQ-001, AC-001, AC-002" 或 "关联需求: REQ-001, AC-001"
  */
@@ -1023,6 +1169,109 @@ export const useAppStore = create<AppState>((set, get) => ({
             const nextLayout = normalizeLayoutStable(nextVm);
             return { vm: { ...nextVm, layout: { ...nextVm.layout, ...nextLayout } } };
           }
+        case 'LEFT_VIEW_MODE_SET':
+          return { vm: { ...vm, leftViewMode: intent.mode } };
+        case 'STORY_BOARD_LOAD':
+        case 'STORY_BOARD_REFRESH': {
+          const storiesDir = vm.explorer.workspaceRoot ? joinPath(vm.explorer.workspaceRoot, 'stories') : null;
+          if (!storiesDir) {
+            return { vm: { ...vm, storyBoard: { isLoading: false, stories: [], error: null } } };
+          }
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+
+            const res = await api.readDirectory(storiesDir);
+            if (!res.ok) {
+              set((state) => ({
+                vm: {
+                  ...state.vm,
+                  storyBoard: {
+                    isLoading: false,
+                    stories: [],
+                    error: res.error.includes('ENOENT') ? null : res.error
+                  }
+                }
+              }));
+              return;
+            }
+
+            const storyDirs = res.entries.filter((e) => e.kind === 'dir' && e.name.startsWith('STORY-'));
+            const stories: StoryCardVM[] = [];
+
+            for (const dir of storyDirs) {
+              const filesRes = await api.readDirectory(dir.path);
+              if (!filesRes.ok) continue;
+
+              const fileNames = filesRes.entries.filter((e) => e.kind === 'file').map((e) => e.name);
+              let taskContent: string | undefined;
+
+              if (fileNames.includes('03-任务.md')) {
+                const taskPath = joinPath(dir.path, '03-任务.md');
+                const taskRes = await api.readTextFile(taskPath);
+                if (taskRes.ok) taskContent = taskRes.text;
+              }
+
+              const phase = detectStoryPhase(fileNames, taskContent);
+              const taskProgress = taskContent ? parseStoryTaskProgress(taskContent) : null;
+
+              stories.push({
+                id: dir.name,
+                title: extractStoryTitle(dir.name),
+                phase,
+                createdAt: new Date().toISOString(),
+                taskProgress: taskProgress && taskProgress.total > 0 ? taskProgress : null,
+                path: dir.path
+              });
+            }
+
+            set((state) => ({
+              vm: {
+                ...state.vm,
+                storyBoard: { isLoading: false, stories, error: null }
+              }
+            }));
+          })();
+
+          return { vm: { ...vm, storyBoard: { ...vm.storyBoard, isLoading: true, error: null } } };
+        }
+        case 'STORY_CARD_CLICK': {
+          const story = vm.storyBoard.stories.find((s) => s.id === intent.storyId);
+          if (!story) return { vm };
+
+          // 展开文件树并选中 Story 目录
+          const tree: 'workspace' | 'project' = 'workspace';
+          const expanded = vm.explorer.expanded[tree];
+          const storiesDir = vm.explorer.workspaceRoot ? joinPath(vm.explorer.workspaceRoot, 'stories') : null;
+
+          const nextExpanded = storiesDir && !expanded.includes(storiesDir)
+            ? [...expanded, storiesDir, story.path]
+            : expanded.includes(story.path) ? expanded : [...expanded, story.path];
+
+          return {
+            vm: {
+              ...vm,
+              leftViewMode: 'explorer',
+              explorer: {
+                ...vm.explorer,
+                expanded: { ...vm.explorer.expanded, [tree]: nextExpanded },
+                selectedPath: story.path
+              }
+            }
+          };
+        }
+        case 'PHASE_INDICATOR_CLICK': {
+          const indicator = vm.phaseIndicator;
+          if (!indicator.visible || !indicator.storyId) return { vm };
+
+          const targetPhase = indicator.availablePhases.find((p) => p.phase === intent.phase);
+          if (!targetPhase?.enabled || !targetPhase.filePath) return { vm };
+
+          // 触发打开文件
+          queueMicrotask(() => get().dispatch({ type: 'EXPLORER_OPEN_FILE', path: targetPhase.filePath! }));
+          return { vm };
+        }
         case 'GLOBAL_SEARCH_SET':
           return { vm: { ...vm, globalSearchQuery: intent.query } };
         case 'PROJECT_TAB_ADD_EMPTY': {
@@ -1501,6 +1750,18 @@ export const useAppStore = create<AppState>((set, get) => ({
           const seq = ++openFileSeq;
           const filePath = intent.path;
           const kind = detectContentKind(filePath);
+
+          // 检测是否在 Story 目录下，更新阶段指示器
+          const storyContext = detectStoryContext(filePath, vm.explorer.workspaceRoot);
+          if (storyContext) {
+            void (async () => {
+              const indicator = await buildPhaseIndicator(storyContext.storyPath, storyContext.storyId);
+              set((state) => ({
+                vm: { ...state.vm, phaseIndicator: indicator }
+              }));
+            })();
+          }
+
           suppressExternalChangePromptPath = null;
 
           // 关键处理节点：开发模式可能被 full reload 打断，这里先把“最后打开的文件”同步写进 sessionStorage，保证能恢复回来。
@@ -2604,7 +2865,9 @@ void (async () => {
 
         const prevRaw = nextOutputByPanel[id] ?? [];
         const prev = prevRaw.length === 1 && prevRaw[0]?.startsWith('正在启动终端…') ? [] : prevRaw;
-        const merged = [...prev, ...chunks].slice(-MAX_TERMINAL_CHUNKS);
+        // 性能优化：把本次 pending 的所有 chunk 合并成一个字符串，减少数组长度
+        const batchedChunk = chunks.join('');
+        const merged = [...prev, batchedChunk].slice(-MAX_TERMINAL_CHUNKS);
         nextOutputByPanel = { ...nextOutputByPanel, [id]: merged };
       }
 

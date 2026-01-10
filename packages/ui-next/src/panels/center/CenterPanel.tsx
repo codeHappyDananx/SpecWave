@@ -7,6 +7,7 @@ import { Panel } from '../../primitives/Panel';
 import { TiltedCard } from '../../primitives/TiltedCard';
 import { Input } from '../../primitives/shadcn/input';
 import { Textarea } from '../../primitives/shadcn/textarea';
+import { PhaseIndicator } from './PhaseIndicator';
 import styles from './CenterPanel.module.css';
 
 /** 高亮文本中的查询词 */
@@ -65,10 +66,12 @@ type CenterIntent = Extract<
   | { type: 'TASK_DECK_FOCUS' }
   | { type: 'TASK_LINKED_DOC_JUMP' }
   | { type: 'TASK_LINKED_DOCS_TOGGLE_SECTION' }
+  | { type: 'PHASE_INDICATOR_CLICK' }
 >;
 
 export type CenterPanelProps = {
   content: AppViewModel['content'];
+  phaseIndicator: AppViewModel['phaseIndicator'];
   dispatch: (intent: CenterIntent) => void;
   minwPx: number;
 };
@@ -198,7 +201,9 @@ export function CenterPanel(props: CenterPanelProps) {
       bodyAriaLabel="中区滚动区"
       minwPx={props.minwPx}
       header={
-        <div className={styles.header}>
+        <>
+          <PhaseIndicator indicator={props.phaseIndicator} dispatch={props.dispatch} />
+          <div className={styles.header}>
 
           <div className={styles.headerMain}>
             <div className={styles.filePath}>{file ? file.path : '先点击顶部“打开项目”，再在左区选择文件。'}</div>
@@ -251,6 +256,7 @@ export function CenterPanel(props: CenterPanelProps) {
             </div>
           ) : null}
         </div>
+        </>
       }
     >
       {!file ? (

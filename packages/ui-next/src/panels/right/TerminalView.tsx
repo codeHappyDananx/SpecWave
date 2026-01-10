@@ -194,7 +194,9 @@ export function TerminalView(props: TerminalViewProps) {
     if (chunks.length <= start) return;
     const next = chunks.slice(start);
     writtenRef.current[activeId] = chunks.length;
-    for (const c of next) term.write(c);
+    // 性能优化：合并所有新 chunk 为一个字符串，减少 xterm write 调用次数
+    const merged = next.join('');
+    if (merged) term.write(merged);
   }, [activeId, chunks, hasPanels]);
 
   if (!hasPanels) return emptyHint;

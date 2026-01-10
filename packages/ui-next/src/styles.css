@@ -253,3 +253,26 @@ body {
     animation: none !important;
   }
 }
+
+/*
+ * 主题切换同步修复：
+ * Tailwind 的 dark: 前缀依赖 .dark class，但 React 的 DOM 更新比 CSS 变量切换慢一拍，
+ * 导致切换主题时按钮颜色"顿挫"。这里用 [data-theme="dark"] 选择器直接覆盖按钮样式，
+ * 让颜色切换与 CSS 变量同步生效。
+ */
+[data-theme="dark"] [data-slot="button"][data-variant="destructive"] {
+  background-color: hsl(0 62.8% 30.6% / 0.6);
+}
+
+[data-theme="dark"] [data-slot="button"][data-variant="outline"] {
+  background-color: hsl(var(--input) / 0.3);
+  border-color: hsl(var(--input));
+}
+
+[data-theme="dark"] [data-slot="button"][data-variant="outline"]:hover {
+  background-color: hsl(var(--input) / 0.5);
+}
+
+[data-theme="dark"] [data-slot="button"][data-variant="ghost"]:hover {
+  background-color: hsl(var(--accent) / 0.5);
+}

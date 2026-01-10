@@ -1,5 +1,49 @@
 export type RightMode = "terminal" | "chat";
 
+// Story 阶段枚举
+export type StoryPhase =
+  | 'appeal'      // 诉求对齐
+  | 'requirement' // 需求编写
+  | 'design'      // 设计方案
+  | 'task'        // 任务拆解
+  | 'executing'   // 执行中
+  | 'completed';  // 已完成
+
+// Story 卡片数据
+export type StoryCardVM = {
+  id: string;           // Story 目录名，如 "STORY-000001(概要)"
+  title: string;        // 从目录名提取的标题
+  phase: StoryPhase;    // 当前阶段
+  createdAt: string;    // 创建时间（目录 mtime）
+  taskProgress: {       // 任务进度
+    completed: number;
+    total: number;
+  } | null;
+  path: string;         // 完整路径
+};
+
+// 看板视图数据
+export type StoryBoardVM = {
+  isLoading: boolean;
+  stories: StoryCardVM[];
+  error: string | null;
+};
+
+// 阶段指示器数据
+export type PhaseIndicatorVM = {
+  visible: boolean;           // 是否显示
+  storyId: string | null;     // 当前 Story ID
+  currentPhase: StoryPhase;   // 当前阶段
+  availablePhases: {          // 各阶段可用性
+    phase: StoryPhase;
+    enabled: boolean;         // 文档是否存在
+    filePath: string | null;  // 对应文件路径
+  }[];
+};
+
+// 左区视图模式
+export type LeftViewMode = 'explorer' | 'storyBoard';
+
 export type ProjectTabVM = {
   id: string;
   folderName: string;
@@ -135,6 +179,11 @@ export type UIIntent =
   | { type: "PANEL_TOGGLE_CENTER" }
   | { type: "PANEL_TOGGLE_RIGHT" }
   | { type: "RIGHT_MODE_SET"; mode: RightMode }
+  | { type: "LEFT_VIEW_MODE_SET"; mode: LeftViewMode }
+  | { type: "STORY_BOARD_LOAD" }
+  | { type: "STORY_BOARD_REFRESH" }
+  | { type: "STORY_CARD_CLICK"; storyId: string }
+  | { type: "PHASE_INDICATOR_CLICK"; phase: StoryPhase }
   | { type: "RIGHT_PANEL_ADD" }
   | { type: "PROJECT_TAB_ADD_EMPTY" }
   | { type: "PROJECT_SELECT" }
@@ -207,6 +256,7 @@ export type AppViewModel = {
   content: ContentVM;
 
   leftVisible: boolean;
+  leftViewMode: LeftViewMode;
   centerVisible: boolean;
   rightVisible: boolean;
   rightMode: RightMode;
@@ -235,4 +285,7 @@ export type AppViewModel = {
   };
 
   layout: LayoutVM;
+
+  storyBoard: StoryBoardVM;
+  phaseIndicator: PhaseIndicatorVM;
 };
