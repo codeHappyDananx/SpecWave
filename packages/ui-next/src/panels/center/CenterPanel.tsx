@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppViewModel, StoryDocPhase, UIIntent } from '@specwave/contracts';
+import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icon } from '../../primitives/Icons';
@@ -206,6 +206,15 @@ export function CenterPanel(props: CenterPanelProps) {
       header={
         <>
           <PhaseIndicator indicator={props.phaseIndicator} dispatch={props.dispatch} />
+          {/* 当 Stepper 可见时，显示 Story 标题 + Stepper，隐藏文件路径 */}
+          {props.storyStepper.visible ? (
+            <div className={styles.header}>
+              <div className={styles.headerMain}>
+                <div className={styles.storyTitle}>{props.storyStepper.storyTitle}</div>
+              </div>
+              <ReactBitsStepper stepper={props.storyStepper} dispatch={props.dispatch} />
+            </div>
+          ) : (
           <div className={styles.header}>
 
           <div className={styles.headerMain}>
@@ -247,8 +256,7 @@ export function CenterPanel(props: CenterPanelProps) {
               </div>
             ) : null}
           </div>
-          {/* 当 Stepper 可见时隐藏"切到渲染"按钮 */}
-          {!props.storyStepper.visible && file && file.kind !== 'image' && file.kind !== 'binary' ? (
+          {file && file.kind !== 'image' && file.kind !== 'binary' ? (
             <div className={styles.headerActions}>
               <button
                 className={styles.modeButton}
@@ -259,7 +267,8 @@ export function CenterPanel(props: CenterPanelProps) {
               </button>
             </div>
           ) : null}
-        </div>
+            </div>
+          )}
         </>
       }
     >

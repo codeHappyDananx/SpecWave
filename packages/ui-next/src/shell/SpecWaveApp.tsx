@@ -71,7 +71,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           showCenter={vm.centerVisible}
           showRight={vm.rightVisible}
           dispatch={dispatch}
-          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} leftViewMode={vm.leftViewMode} storyBoard={vm.storyBoard} activeStoryId={vm.phaseIndicator.storyId} dispatch={dispatch} minwPx={vm.panelMinW.leftPx} />}
+          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} activeStoryId={vm.storyStepper.storyId} dispatch={dispatch} minwPx={vm.panelMinW.leftPx} />}
           // 中区不再用“内容最小宽度”强行撑开：避免出现必须横向拖拽才能读任务/markdown 的体验。
           // 需要横向滚动的场景（如 code/pre）由内容自身的样式决定。
           center={<CenterPanel content={vm.content} phaseIndicator={vm.phaseIndicator} storyStepper={vm.storyStepper} dispatch={dispatch} minwPx={0} />}

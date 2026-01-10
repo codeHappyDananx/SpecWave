@@ -3,6 +3,7 @@
 .titleRow{display:flex;align-items:center;gap:10px;min-width:0;}
 .fileName{font-weight:900;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .filePath{font-family:var(--sw-font-mono);font-size:.86rem;color:var(--sw-fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.storyTitle{font-weight:900;font-size:1rem;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .findBar{display:flex;align-items:center;gap:10px;min-width:0;background:var(--sw-muted);border-radius:var(--sw-radius-md);padding:8px 10px;}
 .findInput{min-width:0;flex:1;border:0;background:transparent;font:inherit;font-weight:800;outline:none;}
 .findInput::-webkit-search-cancel-button{display:none;}
