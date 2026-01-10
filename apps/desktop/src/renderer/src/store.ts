@@ -8,9 +8,12 @@ import type {
   LeftViewMode,
   LinkedDocVM,
   PhaseIndicatorVM,
+  StepperPhaseVM,
   StoryBoardVM,
   StoryCardVM,
+  StoryDocPhase,
   StoryPhase,
+  StoryStepperVM,
   TaskBoardVM,
   TaskItemVM,
   UIIntent
@@ -233,7 +236,7 @@ const initialVm: AppViewModel = {
     find: { isOpen: false, query: '', matchStarts: [], activeIndex: 0 }
   },
   leftVisible: restoredUiSession?.leftVisible ?? true,
-  leftViewMode: 'explorer',
+  leftViewMode: 'storyBoard',
   centerVisible: restoredUiSession?.centerVisible ?? true,
   rightVisible: restoredUiSession?.rightVisible ?? true,
   rightMode: restoredUiSession?.rightMode ?? 'terminal',
@@ -275,6 +278,13 @@ const initialVm: AppViewModel = {
     storyId: null,
     currentPhase: 'appeal',
     availablePhases: []
+  },
+  storyStepper: {
+    visible: false,
+    storyId: null,
+    storyTitle: null,
+    currentPhase: 'requirement',
+    phases: []
   }
 };
 
@@ -589,6 +599,57 @@ function toExplorerNodes(entries: { name: string; path: string; kind: 'dir' | 'f
   return entries.map((e) => ({ id: e.path, name: e.name, kind: e.kind, isIgnored: isIgnoredEntryName(e.name) }));
 }
 
+/**
+ * 为 Story 目录附加卡片数据
+ * 在 stories 目录下的 STORY-xxx 目录会被标记为 Story 卡片
+ */
+async function enrichStoryNodes(
+  nodes: ExplorerNodeVM[],
+  parentPath: string,
+  isArchiveDir: boolean
+): Promise<ExplorerNodeVM[]> {
+  const api = window.specwave;
+  if (!api) return nodes;
+
+  const enrichedNodes: ExplorerNodeVM[] = [];
+
+  for (const node of nodes) {
+    // 只处理 STORY- 开头的目录
+    if (node.kind !== 'dir' || !node.name.toUpperCase().startsWith('STORY-')) {
+      enrichedNodes.push(node);
+      continue;
+    }
+
+    // 读取 Story 目录内容
+    const res = await api.readDirectory(node.id);
+    if (!res.ok) {
+      enrichedNodes.push(node);
+      continue;
+    }
+
+    const fileNames = res.entries.filter((e) => e.kind === 'file').map((e) => e.name);
+    let taskContent: string | undefined;
+
+    // 读取任务文件内容以获取进度
+    if (fileNames.includes('03-任务.md')) {
+      const taskPath = joinPath(node.id, '03-任务.md');
+      const taskRes = await api.readTextFile(taskPath);
+      if (taskRes.ok) taskContent = taskRes.text;
+    }
+
+    // 构建 Story 卡片数据
+    const storyCard = buildStoryCardFromDir(node.name, node.id, fileNames, taskContent);
+
+    enrichedNodes.push({
+      ...node,
+      storyCard,
+      isArchived: isArchiveDir
+    });
+  }
+
+  return enrichedNodes;
+}
+
 function mergeExplorerChildren(prev: ExplorerNodeVM[] | undefined, next: ExplorerNodeVM[]): ExplorerNodeVM[] {
   if (!prev || prev.length === 0) return next;
   const byId = new Map(prev.map((n) => [n.id, n]));
@@ -781,6 +842,61 @@ function extractStoryTitle(dirName: string): string {
 }
 
 /**
+ * 从目录构建 Story 卡片数据（用于文件浏览器中的 Story 卡片）
+ */
+function buildStoryCardFromDir(
+  dirName: string,
+  dirPath: string,
+  fileNames: string[],
+  taskContent?: string
+): StoryCardVM {
+  const phase = detectStoryPhase(fileNames, taskContent);
+  const taskProgress = taskContent ? parseStoryTaskProgress(taskContent) : null;
+
+  return {
+    id: dirName,
+    title: extractStoryTitle(dirName),
+    phase,
+    createdAt: new Date().toISOString(),
+    taskProgress: taskProgress && taskProgress.total > 0 ? taskProgress : null,
+    path: dirPath
+  };
+}
+
+/**
+ * 构建 Stepper 视图模型
+ */
+function buildStoryStepper(
+  storyId: string,
+  storyTitle: string,
+  storyPath: string,
+  fileNames: string[]
+): StoryStepperVM {
+  const phaseConfig: Array<{ phase: StoryDocPhase; label: string; fileName: string }> = [
+    { phase: 'requirement', label: '需求', fileName: '01-需求.md' },
+    { phase: 'design', label: '设计', fileName: '02-设计.md' },
+    { phase: 'task', label: '任务', fileName: '03-任务.md' }
+  ];
+
+  const phases: StepperPhaseVM[] = phaseConfig.map(({ phase, label, fileName }) => {
+    const enabled = fileNames.includes(fileName);
+    const filePath = enabled ? joinPath(storyPath, fileName) : null;
+    return { phase, label, enabled, filePath };
+  });
+
+  // 默认选中需求阶段
+  const currentPhase: StoryDocPhase = 'requirement';
+
+  return {
+    visible: true,
+    storyId,
+    storyTitle,
+    currentPhase,
+    phases
+  };
+}
+
+/**
  * 检测文件是否在 Story 目录下，返回 Story 信息
  */
 function detectStoryContext(
@@ -789,8 +905,8 @@ function detectStoryContext(
 ): { storyId: string; storyPath: string } | null {
   if (!workspaceRoot) return null;
 
-  // Story 目录在 .specwave/workspace/stories/ 下
-  const storiesDir = joinPath(workspaceRoot, '.specwave/workspace/stories');
+  // workspaceRoot 已经是 .specwave/workspace，Story 目录在其下的 stories/ 子目录
+  const storiesDir = joinPath(workspaceRoot, 'stories');
   const normalizedPath = normalizeFsPath(filePath);
   const normalizedStoriesDir = normalizeFsPath(storiesDir);
 
@@ -1273,6 +1389,54 @@ export const useAppStore = create<AppState>((set, get) => ({
           queueMicrotask(() => get().dispatch({ type: 'EXPLORER_OPEN_FILE', path: targetPhase.filePath! }));
           return { vm };
         }
+        case 'STORY_CARD_SELECT': {
+          // 点击 Story 卡片：设置 Stepper 状态并打开需求文档
+          const { storyId, storyPath } = intent;
+
+          void (async () => {
+            const api = window.specwave;
+            if (!api) return;
+
+            // 读取 Story 目录获取文件列表
+            const res = await api.readDirectory(storyPath);
+            if (!res.ok) return;
+
+            const fileNames = res.entries.filter((e) => e.kind === 'file').map((e) => e.name);
+            const storyTitle = extractStoryTitle(storyId);
+
+            // 构建 Stepper 状态
+            const storyStepper = buildStoryStepper(storyId, storyTitle, storyPath, fileNames);
+
+            set((state) => ({
+              vm: { ...state.vm, storyStepper }
+            }));
+
+            // 打开需求文档
+            const reqPhase = storyStepper.phases.find((p) => p.phase === 'requirement');
+            if (reqPhase?.enabled && reqPhase.filePath) {
+              get().dispatch({ type: 'EXPLORER_OPEN_FILE', path: reqPhase.filePath });
+            }
+          })();
+
+          return { vm };
+        }
+        case 'STORY_STEPPER_PHASE_CLICK': {
+          const stepper = vm.storyStepper;
+          if (!stepper.visible || !stepper.storyId) return { vm };
+
+          const targetPhase = stepper.phases.find((p) => p.phase === intent.phase);
+          if (!targetPhase?.enabled || !targetPhase.filePath) return { vm };
+
+          // 更新当前阶段并打开对应文档
+          const nextStepper: StoryStepperVM = {
+            ...stepper,
+            currentPhase: intent.phase
+          };
+
+          queueMicrotask(() => get().dispatch({ type: 'EXPLORER_OPEN_FILE', path: targetPhase.filePath! }));
+
+          return { vm: { ...vm, storyStepper: nextStepper } };
+        }
         case 'GLOBAL_SEARCH_SET':
           return { vm: { ...vm, globalSearchQuery: intent.query } };
         case 'PROJECT_TAB_ADD_EMPTY': {
@@ -1715,13 +1879,28 @@ export const useAppStore = create<AppState>((set, get) => ({
               const api = window.specwave;
               if (!api) return;
               const res = await api.readDirectory(intent.id);
+
+              // 检测是否是 stories 目录或 archive 目录
+              const dirName = basename(intent.id);
+              const parentDir = dirname(intent.id);
+              const parentDirName = basename(parentDir);
+              const isStoriesDir = dirName === 'stories';
+              const isArchiveDir = dirName === 'archive' && parentDirName === 'stories';
+
+              let childNodes = res.ok ? toExplorerNodes(res.entries) : [];
+
+              // 如果是 stories 或 archive 目录，为 Story 目录附加卡片数据
+              if (res.ok && (isStoriesDir || isArchiveDir)) {
+                childNodes = await enrichStoryNodes(childNodes, intent.id, isArchiveDir);
+              }
+
               set((state) => {
                 const vm2 = state.vm;
                 const nodes2 = tree === 'workspace' ? vm2.explorer.workspace : vm2.explorer.project;
                 const nextNodes = updateNodeById(nodes2, intent.id, (n) => ({
                   ...n,
                   isLoading: false,
-                  children: res.ok ? toExplorerNodes(res.entries) : [],
+                  children: childNodes,
                   error: res.ok ? undefined : res.error
                 }));
                 return {

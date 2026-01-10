@@ -1,112 +1,141 @@
 .container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 8px;
+  padding: 16px 24px;
   background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.stepper {
+.storyId {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: 0.5px;
+}
+
+.stepperRow {
   display: flex;
-  align-items: center;
-  gap: 0;
+  width: 100%;
+  max-width: 640px;
+  align-items: flex-start;
 }
 
 .stepWrapper {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex: 1;
 }
 
-/* 连接线 */
-.connector {
-  width: 32px;
-  height: 2px;
-  background: var(--color-border);
-  transition: background 0.2s ease;
+.stepWrapper:last-child {
+  flex: 0 0 auto;
 }
 
-.connector[data-completed='true'] {
-  background: var(--color-accent);
-}
-
-/* 步骤按钮 */
-.step {
+/* Step Indicator Button */
+.stepIndicator {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 8px;
+  padding: 0;
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  outline: none;
+  min-width: 60px;
 }
 
-.step:hover:not(:disabled) {
-  transform: translateY(-2px);
-}
-
-.step:disabled {
+.stepIndicator[data-enabled='false'] {
   cursor: not-allowed;
+}
+
+.stepIndicator[data-enabled='false'] .stepCircle {
   opacity: 0.4;
 }
 
-/* 圆形节点 */
-.circle {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+.stepIndicator[data-enabled='false'] .stepLabel {
+  opacity: 0.4;
+}
+
+/* Step Circle */
+.stepCircle {
   display: flex;
+  height: 40px;
+  width: 40px;
   align-items: center;
   justify-content: center;
+  border-radius: 9999px;
   border: 2px solid var(--color-border);
-  background: var(--color-bg);
-  transition: all 0.2s ease;
+  font-weight: 600;
+  transition: box-shadow 0.2s ease;
 }
 
-.step[data-state='completed'] .circle {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-bg);
-}
-
-.step[data-state='current'] .circle {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-bg);
+.stepIndicator[data-status='active'] .stepCircle {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
-.step[data-state='pending'] .circle {
-  background: var(--color-bg);
-  border-color: var(--color-border);
+.stepIndicator[data-enabled='true']:hover .stepCircle {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+/* Active Dot */
+.activeDot {
+  height: 12px;
+  width: 12px;
+  border-radius: 9999px;
+  background-color: #fff;
+}
+
+/* Step Number */
+.stepNumber {
+  font-size: 14px;
   color: var(--color-text-muted);
 }
 
-.step[data-enabled='true']:hover .circle {
-  border-color: var(--color-accent);
+/* Check Icon */
+.checkIcon {
+  height: 20px;
+  width: 20px;
+  color: #fff;
 }
 
-/* 图标 */
-.icon {
-  width: 14px;
-  height: 14px;
-}
-
-/* 标签 */
-.label {
-  font-size: 11px;
+/* Step Label */
+.stepLabel {
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-muted);
   white-space: nowrap;
+  transition: color 0.2s ease;
 }
 
-.step[data-state='current'] .label {
+.stepIndicator[data-status='active'] .stepLabel {
   color: var(--color-accent);
   font-weight: 600;
 }
 
-.step[data-state='completed'] .label {
+.stepIndicator[data-status='complete'] .stepLabel {
   color: var(--color-text);
+}
+
+/* Connector */
+.connector {
+  position: relative;
+  margin-left: 8px;
+  margin-right: 8px;
+  margin-top: 19px;
+  height: 3px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 2px;
+  background-color: var(--color-border);
+  min-width: 20px;
+}
+
+.connectorInner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: var(--color-accent);
 }

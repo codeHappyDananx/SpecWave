@@ -1,0 +1,139 @@
+.rb-stepper-outer {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.rb-stepper-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+.rb-stepper-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 1rem 1.5rem;
+}
+
+.rb-stepper-content {
+  position: relative;
+  overflow: hidden;
+}
+
+.rb-stepper-step {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.rb-stepper-footer {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.rb-stepper-nav {
+  margin-top: 1.5rem;
+  display: flex;
+}
+
+.rb-stepper-nav.spread {
+  justify-content: space-between;
+}
+
+.rb-stepper-nav.end {
+  justify-content: flex-end;
+}
+
+.rb-stepper-back {
+  transition: all 350ms;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--color-text-muted, #a3a3a3);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+.rb-stepper-back:hover {
+  color: var(--color-text, #52525b);
+}
+
+.rb-stepper-back.inactive {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.rb-stepper-next {
+  transition: all 350ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: var(--color-accent, #5227ff);
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  padding: 0.375rem 0.875rem;
+  cursor: pointer;
+  border: none;
+}
+
+.rb-stepper-next:hover {
+  opacity: 0.9;
+}
+
+.rb-stepper-indicator {
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+
+.rb-stepper-indicator-inner {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-weight: 600;
+  border: 2px solid var(--color-border, #333);
+}
+
+.rb-stepper-dot {
+  height: 0.75rem;
+  width: 0.75rem;
+  border-radius: 9999px;
+  background-color: #fff;
+}
+
+.rb-stepper-number {
+  font-size: 0.875rem;
+  color: inherit;
+}
+
+.rb-stepper-connector {
+  position: relative;
+  margin-left: 0.75rem;
+  margin-right: 0.75rem;
+  height: 3px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background-color: var(--color-border, #52525b);
+}
+
+.rb-stepper-connector-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+}
+
+.rb-stepper-check {
+  height: 1.25rem;
+  width: 1.25rem;
+  color: #fff;
+}

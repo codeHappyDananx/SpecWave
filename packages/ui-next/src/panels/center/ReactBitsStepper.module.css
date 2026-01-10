@@ -1,0 +1,116 @@
+.container {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 8px 0;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.step:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.step:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  transition: border-color 0.2s;
+}
+
+.step-active .indicator {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.step-complete .indicator {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.step-inactive .indicator {
+  border-color: var(--border);
+  background: transparent;
+}
+
+.step-disabled .indicator {
+  border-color: var(--muted);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.activeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary-foreground);
+}
+
+.stepNumber {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.checkIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.step-active .label {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.step-complete .label {
+  color: var(--foreground);
+}
+
+.step-disabled .label {
+  color: var(--muted-foreground);
+}
+
+.connector {
+  flex: 1;
+  height: 2px;
+  min-width: 24px;
+  max-width: 48px;
+  background: var(--border);
+  margin: 0 -4px;
+  margin-bottom: 20px;
+  transition: background 0.2s;
+}
+
+.connectorActive {
+  background: var(--primary);
+}

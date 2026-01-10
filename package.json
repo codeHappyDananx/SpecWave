@@ -14,5 +14,8 @@
   "devDependencies": {
     "tailwindcss": "^4.1.18",
     "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "motion": "^12.23.12"
   }
 }

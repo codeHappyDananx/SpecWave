@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppViewModel, UIIntent } from '@specwave/contracts';
+import type { AppViewModel, StoryDocPhase, UIIntent } from '@specwave/contracts';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icon } from '../../primitives/Icons';
@@ -8,6 +8,7 @@ import { TiltedCard } from '../../primitives/TiltedCard';
 import { Input } from '../../primitives/shadcn/input';
 import { Textarea } from '../../primitives/shadcn/textarea';
 import { PhaseIndicator } from './PhaseIndicator';
+import { ReactBitsStepper } from './ReactBitsStepper';
 import styles from './CenterPanel.module.css';
 
 /** 高亮文本中的查询词 */
@@ -67,11 +68,13 @@ type CenterIntent = Extract<
   | { type: 'TASK_LINKED_DOC_JUMP' }
   | { type: 'TASK_LINKED_DOCS_TOGGLE_SECTION' }
   | { type: 'PHASE_INDICATOR_CLICK' }
+  | { type: 'STORY_STEPPER_PHASE_CLICK' }
 >;
 
 export type CenterPanelProps = {
   content: AppViewModel['content'];
   phaseIndicator: AppViewModel['phaseIndicator'];
+  storyStepper: AppViewModel['storyStepper'];
   dispatch: (intent: CenterIntent) => void;
   minwPx: number;
 };
@@ -244,7 +247,8 @@ export function CenterPanel(props: CenterPanelProps) {
               </div>
             ) : null}
           </div>
-          {file && file.kind !== 'image' && file.kind !== 'binary' ? (
+          {/* 当 Stepper 可见时隐藏"切到渲染"按钮 */}
+          {!props.storyStepper.visible && file && file.kind !== 'image' && file.kind !== 'binary' ? (
             <div className={styles.headerActions}>
               <button
                 className={styles.modeButton}

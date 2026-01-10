@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import type { AppViewModel, LeftViewMode, UIIntent } from '@specwave/contracts';
+import type { AppViewModel, LeftViewMode, StoryDocPhase, UIIntent } from '@specwave/contracts';
 import {
   Check,
   ChevronRight,
@@ -37,6 +37,7 @@ import {
   SidebarProvider
 } from '../../primitives/shadcn/sidebar';
 import { StoryBoardView } from './StoryBoardView';
+import { StoryCardInExplorer } from './StoryCardInExplorer';
 
 type LeftIntent = Extract<
   UIIntent,
@@ -49,6 +50,7 @@ type LeftIntent = Extract<
   | { type: 'STORY_BOARD_LOAD' }
   | { type: 'STORY_BOARD_REFRESH' }
   | { type: 'STORY_CARD_CLICK' }
+  | { type: 'STORY_CARD_SELECT' }
 >;
 
 export type LeftPanelProps = {
@@ -56,6 +58,7 @@ export type LeftPanelProps = {
   globalSearchQuery: string;
   leftViewMode: LeftViewMode;
   storyBoard: AppViewModel['storyBoard'];
+  activeStoryId: string | null;
   dispatch: (intent: LeftIntent) => void;
   minwPx: number;
 };
@@ -221,6 +224,20 @@ export function LeftPanel(props: LeftPanelProps) {
     const isExpanded = props.explorer.expanded[tree].includes(node.id);
     const isSelected = props.explorer.selectedPath === node.id;
 
+    // 如果节点有 storyCard 数据，渲染 Story 卡片
+    if (node.storyCard) {
+      return (
+        <SidebarMenuItem key={node.id}>
+          <StoryCardInExplorer
+            story={node.storyCard}
+            isActive={isSelected || props.activeStoryId === node.storyCard.id}
+            isArchived={node.isArchived ?? false}
+            onClick={() => props.dispatch({ type: 'STORY_CARD_SELECT', storyId: node.storyCard!.id, storyPath: node.id })}
+          />
+        </SidebarMenuItem>
+      );
+    }
+
     if (node.kind !== 'dir') {
       const Icon = iconForFileName(node.name);
       return (
@@ -380,7 +397,7 @@ export function LeftPanel(props: LeftPanelProps) {
             </SidebarHeader>
 
             {props.leftViewMode === 'storyBoard' ? (
-              <StoryBoardView storyBoard={props.storyBoard} dispatch={props.dispatch} />
+              <StoryBoardView storyBoard={props.storyBoard} activeStoryId={props.activeStoryId} dispatch={props.dispatch} />
             ) : (
             <SidebarContent>
               {q ? (

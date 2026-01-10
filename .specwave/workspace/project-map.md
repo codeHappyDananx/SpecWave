@@ -45,12 +45,14 @@
 | `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果/Story 看板等展示（含右键菜单：复制路径/名称、打开所在文件夹） | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
-| `packages/ui-next/src/panels/left/StoryBoardView.tsx` | Story 看板视图：按阶段分列展示 Story 卡片 | `primitives/StoryCard`、contracts | `panels/left/LeftPanel` | 只渲染 StoryBoardVM，dispatch STORY_CARD_CLICK |
+| `packages/ui-next/src/panels/left/StoryBoardView.tsx` | Story 看板视图：列表展示 Story 卡片（按编号倒序），支持高亮当前活跃 Story | `primitives/StoryCard`、contracts | `panels/left/LeftPanel` | 只渲染 StoryBoardVM，dispatch STORY_CARD_CLICK |
+| `packages/ui-next/src/panels/left/StoryCardInExplorer.tsx` | 文件浏览器内嵌 Story 卡片：在 stories 目录下展示 Story 信息，支持归档状态和活动高亮 | contracts | `panels/left/LeftPanel` | 点击 dispatch STORY_CARD_SELECT |
 | `packages/ui-next/src/panels/center` | 中栏：内容工作区（markdown 渲染/源码编辑/文件内查找/图片预览/任务卡片看板 + 详情编辑 + “开始”联动终端） | `primitives`、contracts | `shell` | 禁止 import 其他 panels；UI 不解析 markdown，只消费 VM |
-| `packages/ui-next/src/panels/center/PhaseIndicator.tsx` | 阶段流转指示器：展示 Story 5 阶段进度，支持点击跳转 | contracts | `panels/center/CenterPanel` | 只渲染 PhaseIndicatorVM，dispatch PHASE_INDICATOR_CLICK |
+| `packages/ui-next/src/panels/center/PhaseIndicator.tsx` | 阶段流转指示器：ReactBits Stepper 风格，展示 Story 6 阶段进度（诉求/需求/设计/任务/执行/完成），支持点击跳转，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 PhaseIndicatorVM，dispatch PHASE_INDICATOR_CLICK |
+| `packages/ui-next/src/panels/center/ReactBitsStepper.tsx` | React Bits Stepper 组件：展示 Story 3 阶段进度（需求/设计/任务），支持点击切换阶段，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 StoryStepperVM，dispatch STORY_STEPPER_PHASE_CLICK |
 | `packages/ui-next/src/panels/right` | 右栏：终端/对话 tabs | `primitives` | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/primitives` | 可复用 UI 组件与样式 | tokens | panels/shell | 自写组件样式用 CSS Modules；shadcn 引入组件允许 Tailwind class（集中在 `primitives/shadcn`） |
-| `packages/ui-next/src/primitives/StoryCard.tsx` | Story 卡片组件：展示标题、创建时间、任务进度、阶段标签 | contracts | `panels/left/StoryBoardView` | 纯展示组件，不含业务逻辑 |
+| `packages/ui-next/src/primitives/StoryCard.tsx` | Story 卡片组件：展示需求号、标题、任务进度、阶段标签，支持 isActive 高亮 | contracts | `panels/left/StoryBoardView` | 纯展示组件，不含业务逻辑 |
 | `packages/ui-next/src/primitives/TiltedCard.tsx` | Tilted Card 动效容器（克制 tilt/scale，自动尊重“减少动态效果”） | `motion/react` | `panels/center` | 只做动效与降级，不绑定业务字段 |
 | `packages/ui-next/src/primitives/shadcn` | shadcn/ui 引入的可控组件（new-york v4） | Tailwind v4 + Radix + lucide | panels/left、panels/center | 只在 primitives 内维护，避免散落；组件内部可带少量 reset（如 `list-none`）来保证样式稳定 |
 | `packages/ui-next/src/primitives/shadcn/sidebar.tsx` | Sidebar 套件（Provider/Menu/Button 等） | Radix + lucide | `panels/left` | 与三栏布局共存：左栏固定用 `collapsible="none"` |

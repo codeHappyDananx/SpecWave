@@ -309,3 +309,7 @@
   padding: 0 2px;
   border-radius: 2px;
 }
+
+/* Stepper Header */
+.stepperHeader{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-bottom:1px solid var(--sw-border);margin-bottom:8px;}
+.storyTitle{font-weight:900;font-size:1rem;letter-spacing:-.02em;color:var(--sw-fg);}

@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      motion:
+        specifier: ^12.23.12
+        version: 12.23.26(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
       tailwindcss:
         specifier: ^4.1.18

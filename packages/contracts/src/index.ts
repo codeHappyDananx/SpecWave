@@ -41,6 +41,26 @@ export type PhaseIndicatorVM = {
   }[];
 };
 
+// Story 文档阶段（简化为三个阶段，用于 Stepper）
+export type StoryDocPhase = 'requirement' | 'design' | 'task';
+
+// Stepper 阶段信息
+export type StepperPhaseVM = {
+  phase: StoryDocPhase;
+  label: string;
+  enabled: boolean;      // 文档是否存在
+  filePath: string | null;
+};
+
+// Stepper 视图模型
+export type StoryStepperVM = {
+  visible: boolean;
+  storyId: string | null;
+  storyTitle: string | null;
+  currentPhase: StoryDocPhase;
+  phases: StepperPhaseVM[];
+};
+
 // 左区视图模式
 export type LeftViewMode = 'explorer' | 'storyBoard';
 
@@ -74,11 +94,15 @@ export type ExplorerNodeVM = {
   id: string;
   name: string;
   kind: "dir" | "file";
-  // 是否属于“默认忽略项”（由 store 统一打标；UI 只按开关决定显隐）。
+  // 是否属于"默认忽略项"（由 store 统一打标；UI 只按开关决定显隐）。
   isIgnored?: boolean;
   children?: ExplorerNodeVM[];
   isLoading?: boolean;
   error?: string;
+  // Story 卡片数据（如果是 Story 目录）
+  storyCard?: StoryCardVM;
+  // 是否为归档 Story
+  isArchived?: boolean;
 };
 
 export type ExplorerVM = {
@@ -183,7 +207,9 @@ export type UIIntent =
   | { type: "STORY_BOARD_LOAD" }
   | { type: "STORY_BOARD_REFRESH" }
   | { type: "STORY_CARD_CLICK"; storyId: string }
+  | { type: "STORY_CARD_SELECT"; storyId: string; storyPath: string }
   | { type: "PHASE_INDICATOR_CLICK"; phase: StoryPhase }
+  | { type: "STORY_STEPPER_PHASE_CLICK"; phase: StoryDocPhase }
   | { type: "RIGHT_PANEL_ADD" }
   | { type: "PROJECT_TAB_ADD_EMPTY" }
   | { type: "PROJECT_SELECT" }
@@ -288,4 +314,5 @@ export type AppViewModel = {
 
   storyBoard: StoryBoardVM;
   phaseIndicator: PhaseIndicatorVM;
+  storyStepper: StoryStepperVM;
 };
