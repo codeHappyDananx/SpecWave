@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import type { StoryDocPhase, StoryStepperVM, UIIntent } from '@specwave/contracts';
+import type { StoryStepperVM, UIIntent } from '@specwave/contracts';
 import styles from './ReactBitsStepper.module.css';
 
 type StepperIntent = Extract<UIIntent, { type: 'STORY_STEPPER_PHASE_CLICK' }>;
@@ -79,13 +79,6 @@ export function ReactBitsStepper(props: ReactBitsStepperProps) {
               >
                 {isComplete ? (
                   <CheckIcon />
-                ) : isActive ? (
-                  <motion.div
-                    className={styles.activeDot}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.2 }}
-                  />
                 ) : (
                   <span className={styles.stepNumber}>{index + 1}</span>
                 )}

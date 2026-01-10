@@ -1884,14 +1884,25 @@ export const useAppStore = create<AppState>((set, get) => ({
               const dirName = basename(intent.id);
               const parentDir = dirname(intent.id);
               const parentDirName = basename(parentDir);
+              const grandParentDir = dirname(parentDir);
+              const grandParentDirName = basename(grandParentDir);
+              
               const isStoriesDir = dirName === 'stories';
-              const isArchiveDir = dirName === 'archive' && parentDirName === 'stories';
+              // archive 目录可能在 stories/archive 或 workspace/archive
+              const isArchiveDir = dirName === 'archive' && (parentDirName === 'stories' || parentDirName === 'workspace');
+              // 日期归档目录（如 20260107-归档）在 stories/archive 下
+              const isDateArchiveDir = parentDirName === 'archive' && grandParentDirName === 'stories';
+              // workspace/archive 下直接是 STORY 目录
+              const isWorkspaceArchiveDir = dirName === 'archive' && parentDirName === 'workspace';
 
               let childNodes = res.ok ? toExplorerNodes(res.entries) : [];
 
-              // 如果是 stories 或 archive 目录，为 Story 目录附加卡片数据
-              if (res.ok && (isStoriesDir || isArchiveDir)) {
-                childNodes = await enrichStoryNodes(childNodes, intent.id, isArchiveDir);
+              // 如果是 stories、archive 或日期归档目录，为 Story 目录附加卡片数据
+              const shouldEnrichStories = isStoriesDir || isArchiveDir || isDateArchiveDir || isWorkspaceArchiveDir;
+              const isArchiveContext = isArchiveDir || isDateArchiveDir || isWorkspaceArchiveDir;
+              
+              if (res.ok && shouldEnrichStories) {
+                childNodes = await enrichStoryNodes(childNodes, intent.id, isArchiveContext);
               }
 
               set((state) => {

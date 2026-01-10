@@ -205,8 +205,10 @@ export function CenterPanel(props: CenterPanelProps) {
       minwPx={props.minwPx}
       header={
         <>
-          <PhaseIndicator indicator={props.phaseIndicator} dispatch={props.dispatch} />
-          {/* 当 Stepper 可见时，显示 Story 标题 + Stepper，隐藏文件路径 */}
+          {/* 当 Stepper 可见时，显示 Story 标题 + Stepper，隐藏文件路径和旧的 PhaseIndicator */}
+          {!props.storyStepper.visible && (
+            <PhaseIndicator indicator={props.phaseIndicator} dispatch={props.dispatch} />
+          )}
           {props.storyStepper.visible ? (
             <div className={styles.header}>
               <div className={styles.headerMain}>

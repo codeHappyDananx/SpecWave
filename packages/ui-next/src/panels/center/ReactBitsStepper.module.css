@@ -46,6 +46,10 @@
   color: var(--primary-foreground);
 }
 
+.step-active .stepNumber {
+  color: var(--primary-foreground);
+}
+
 .step-complete .indicator {
   border-color: var(--primary);
   background: var(--primary);
@@ -61,13 +65,6 @@
   border-color: var(--muted);
   background: var(--muted);
   color: var(--muted-foreground);
-}
-
-.activeDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--primary-foreground);
 }
 
 .stepNumber {
