@@ -10,9 +10,9 @@ You route the conversation to the right mode/role and keep execution gated.
 
 ## Do this first: session guard (avoid cross-chat phase leakage)
 
-> **Path note**: Skill scripts are installed at `$CODEX_HOME/skills/specwave-router/` (default `~/.codex/skills/specwave-router/`).
+> **Path note**: Skill scripts are installed at `$CODEX_HOME/skills/specwave-router/` (default `$HOME/.codex/skills/specwave-router/`).
 
-- Before making any routing decisions, run: `python ~/.codex/skills/specwave-router/session_guard.py sync` (it updates the session projection in `.specwave/settings.json`).
+- Before making any routing decisions, run: `python "$HOME/.codex/skills/specwave-router/session_guard.py" sync` (it updates the session projection in `.specwave/settings.json`).
 - If it says there are multiple active sessions, run `status` first and then retry with `--session-id`.
 
 ## Highest priority: session lock (absolute in spec)
@@ -48,11 +48,11 @@ When user says "归档"/"archive"/"archive STORY-xxx", use the archive tool:
 
 ```bash
 # List archivable Stories
-python ~/.codex/skills/specwave-router/archive_story.py list
+python "$HOME/.codex/skills/specwave-router/archive_story.py" list
 
 # Archive a specific Story (requires all tasks completed)
-python ~/.codex/skills/specwave-router/archive_story.py STORY-000001
+python "$HOME/.codex/skills/specwave-router/archive_story.py" STORY-000001
 
 # Force archive (skip task completion check)
-python ~/.codex/skills/specwave-router/archive_story.py STORY-000001 --force
+python "$HOME/.codex/skills/specwave-router/archive_story.py" STORY-000001 --force
 ```

@@ -10,10 +10,10 @@ license: MIT
 
 ## 先做一件事：会话自愈（防多会话串线）
 
-> **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `~/.codex/skills/specwave-router/`）。
+> **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `$HOME/.codex/skills/specwave-router/`）。
 
-- 在做会话/阶段判断前，先执行一次会话守卫：`python ~/.codex/skills/specwave-router/session_guard.py sync`（它会对齐 `.specwave/settings.json` 的会话投影）。
-- 如果提示"同项目存在多个活跃会话，无法自动绑定"，先用 `python ~/.codex/skills/specwave-router/session_guard.py status` 看候选，再显式传 `--session-id` 重试。
+- 在做会话/阶段判断前，先执行一次会话守卫：`python "$HOME/.codex/skills/specwave-router/session_guard.py" sync`（它会对齐 `.specwave/settings.json` 的会话投影）。
+- 如果提示"同项目存在多个活跃会话，无法自动绑定"，先用 `python "$HOME/.codex/skills/specwave-router/session_guard.py" status` 看候选，再显式传 `--session-id` 重试。
 
 ## 最高优先级：会话锁定（进入 spec 后绝对服从）
 
@@ -75,13 +75,13 @@ license: MIT
 
 ```bash
 # 列出可归档的 Story
-python ~/.codex/skills/specwave-router/archive_story.py list
+python "$HOME/.codex/skills/specwave-router/archive_story.py" list
 
 # 归档指定 Story（需要所有任务已完成）
-python ~/.codex/skills/specwave-router/archive_story.py STORY-000001
+python "$HOME/.codex/skills/specwave-router/archive_story.py" STORY-000001
 
 # 强制归档（跳过任务完成检查）
-python ~/.codex/skills/specwave-router/archive_story.py STORY-000001 --force
+python "$HOME/.codex/skills/specwave-router/archive_story.py" STORY-000001 --force
 ```
 
 ### 归档规则

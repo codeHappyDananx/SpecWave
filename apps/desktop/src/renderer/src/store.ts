@@ -1942,7 +1942,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const filePath = intent.path;
           const kind = detectContentKind(filePath);
 
-          // 检测是否在 Story 目录下，更新阶段指示器
+          // 检测是否在 Story 目录下，更新阶段指示器和 Stepper
           const storyContext = detectStoryContext(filePath, vm.explorer.workspaceRoot);
           if (storyContext) {
             void (async () => {
@@ -1951,12 +1951,46 @@ export const useAppStore = create<AppState>((set, get) => ({
                 vm: { ...state.vm, phaseIndicator: indicator }
               }));
             })();
+            
+            // 检查当前 Stepper 是否属于同一个 Story
+            const currentStepperId = vm.storyStepper.storyId;
+            if (currentStepperId !== storyContext.storyId) {
+              // 不同 Story，更新 Stepper
+              void (async () => {
+                const api = window.specwave;
+                if (!api) return;
+                const res = await api.readDirectory(storyContext.storyPath);
+                if (!res.ok) return;
+                const fileNames = res.entries.filter((e) => e.kind === 'file').map((e) => e.name);
+                const storyTitle = extractStoryTitle(storyContext.storyId);
+                const storyStepper = buildStoryStepper(storyContext.storyId, storyTitle, storyContext.storyPath, fileNames);
+                // 根据当前打开的文件设置当前阶段
+                const fileName = basename(filePath);
+                if (fileName === '01-需求.md') storyStepper.currentPhase = 'requirement';
+                else if (fileName === '02-设计.md') storyStepper.currentPhase = 'design';
+                else if (fileName === '03-任务.md') storyStepper.currentPhase = 'task';
+                set((state) => ({ vm: { ...state.vm, storyStepper } }));
+              })();
+            } else {
+              // 同一个 Story，只更新当前阶段
+              const fileName = basename(filePath);
+              let newPhase: StoryDocPhase = vm.storyStepper.currentPhase;
+              if (fileName === '01-需求.md') newPhase = 'requirement';
+              else if (fileName === '02-设计.md') newPhase = 'design';
+              else if (fileName === '03-任务.md') newPhase = 'task';
+              if (newPhase !== vm.storyStepper.currentPhase) {
+                set((state) => ({
+                  vm: { ...state.vm, storyStepper: { ...state.vm.storyStepper, currentPhase: newPhase } }
+                }));
+              }
+            }
           } else {
-            // 非 Story 文件，隐藏阶段指示器
+            // 非 Story 文件，隐藏阶段指示器和 Stepper
             set((state) => ({
               vm: {
                 ...state.vm,
-                phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] }
+                phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] },
+                storyStepper: { visible: false, storyId: null, storyTitle: null, currentPhase: 'requirement', phases: [] }
               }
             }));
           }

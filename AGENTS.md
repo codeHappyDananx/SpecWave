@@ -7,7 +7,7 @@
 每次对话开始，你必须：
 
 1. **先读 settings.json**：读取 `.specwave/settings.json`
-   - 如果 settings 里存在 `sessionStore`：先执行一次会话自愈（`python ~/.codex/skills/specwave-router/session_guard.py sync`），再检查 `currentSession`
+   - 如果 settings 里存在 `sessionStore`：先执行一次会话自愈（`python "$HOME/.codex/skills/specwave-router/session_guard.py" sync`），再检查 `currentSession`
 2. **检查 currentSession**：
    - 存在且 `mode === "spec"`：你在 **spec 模式**，加载 `.specwave/roles/需求分析师.md`，按 `phase` 继续
    - 不存在或为 `null`：你在 **vibe 模式**，直接干活，不走流程
@@ -23,11 +23,11 @@
 
 同一项目可能同时开多个 Codex 会话。为避免"上个会话残留的执行阶段"影响新会话，进入对话前先对齐一次会话投影：
 
-> **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `~/.codex/skills/specwave-router/`）。
+> **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `$HOME/.codex/skills/specwave-router/`）。
 
-- 对齐当前会话：`python ~/.codex/skills/specwave-router/session_guard.py sync`
-- 并发会话时：先 `python ~/.codex/skills/specwave-router/session_guard.py status` 看候选，再 `python ~/.codex/skills/specwave-router/session_guard.py --session-id <id> sync`
-- 退出 spec：`python ~/.codex/skills/specwave-router/session_guard.py clear`
+- 对齐当前会话：`python "$HOME/.codex/skills/specwave-router/session_guard.py" sync`
+- 并发会话时：先 `python "$HOME/.codex/skills/specwave-router/session_guard.py" status` 看候选，再 `python "$HOME/.codex/skills/specwave-router/session_guard.py" --session-id <id> sync`
+- 退出 spec：`python "$HOME/.codex/skills/specwave-router/session_guard.py" clear`
 
 ---
 
@@ -77,7 +77,7 @@
 
 - 需求资料：`.specwave/workspace/`
 - 项目结构：`.specwave/workspace/project-map.md`
-- Codex 资源：默认写到全局 `CODEX_HOME`（默认 `~/.codex`）；要只影响本项目，把 `CODEX_HOME` 指到项目根 `.codex`
+- Codex 资源：默认写到全局 `CODEX_HOME`（默认 `$HOME/.codex`）；要只影响本项目，把 `CODEX_HOME` 指到项目根 `.codex`
 
 ## Story 结构
 
