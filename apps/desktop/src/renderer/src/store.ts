@@ -1944,6 +1944,25 @@ export const useAppStore = create<AppState>((set, get) => ({
 
           // 检测是否在 Story 目录下，更新阶段指示器和 Stepper
           const storyContext = detectStoryContext(filePath, vm.explorer.workspaceRoot);
+          
+          // 同步计算新的 Stepper 状态，避免闪烁
+          let nextStoryStepper = vm.storyStepper;
+          if (!storyContext) {
+            // 非 Story 文件，立即隐藏 Stepper
+            nextStoryStepper = { visible: false, storyId: null, storyTitle: null, currentPhase: 'requirement', phases: [] };
+          } else if (storyContext.storyId === vm.storyStepper.storyId) {
+            // 同一个 Story，只更新当前阶段
+            const fileName = basename(filePath);
+            let newPhase: StoryDocPhase = vm.storyStepper.currentPhase;
+            if (fileName === '01-需求.md') newPhase = 'requirement';
+            else if (fileName === '02-设计.md') newPhase = 'design';
+            else if (fileName === '03-任务.md') newPhase = 'task';
+            if (newPhase !== vm.storyStepper.currentPhase) {
+              nextStoryStepper = { ...vm.storyStepper, currentPhase: newPhase };
+            }
+          }
+          // 不同 Story 的情况在异步中处理
+          
           if (storyContext) {
             void (async () => {
               const indicator = await buildPhaseIndicator(storyContext.storyPath, storyContext.storyId);
@@ -1955,7 +1974,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             // 检查当前 Stepper 是否属于同一个 Story
             const currentStepperId = vm.storyStepper.storyId;
             if (currentStepperId !== storyContext.storyId) {
-              // 不同 Story，更新 Stepper
+              // 不同 Story，异步更新 Stepper
               void (async () => {
                 const api = window.specwave;
                 if (!api) return;
@@ -1971,32 +1990,17 @@ export const useAppStore = create<AppState>((set, get) => ({
                 else if (fileName === '03-任务.md') storyStepper.currentPhase = 'task';
                 set((state) => ({ vm: { ...state.vm, storyStepper } }));
               })();
-            } else {
-              // 同一个 Story，只更新当前阶段
-              const fileName = basename(filePath);
-              let newPhase: StoryDocPhase = vm.storyStepper.currentPhase;
-              if (fileName === '01-需求.md') newPhase = 'requirement';
-              else if (fileName === '02-设计.md') newPhase = 'design';
-              else if (fileName === '03-任务.md') newPhase = 'task';
-              if (newPhase !== vm.storyStepper.currentPhase) {
-                queueMicrotask(() => {
-                  set((state) => ({
-                    vm: { ...state.vm, storyStepper: { ...state.vm.storyStepper, currentPhase: newPhase } }
-                  }));
-                });
-              }
             }
           } else {
-            // 非 Story 文件，隐藏阶段指示器和 Stepper
-            queueMicrotask(() => {
+            // 非 Story 文件，异步隐藏阶段指示器
+            void (async () => {
               set((state) => ({
                 vm: {
                   ...state.vm,
-                  phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] },
-                  storyStepper: { visible: false, storyId: null, storyTitle: null, currentPhase: 'requirement', phases: [] }
+                  phaseIndicator: { visible: false, storyId: null, currentPhase: 'appeal', availablePhases: [] }
                 }
               }));
-            });
+            })();
           }
 
           suppressExternalChangePromptPath = null;
@@ -2022,6 +2026,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 ...vm,
                 centerVisible: true,
                 explorer: { ...vm.explorer, selectedPath: filePath },
+                storyStepper: nextStoryStepper,
                 content: {
                   ...vm.content,
                   find: { ...initialVm.content.find },
@@ -2118,7 +2123,8 @@ export const useAppStore = create<AppState>((set, get) => ({
               ...vm,
               centerVisible: true,
               explorer: { ...vm.explorer, selectedPath: filePath },
-              content: { ...vm.content, saveStatus: 'idle', saveError: null, find: { ...initialVm.content.find } }
+              content: { ...vm.content, saveStatus: 'idle', saveError: null, find: { ...initialVm.content.find } },
+              storyStepper: nextStoryStepper
             }
           };
         }
