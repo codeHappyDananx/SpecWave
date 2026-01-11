@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import type { StoryStepperVM, UIIntent } from '@specwave/contracts';
 import styles from './ReactBitsStepper.module.css';
 
@@ -10,16 +9,25 @@ export type ReactBitsStepperProps = {
   dispatch: (intent: StepperIntent) => void;
 };
 
-function CheckIcon() {
+// Star Border 组件 - 旋转渐变边框效果
+function StarBorder({
+  children,
+  color = 'var(--primary)',
+  speed = '4s',
+  className = '',
+}: {
+  children: React.ReactNode;
+  color?: string;
+  speed?: string;
+  className?: string;
+}) {
   return (
-    <svg className={styles.checkIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-      <motion.path
-        d="M5 13l4 4L19 7"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-      />
-    </svg>
+    <div
+      className={`${styles.starBorder} ${className}`}
+      style={{ '--star-color': color, '--star-speed': speed } as React.CSSProperties}
+    >
+      <div className={styles.starBorderInner}>{children}</div>
+    </div>
   );
 }
 
@@ -28,30 +36,23 @@ export function ReactBitsStepper(props: ReactBitsStepperProps) {
 
   if (!stepper.visible) return null;
 
-  const currentIndex = stepper.phases.findIndex((p) => p.phase === stepper.currentPhase);
-
   return (
     <div className={styles.container}>
       {stepper.phases.map((phase, index) => {
         const isActive = phase.phase === stepper.currentPhase;
-        const isComplete = index < currentIndex;
         const isDisabled = !phase.enabled;
 
-        const stepState = isDisabled
-          ? 'disabled'
-          : isComplete
-            ? 'complete'
-            : isActive
-              ? 'active'
-              : 'inactive';
+        const stepState = isDisabled ? 'disabled' : isActive ? 'active' : 'inactive';
+
+        const indicator = (
+          <div className={`${styles.indicator} ${styles[`indicator-${stepState}`]}`}>
+            <span className={styles.stepNumber}>{index + 1}</span>
+          </div>
+        );
 
         return (
           <React.Fragment key={phase.phase}>
-            {index > 0 && (
-              <div
-                className={`${styles.connector} ${index <= currentIndex ? styles.connectorActive : ''}`}
-              />
-            )}
+            {index > 0 && <div className={styles.connector} />}
             <button
               type="button"
               className={`${styles.step} ${styles[`step-${stepState}`]}`}
@@ -64,25 +65,7 @@ export function ReactBitsStepper(props: ReactBitsStepperProps) {
               aria-label={`${phase.label}${isDisabled ? '（不可用）' : ''}`}
               aria-current={isActive ? 'step' : undefined}
             >
-              <motion.div
-                className={styles.indicator}
-                initial={false}
-                animate={{
-                  scale: isActive ? 1.1 : 1,
-                  backgroundColor: isComplete || isActive
-                    ? 'var(--primary)'
-                    : isDisabled
-                      ? 'var(--muted)'
-                      : 'transparent'
-                }}
-                transition={{ duration: 0.2 }}
-              >
-                {isComplete ? (
-                  <CheckIcon />
-                ) : (
-                  <span className={styles.stepNumber}>{index + 1}</span>
-                )}
-              </motion.div>
+              {isActive ? <StarBorder>{indicator}</StarBorder> : indicator}
               <span className={styles.label}>{phase.label}</span>
             </button>
           </React.Fragment>

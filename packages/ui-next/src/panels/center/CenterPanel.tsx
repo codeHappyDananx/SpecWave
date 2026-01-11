@@ -2,7 +2,6 @@ import React from 'react';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Icon } from '../../primitives/Icons';
 import { Panel } from '../../primitives/Panel';
 import { TiltedCard } from '../../primitives/TiltedCard';
 import { Input } from '../../primitives/shadcn/input';
@@ -158,6 +157,7 @@ export function CenterPanel(props: CenterPanelProps) {
   const isEditing = Boolean(taskBoard?.detail.isOpen && taskBoard.detail.mode === 'edit');
   const findInputRef = React.useRef<HTMLInputElement | null>(null);
   const editorRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const findBarRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (!file) return;
@@ -165,6 +165,22 @@ export function CenterPanel(props: CenterPanelProps) {
     const t = setTimeout(() => findInputRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [file, find.isOpen]);
+
+  // 点击查找框外部时关闭
+  React.useEffect(() => {
+    if (!find.isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (findBarRef.current && !findBarRef.current.contains(e.target as Node)) {
+        props.dispatch({ type: 'CONTENT_FIND_CLOSE' });
+      }
+    };
+    // 延迟添加监听，避免打开时立即触发
+    const t = setTimeout(() => document.addEventListener('mousedown', handleClickOutside), 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [find.isOpen, props]);
 
   React.useEffect(() => {
     if (!file) return;
@@ -196,18 +212,51 @@ export function CenterPanel(props: CenterPanelProps) {
     return '切到渲染';
   })();
 
+  // 悬浮查找框组件
+  const floatingFindBar = file && find.isOpen ? (
+    <div ref={findBarRef} className={styles.findBarFloat} aria-label="文件内查找">
+      <input
+        ref={findInputRef}
+        className={styles.findInputCompact}
+        type="search"
+        value={find.query}
+        placeholder="查找…"
+        onChange={(e) => props.dispatch({ type: 'CONTENT_FIND_SET_QUERY', query: e.currentTarget.value })}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            props.dispatch({ type: 'CONTENT_FIND_CLOSE' });
+            return;
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (e.shiftKey) props.dispatch({ type: 'CONTENT_FIND_PREV' });
+            else props.dispatch({ type: 'CONTENT_FIND_NEXT' });
+          }
+        }}
+      />
+      <span className={styles.findMetaCompact}>
+        {find.matchStarts.length ? `${find.activeIndex + 1}/${find.matchStarts.length}` : '无结果'}
+      </span>
+      <button className={styles.findNavBtn} type="button" title="上一个" onClick={() => props.dispatch({ type: 'CONTENT_FIND_PREV' })}>↑</button>
+      <button className={styles.findNavBtn} type="button" title="下一个" onClick={() => props.dispatch({ type: 'CONTENT_FIND_NEXT' })}>↓</button>
+      <button className={styles.findCloseBtn} type="button" aria-label="关闭查找" title="关闭" onClick={() => props.dispatch({ type: 'CONTENT_FIND_CLOSE' })}>×</button>
+    </div>
+  ) : null;
+
   return (
-    <Panel
-      as="section"
-      ariaLabel="中区"
-      headerAriaLabel="中区头部"
-      bodyAriaLabel="中区滚动区"
-      minwPx={props.minwPx}
-      header={
-        <>
-          {/* 当 Stepper 可见时，显示 Story 标题 + Stepper，隐藏文件路径和旧的 PhaseIndicator */}
-          {!props.storyStepper.visible && (
-            <PhaseIndicator indicator={props.phaseIndicator} dispatch={props.dispatch} />
+    <div className={styles.centerPanelWrapper}>
+      <Panel
+        as="section"
+        ariaLabel="中区"
+        headerAriaLabel="中区头部"
+        bodyAriaLabel="中区滚动区"
+        minwPx={props.minwPx}
+        header={
+          <>
+            {/* 当 Stepper 可见时，显示 Story 标题 + Stepper，隐藏文件路径和旧的 PhaseIndicator */}
+            {!props.storyStepper.visible && (
+              <PhaseIndicator indicator={props.phaseIndicator} dispatch={props.dispatch} />
           )}
           {props.storyStepper.visible ? (
             <div className={styles.header}>
@@ -221,42 +270,7 @@ export function CenterPanel(props: CenterPanelProps) {
 
           <div className={styles.headerMain}>
             <div className={styles.filePath}>{file ? file.path : '先点击顶部“打开项目”，再在左区选择文件。'}</div>
-            {file && find.isOpen ? (
-              <div className={styles.findBar} aria-label="文件内查找">
-                <input
-                  ref={findInputRef}
-                  className={styles.findInput}
-                  type="search"
-                  value={find.query}
-                  placeholder="查找…"
-                  onChange={(e) => props.dispatch({ type: 'CONTENT_FIND_SET_QUERY', query: e.currentTarget.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      e.preventDefault();
-                      props.dispatch({ type: 'CONTENT_FIND_CLOSE' });
-                      return;
-                    }
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (e.shiftKey) props.dispatch({ type: 'CONTENT_FIND_PREV' });
-                      else props.dispatch({ type: 'CONTENT_FIND_NEXT' });
-                    }
-                  }}
-                />
-                <div className={styles.findMeta} aria-label="匹配计数">
-                  {find.matchStarts.length ? `${find.activeIndex + 1}/${find.matchStarts.length}` : '0/0'}
-                </div>
-                <button className={styles.findButton} type="button" onClick={() => props.dispatch({ type: 'CONTENT_FIND_PREV' })}>
-                  上一个
-                </button>
-                <button className={styles.findButton} type="button" onClick={() => props.dispatch({ type: 'CONTENT_FIND_NEXT' })}>
-                  下一个
-                </button>
-                <button className={styles.findClose} type="button" aria-label="关闭查找" onClick={() => props.dispatch({ type: 'CONTENT_FIND_CLOSE' })}>
-                  <Icon name="close" />
-                </button>
-              </div>
-            ) : null}
+
           </div>
           {file && file.kind !== 'image' && file.kind !== 'binary' ? (
             <div className={styles.headerActions}>
@@ -286,6 +300,7 @@ export function CenterPanel(props: CenterPanelProps) {
         </div>
       ) : props.content.mode === 'editor' ? (
         <div className={styles.editorWrap} aria-label="源码编辑">
+          {floatingFindBar}
           <textarea
             ref={editorRef}
             className={styles.editor}
@@ -647,6 +662,7 @@ export function CenterPanel(props: CenterPanelProps) {
         </div>
       ) : file.kind === 'markdown' || file.kind === 'task' ? (
         <div className={styles.markdown} aria-label="渲染预览">
+          {floatingFindBar}
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={find.isOpen && find.query.trim() ? createHighlightComponents(find.query) : markdownComponents}
@@ -655,10 +671,14 @@ export function CenterPanel(props: CenterPanelProps) {
           </ReactMarkdown>
         </div>
       ) : (
-        <LineNumberedCode text={effectiveText} />
+        <div className={styles.codeWrap}>
+          {floatingFindBar}
+          <LineNumberedCode text={effectiveText} />
+        </div>
       )}
 
       {props.content.saveError ? <div className={styles.error}>{props.content.saveError}</div> : null}
     </Panel>
+    </div>
   );
 }

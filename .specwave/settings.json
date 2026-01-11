@@ -2,7 +2,12 @@
   "specwave": {
     "version": "0.3.0"
   },
-  "currentSession": null,
+  "currentSession": {
+    "mode": "spec",
+    "storyId": "STORY-000014",
+    "phase": "执行",
+    "createdAt": "2026-01-11T07:07:48Z"
+  },
   "executionGate": {
     "requiresExplicitApproval": true,
     "requiresRequirementConfirmation": true
@@ -40,8 +45,13 @@
         "updatedAt": "2026-01-09T20:10:20.4421157Z"
       },
       "019ba8c8-00c1-76b1-b488-87241d9017b6": {
-        "currentSession": null,
-        "updatedAt": "2026-01-10T16:54:43Z"
+        "currentSession": {
+          "mode": "spec",
+          "storyId": "STORY-000014",
+          "phase": "执行",
+          "createdAt": "2026-01-11T07:07:48Z"
+        },
+        "updatedAt": "2026-01-11T07:07:48Z"
       }
     },
     "legacy": {

@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -161,7 +162,40 @@ def _atomic_write_json(path: Path, obj: dict[str, Any]) -> None:
     content = json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(content, encoding="utf-8")
-    tmp.replace(path)
+    deadline = time.monotonic() + 5.0
+    delay = 0.05
+    while True:
+        try:
+            tmp.replace(path)
+            return
+        except OSError as e:
+            winerror = getattr(e, "winerror", None)
+            is_transient = isinstance(e, PermissionError) or winerror in (5, 32)
+            if not is_transient:
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+                raise
+
+            # Windows 上偶发被占用：replace 失败时先重试；超时后降级为原地写入。
+            if time.monotonic() >= deadline:
+                try:
+                    path.write_text(content, encoding="utf-8")
+                    try:
+                        tmp.unlink()
+                    except Exception:
+                        pass
+                    return
+                except Exception:
+                    try:
+                        tmp.unlink()
+                    except Exception:
+                        pass
+                    raise
+
+            time.sleep(delay)
+            delay = min(delay * 2, 0.5)
 
 
 def _ensure_session_store(settings: dict[str, Any]) -> dict[str, Any]:

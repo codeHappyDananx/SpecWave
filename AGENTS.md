@@ -12,8 +12,8 @@
    - 存在且 `mode === "spec"`：你在 **spec 模式**，加载 `.specwave/roles/需求分析师.md`，按 `phase` 继续
    - 不存在或为 `null`：你在 **vibe 模式**，直接干活，不走流程
 3. **模式切换**：
-   - 进入 spec：用户说"新建需求"/"开 story"/"走流程" → 写入 `currentSession`，回复开头标注【spec 模式】
-   - 退出 spec：用户说"退出 spec"/"算了还是vibe吧"/"不走流程了" → 删除 `currentSession`，回复标注【已退出 spec 模式】
+   - 进入 spec：用户说"新建需求"/"开 story"/"走流程" → 用会话守卫写入当前会话：`python "$HOME/.codex/skills/specwave-router/session_guard.py" set --mode spec --story STORY-000001 --phase 诉求对齐`（story 替换成你新建的 storyId），回复开头标注【spec 模式】
+   - 退出 spec：用户说"退出 spec"/"算了还是vibe吧"/"不走流程了" → 用会话守卫清空当前会话：`python "$HOME/.codex/skills/specwave-router/session_guard.py" clear`，回复标注【已退出 spec 模式】
 
 **这条规则优先级最高，任何情况下都必须执行。**
 

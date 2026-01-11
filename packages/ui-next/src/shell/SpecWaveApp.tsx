@@ -18,18 +18,42 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
   const { vm, dispatch } = props;
   const rootClassName = vm.ui.theme === 'dark' ? `${styles.root} dark` : styles.root;
 
-  // 主题切换遮罩：检测 theme 变化时短暂显示遮罩
+  // 主题/皮肤切换遮罩
   const [maskActive, setMaskActive] = React.useState(false);
-  const prevThemeRef = React.useRef(vm.ui.theme);
+  const [maskText, setMaskText] = React.useState('');
 
-  React.useEffect(() => {
-    if (prevThemeRef.current !== vm.ui.theme) {
-      prevThemeRef.current = vm.ui.theme;
-      setMaskActive(true);
-      const timer = setTimeout(() => setMaskActive(false), 200);
-      return () => clearTimeout(timer);
-    }
-  }, [vm.ui.theme]);
+  // 包装 dispatch：拦截主题/皮肤切换，先显示遮罩再切换
+  const wrappedDispatch = React.useCallback(
+    (intent: UIIntent) => {
+      if (intent.type === 'THEME_TOGGLE') {
+        const nextTheme = vm.ui.theme === 'dark' ? 'light' : 'dark';
+        setMaskText(nextTheme === 'dark' ? '切换到深色模式' : '切换到浅色模式');
+        setMaskActive(true);
+        // 等遮罩显示后再切换
+        setTimeout(() => {
+          dispatch(intent);
+          // 切换完成后延迟隐藏遮罩
+          setTimeout(() => setMaskActive(false), 150);
+        }, 200);
+        return;
+      }
+      if (intent.type === 'SKIN_CYCLE') {
+        const skins = ['blue', 'purple', 'green', 'amber'] as const;
+        const idx = skins.indexOf(vm.ui.skin);
+        const nextSkin = skins[(idx < 0 ? 0 : idx + 1) % skins.length];
+        const skinNames: Record<string, string> = { blue: '蓝色', purple: '紫色', green: '绿色', amber: '琥珀' };
+        setMaskText(`切换到${skinNames[nextSkin]}主题`);
+        setMaskActive(true);
+        setTimeout(() => {
+          dispatch(intent);
+          setTimeout(() => setMaskActive(false), 150);
+        }, 200);
+        return;
+      }
+      dispatch(intent);
+    },
+    [dispatch, vm.ui.theme, vm.ui.skin]
+  );
 
   const maskClassName = vm.ui.theme === 'dark'
     ? `${styles.themeMask} ${styles.themeMaskDark}`
@@ -38,12 +62,14 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
   if (vm.app.mode === 'welcome') {
     return (
       <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
-        <div className={maskClassName} data-active={maskActive} />
+        <div className={maskClassName} data-active={maskActive}>
+          {maskText && <span className={styles.themeMaskText}>{maskText}</span>}
+        </div>
         <WelcomePage
           recentProjects={vm.app.recentProjects}
           isLoading={vm.explorer.isLoading}
           error={vm.explorer.error}
-          dispatch={dispatch}
+          dispatch={wrappedDispatch}
         />
       </div>
     );
@@ -53,7 +79,9 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
 
   return (
     <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
-      <div className={maskClassName} data-active={maskActive} />
+      <div className={maskClassName} data-active={maskActive}>
+        {maskText && <span className={styles.themeMaskText}>{maskText}</span>}
+      </div>
       <div className={styles.app} aria-label="工作区">
         <TopBar
           projects={vm.projects}
@@ -62,7 +90,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           centerVisible={vm.centerVisible}
           rightVisible={vm.rightVisible}
           rightMode={vm.rightMode}
-          dispatch={dispatch}
+          dispatch={wrappedDispatch}
         />
 
         <LayoutGrid
@@ -70,12 +98,10 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           showLeft={vm.leftVisible}
           showCenter={vm.centerVisible}
           showRight={vm.rightVisible}
-          dispatch={dispatch}
-          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} activeStoryId={vm.storyStepper.storyId} dispatch={dispatch} minwPx={vm.panelMinW.leftPx} />}
-          // 中区不再用“内容最小宽度”强行撑开：避免出现必须横向拖拽才能读任务/markdown 的体验。
-          // 需要横向滚动的场景（如 code/pre）由内容自身的样式决定。
-          center={<CenterPanel content={vm.content} phaseIndicator={vm.phaseIndicator} storyStepper={vm.storyStepper} dispatch={dispatch} minwPx={0} />}
-          right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={dispatch} minwPx={vm.panelMinW.rightPx} />}
+          dispatch={wrappedDispatch}
+          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} activeStoryId={vm.storyStepper.storyId} dispatch={wrappedDispatch} minwPx={vm.panelMinW.leftPx} />}
+          center={<CenterPanel content={vm.content} phaseIndicator={vm.phaseIndicator} storyStepper={vm.storyStepper} dispatch={wrappedDispatch} minwPx={0} />}
+          right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={wrappedDispatch} minwPx={vm.panelMinW.rightPx} />}
         />
 
         <StatusBar

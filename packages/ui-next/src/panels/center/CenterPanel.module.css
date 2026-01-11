@@ -1,4 +1,7 @@
 .header{display:flex;align-items:center;gap:12px;min-width:0;width:100%;}
+
+/* CenterPanel 外层容器，用于悬浮查找框定位 */
+.centerPanelWrapper{position:relative;height:100%;min-height:0;display:flex;flex-direction:column;}
 .headerMain{min-width:0;display:flex;flex-direction:column;gap:6px;flex:1;}
 .titleRow{display:flex;align-items:center;gap:10px;min-width:0;}
 .fileName{font-weight:900;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -14,6 +17,22 @@
 .findClose{width:36px;height:36px;border-radius:999px;border:0;background:var(--sw-bg);color:var(--sw-fg);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform var(--t-quick),background var(--t-quick);flex:0 0 auto;}
 .findClose:hover{background:var(--sw-muted-hover);transform:scale(1.02);}
 .findClose:active{transform:scale(.98);}
+
+/* 紧凑查找框样式 */
+.findBarCompact{display:inline-flex;align-items:center;gap:0;border:1px solid var(--sw-border);border-radius:4px;background:var(--sw-bg);height:26px;font-size:12px;overflow:hidden;}
+
+/* 悬浮查找框样式 */
+.findBarFloat{position:absolute;top:8px;right:8px;z-index:100;display:inline-flex;align-items:center;gap:0;border:1px solid var(--sw-border);border-radius:4px;background:var(--sw-bg);height:26px;font-size:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+
+.findInputCompact{min-width:120px;max-width:180px;height:100%;border:0;background:transparent;padding:0 8px;font-family:var(--sw-font-sans);font-size:12px;outline:none;color:var(--sw-fg);}
+.findInputCompact::placeholder{color:var(--sw-fg-subtle);}
+.findInputCompact::-webkit-search-cancel-button{display:none;}
+.findMetaCompact{padding:0 8px;font-family:var(--sw-font-mono);font-size:11px;color:var(--sw-fg-muted);white-space:nowrap;border-left:1px solid var(--sw-border);}
+.findNavBtn{width:24px;height:100%;border:0;border-left:1px solid var(--sw-border);background:transparent;color:var(--sw-fg-muted);cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;transition:background var(--t-quick),color var(--t-quick);}
+.findNavBtn:hover{background:var(--sw-muted);color:var(--sw-fg);}
+.findNavBtn:active{background:var(--sw-muted-hover);}
+.findCloseBtn{width:24px;height:100%;border:0;border-left:1px solid var(--sw-border);background:transparent;color:var(--sw-fg-muted);cursor:pointer;font-size:14px;font-weight:400;display:inline-flex;align-items:center;justify-content:center;transition:background var(--t-quick),color var(--t-quick);}
+.findCloseBtn:hover{background:var(--sw-muted);color:var(--sw-fg);}
 .headerActions{display:flex;align-items:center;gap:10px;flex:0 0 auto;}
 .modeButton{border:0;border-radius:var(--sw-radius-md);padding:10px 12px;background:var(--sw-muted);cursor:pointer;font:inherit;font-weight:800;transition:transform var(--t-quick),background var(--t-quick);white-space:nowrap;}
 .modeButton:hover{background:var(--sw-muted-hover);transform:scale(1.02);}
@@ -23,7 +42,7 @@
 .emptyTitle{margin:0;font-weight:900;letter-spacing:-.02em;}
 .emptyDesc{margin:0;font-weight:700;}
 
-.editorWrap{min-height:0;height:100%;display:flex;}
+.editorWrap{min-height:0;height:100%;display:flex;position:relative;}
 .editor{width:100%;min-height:0;height:100%;resize:none;border:2px solid var(--sw-border);border-radius:var(--sw-radius-lg);background:var(--sw-bg);color:var(--sw-fg);padding:14px;font-family:var(--sw-font-mono);line-height:1.55;outline:none;}
 
 .taskBoard{display:flex;flex-direction:column;gap:12px;min-height:0;overflow-x:hidden;}
@@ -121,7 +140,7 @@
 .muted{color:var(--sw-fg-dim);font-weight:700;}
 .imageWrap{border-radius:var(--sw-radius-lg);background:var(--sw-bg);padding:18px;min-height:0;line-height:1.8;border:2px solid var(--sw-border);width:100%;display:flex;align-items:center;justify-content:center;overflow:auto;}
 .image{max-width:100%;height:auto;border-radius:var(--sw-radius-md);}
-.markdown{border-radius:var(--sw-radius-lg);background:var(--sw-bg);padding:18px clamp(18px,4vw,48px);min-height:0;line-height:1.8;border:2px solid var(--sw-border);width:100%;max-width:none;margin:0;}
+.markdown{border-radius:var(--sw-radius-lg);background:var(--sw-bg);padding:18px clamp(18px,4vw,48px);min-height:0;line-height:1.8;border:2px solid var(--sw-border);width:100%;max-width:none;margin:0;position:relative;}
 .markdown :where(h1,h2,h3){letter-spacing:-.02em;}
 .markdown :where(h1){font-size:1.55rem;font-weight:900;margin:.2em 0 .6em;}
 .markdown :where(h2){font-size:1.25rem;font-weight:900;margin:1em 0 .5em;}
@@ -143,6 +162,7 @@
 .table :where(th:last-child,td:last-child){border-right:0;}
 
 .code{border-radius:var(--sw-radius-lg);background:var(--sw-bg);color:var(--sw-fg);padding:14px;font-family:var(--sw-font-mono);line-height:1.55;overflow:auto;min-height:0;border:2px solid var(--sw-border);}
+.codeWrap{position:relative;min-height:0;height:100%;}
 .codeLine{display:flex;align-items:flex-start;gap:12px;min-width:max-content;}
 .codeNo{width:4ch;flex:0 0 auto;text-align:right;color:var(--sw-fg-subtle);user-select:none;}
 .codeText{white-space:pre;flex:0 0 auto;}

@@ -37,31 +37,23 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--muted-foreground);
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s;
+  background: var(--background);
 }
 
-.step-active .indicator {
-  border-color: var(--primary);
+.indicator-active {
+  border-color: transparent;
   background: var(--primary);
   color: var(--primary-foreground);
+  transform: scale(1.1);
 }
 
-.step-active .stepNumber {
-  color: var(--primary-foreground);
-}
-
-.step-complete .indicator {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-
-.step-inactive .indicator {
+.indicator-inactive {
   border-color: var(--border);
   background: transparent;
 }
 
-.step-disabled .indicator {
+.indicator-disabled {
   border-color: var(--muted);
   background: var(--muted);
   color: var(--muted-foreground);
@@ -70,11 +62,6 @@
 .stepNumber {
   font-size: 11px;
   font-weight: 600;
-}
-
-.checkIcon {
-  width: 14px;
-  height: 14px;
 }
 
 .label {
@@ -87,10 +74,6 @@
 .step-active .label {
   color: var(--foreground);
   font-weight: 600;
-}
-
-.step-complete .label {
-  color: var(--foreground);
 }
 
 .step-disabled .label {
@@ -108,6 +91,49 @@
   transition: background 0.2s;
 }
 
-.connectorActive {
-  background: var(--primary);
+/* Star Border 效果 - 旋转渐变边框 */
+.starBorder {
+  --star-color: var(--primary);
+  --star-speed: 4s;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.starBorder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    var(--star-color) 10%,
+    transparent 20%,
+    transparent 80%,
+    var(--star-color) 90%,
+    transparent 100%
+  );
+  animation: starRotate var(--star-speed) linear infinite;
+  border-radius: 50%;
+}
+
+.starBorderInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes starRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
