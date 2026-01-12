@@ -17,8 +17,9 @@ function highlightText(text: string, query: string): React.ReactNode {
   const regex = new RegExp(`(${escaped})`, 'gi');
   const parts = text.split(regex);
   if (parts.length === 1) return text;
+  // split + 捕获组：命中片段固定出现在奇数下标，避免使用带 g 的 regex.test 导致 lastIndex 乱跳。
   return parts.map((part, i) =>
-    regex.test(part) ? (
+    i % 2 === 1 ? (
       <mark key={i} className={styles.highlight}>
         {part}
       </mark>
@@ -28,17 +29,38 @@ function highlightText(text: string, query: string): React.ReactNode {
   );
 }
 
-function LineNumberedCode(props: { text: string }) {
-  const lines = React.useMemo(() => props.text.replaceAll('\r\n', '\n').split('\n'), [props.text]);
+function splitFirstLines(text: string, maxLines: number, maxChars: number) {
+  const normalized = text.replaceAll('\r\n', '\n');
+  const lines: string[] = [];
+  let start = 0;
+  const limit = Math.min(normalized.length, maxChars);
+  for (let i = 0; i < limit && lines.length < maxLines; i++) {
+    if (normalized[i] !== '\n') continue;
+    lines.push(normalized.slice(start, i));
+    start = i + 1;
+  }
+  const reachedCharLimit = limit < normalized.length;
+  if (lines.length < maxLines && !reachedCharLimit) {
+    lines.push(normalized.slice(start));
+    return { lines, truncated: false };
+  }
+  // 走到这里说明：行数到顶或字符到顶，需要截断；最后一行补上“当前片段剩余”。
+  lines.push(normalized.slice(start, limit));
+  return { lines, truncated: true };
+}
+
+function LineNumberedCode(props: { text: string; query: string }) {
+  const { lines, truncated } = React.useMemo(() => splitFirstLines(props.text, 4000, 200_000), [props.text]);
 
   return (
     <div className={styles.code} aria-label="文本预览">
+      {truncated ? <div className={styles.muted}>内容较长，仅预览前 4000 行 / 20 万字符；可切到源码查看全量内容（可能会卡顿）。</div> : null}
       {lines.map((line, idx) => (
         <div key={idx} className={styles.codeLine}>
           <span className={styles.codeNo} aria-hidden="true">
             {idx + 1}
           </span>
-          <span className={styles.codeText}>{line.length ? line : ' '}</span>
+          <span className={styles.codeText}>{line.length ? highlightText(line, props.query) : ' '}</span>
         </div>
       ))}
     </div>
@@ -128,6 +150,9 @@ function createHighlightComponents(query: string): Components {
     },
     em({ children, ...props }) {
       return <em {...props}>{highlightChildren(children, query)}</em>;
+    },
+    code({ children, ...props }) {
+      return <code {...props}>{highlightChildren(children, query)}</code>;
     }
   };
 }
@@ -158,6 +183,7 @@ export function CenterPanel(props: CenterPanelProps) {
   const findInputRef = React.useRef<HTMLInputElement | null>(null);
   const editorRef = React.useRef<HTMLTextAreaElement | null>(null);
   const findBarRef = React.useRef<HTMLDivElement | null>(null);
+  const previewRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (!file) return;
@@ -196,9 +222,27 @@ export function CenterPanel(props: CenterPanelProps) {
     const el = editorRef.current;
     if (!el) return;
     try {
+      el.focus();
       el.setSelectionRange(start, end);
     } catch {}
   }, [file, find.activeIndex, find.isOpen, find.matchStarts, find.query, props.content.mode]);
+
+  React.useEffect(() => {
+    if (!file) return;
+    if (!find.isOpen) return;
+    if (!find.query.trim()) return;
+    if (props.content.mode === 'editor') return;
+    const root = previewRef.current;
+    if (!root) return;
+    const t = window.setTimeout(() => {
+      const marks = root.querySelectorAll(`mark.${styles.highlight}`);
+      if (!marks.length) return;
+      const idx = Math.min(find.activeIndex, marks.length - 1);
+      const el = marks[idx] as HTMLElement | undefined;
+      el?.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [file, find.activeIndex, find.isOpen, find.query, props.content.mode]);
 
   const modeLabel = (() => {
     if (!file) return '切换';
@@ -211,6 +255,9 @@ export function CenterPanel(props: CenterPanelProps) {
     if (props.content.mode === 'view') return '切到源码';
     return '切到渲染';
   })();
+
+  const modeButtonDisabled = Boolean(file && modeLabel === '切到源码' && effectiveText.length > 300_000);
+  const modeButtonTitle = modeButtonDisabled ? '内容过大，禁用源码编辑以避免卡死。' : modeLabel;
 
   // 悬浮查找框组件
   const floatingFindBar = file && find.isOpen ? (
@@ -277,7 +324,12 @@ export function CenterPanel(props: CenterPanelProps) {
               <button
                 className={styles.modeButton}
                 type="button"
-                onClick={() => props.dispatch({ type: 'CONTENT_TOGGLE_VIEW_MODE' })}
+                disabled={modeButtonDisabled}
+                title={modeButtonTitle}
+                onClick={() => {
+                  if (modeButtonDisabled) return;
+                  props.dispatch({ type: 'CONTENT_TOGGLE_VIEW_MODE' });
+                }}
               >
                 {modeLabel}
               </button>
@@ -661,7 +713,7 @@ export function CenterPanel(props: CenterPanelProps) {
           {effectiveText ? <img className={styles.image} src={effectiveText} alt={file.name} /> : <div className={styles.muted}>图片内容为空。</div>}
         </div>
       ) : file.kind === 'markdown' || file.kind === 'task' ? (
-        <div className={styles.markdown} aria-label="渲染预览">
+        <div ref={previewRef} className={styles.markdown} aria-label="渲染预览">
           {floatingFindBar}
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -671,9 +723,9 @@ export function CenterPanel(props: CenterPanelProps) {
           </ReactMarkdown>
         </div>
       ) : (
-        <div className={styles.codeWrap}>
+        <div ref={previewRef} className={styles.codeWrap}>
           {floatingFindBar}
-          <LineNumberedCode text={effectiveText} />
+          <LineNumberedCode text={effectiveText} query={find.isOpen ? find.query : ''} />
         </div>
       )}
 

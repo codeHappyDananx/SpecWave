@@ -40,7 +40,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
       if (intent.type === 'SKIN_CYCLE') {
         const skins = ['blue', 'purple', 'green', 'amber'] as const;
         const idx = skins.indexOf(vm.ui.skin);
-        const nextSkin = skins[(idx < 0 ? 0 : idx + 1) % skins.length];
+        const nextSkin = skins[(idx < 0 ? 0 : idx + 1) % skins.length] ?? skins[0];
         const skinNames: Record<string, string> = { blue: '蓝色', purple: '紫色', green: '绿色', amber: '琥珀' };
         setMaskText(`切换到${skinNames[nextSkin]}主题`);
         setMaskActive(true);

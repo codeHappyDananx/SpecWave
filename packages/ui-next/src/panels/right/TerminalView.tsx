@@ -45,6 +45,26 @@ export function TerminalView(props: TerminalViewProps) {
     []
   );
 
+  const copySelection = React.useCallback(() => {
+    const term = termRef.current;
+    if (!term?.hasSelection()) return false;
+    const text = term.getSelection();
+    if (!text) return false;
+    dispatch({ type: 'TERMINAL_COPY', text });
+    try {
+      term.clearSelection();
+    } catch {}
+    return true;
+  }, [dispatch]);
+
+  const pasteFromClipboard = React.useCallback(() => {
+    if (!activeId) return;
+    dispatch({ type: 'TERMINAL_PASTE', id: activeId });
+    try {
+      termRef.current?.focus();
+    } catch {}
+  }, [activeId, dispatch]);
+
   useEffect(() => {
     if (!hasPanels) return;
     const el = containerRef.current;
@@ -64,6 +84,7 @@ export function TerminalView(props: TerminalViewProps) {
       fontSize: 12,
       lineHeight: 1.25,
       theme: termTheme,
+      rightClickSelectsWord: false,
       allowProposedApi: false
     });
     const fit = new FitAddon();
@@ -78,36 +99,6 @@ export function TerminalView(props: TerminalViewProps) {
     const onData = term.onData((data) => {
       dispatch({ type: 'TERMINAL_WRITE', id: activeId, data });
     });
-
-    const copySelection = () => {
-      if (!term.hasSelection()) return false;
-      const text = term.getSelection();
-      if (!text) return false;
-      dispatch({ type: 'TERMINAL_COPY', text });
-      try {
-        term.clearSelection();
-      } catch {}
-      return true;
-    };
-
-    const pasteFromClipboard = () => {
-      dispatch({ type: 'TERMINAL_PASTE', id: activeId });
-      try {
-        term.focus();
-      } catch {}
-    };
-
-    const onContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (term.hasSelection()) {
-        copySelection();
-        return;
-      }
-      pasteFromClipboard();
-    };
-
-    el.addEventListener('contextmenu', onContextMenu);
 
     // Windows 常用：Ctrl+Shift+C/V、Ctrl+Insert、Shift+Insert
     // 额外口径：Ctrl+C 有选区时复制；无选区时按“中断”处理（交给终端/pty）。
@@ -161,18 +152,36 @@ export function TerminalView(props: TerminalViewProps) {
     ro.observe(el);
     runFit();
 
+    // Windows 体验：右键直接动作（有选区复制；无选区粘贴）。
+    // 用 document 捕获阶段兜底：即使 xterm 内部拦截/变更目标，也能稳定收到右键菜单事件。
+    // 只 preventDefault（阻止系统菜单），不 stopPropagation（不阻断 xterm 自己的聚焦逻辑）。
+    const onContextMenuCapture = (e: MouseEvent) => {
+      const path = (typeof e.composedPath === 'function' ? e.composedPath() : []) as unknown[];
+      const inTerminal = path.includes(el) || (e.target instanceof Node && el.contains(e.target));
+      if (!inTerminal) return;
+
+      e.preventDefault();
+      if (term.hasSelection()) {
+        copySelection();
+        return;
+      }
+      pasteFromClipboard();
+    };
+
+    document.addEventListener('contextmenu', onContextMenuCapture, true);
+
     return () => {
       ro.disconnect();
       onData.dispose();
       cancelAnimationFrame(raf);
-      el.removeEventListener('contextmenu', onContextMenu);
+      document.removeEventListener('contextmenu', onContextMenuCapture, true);
       try {
         term.dispose();
       } catch {}
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [activeId, dispatch, hasPanels]);
+  }, [activeId, dispatch, hasPanels, copySelection, pasteFromClipboard]);
 
   useEffect(() => {
     if (!hasPanels) return;
@@ -204,7 +213,11 @@ export function TerminalView(props: TerminalViewProps) {
   return (
     <div className={styles.root} aria-label="终端面板">
       <div className={styles.pad} aria-label="终端内边距">
-        <div ref={containerRef} className={styles.xtermHost} aria-label="终端输出" />
+        <div
+          ref={containerRef}
+          className={styles.xtermHost}
+          aria-label="终端输出"
+        />
       </div>
     </div>
   );
