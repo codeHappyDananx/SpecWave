@@ -74,6 +74,7 @@ export class PtyManager {
         cols: args.cols ?? 80,
         rows: args.rows ?? 24,
         cwd: args.cwd ?? process.cwd(),
+        handleFlowControl: true,
         env: {
           ...process.env,
           TERM: 'xterm-256color'
@@ -87,12 +88,73 @@ export class PtyManager {
       };
 
       // 关键处理节点：终端输出为流式事件，必须由主进程统一转发，避免 UI 层直接接触 Node 能力。
+      // Windows 下 PowerShell 会在启动瞬间刷出多段输出；如果逐条 IPC 转发，容易把渲染与消息队列打爆，表现为“输入被阻断/无回显”。这里做无损合并：合并后再发送。
+      const PAUSE = '\x13'; // XOFF
+      const RESUME = '\x11'; // XON
+      const FLUSH_INTERVAL_MS = 16;
+      const FLOW_HIGH_WATER = 1_200_000;
+      const FLOW_LOW_WATER = 320_000;
+
+      let pending = '';
+      let pendingLen = 0;
+      let scheduled = false;
+      let flowPaused = false;
+
+      const tryResume = () => {
+        if (!flowPaused) return;
+        if (pendingLen > FLOW_LOW_WATER) return;
+        flowPaused = false;
+        try {
+          p.write(RESUME);
+        } catch {}
+      };
+
+      const flush = () => {
+        scheduled = false;
+        if (!pending) {
+          tryResume();
+          return;
+        }
+        const chunk = pending;
+        pending = '';
+        pendingLen = 0;
+        send({ type: 'data', id: args.id, data: chunk });
+        tryResume();
+      };
+
+      const scheduleFlush = () => {
+        if (scheduled) return;
+        scheduled = true;
+        setTimeout(flush, FLUSH_INTERVAL_MS);
+      };
+
       p.onData((data) => {
-        send({ type: 'data', id: args.id, data });
+        if (!data) return;
+        pending += data;
+        pendingLen += data.length;
+
+        if (!flowPaused && pendingLen >= FLOW_HIGH_WATER) {
+          flowPaused = true;
+          try {
+            p.write(PAUSE);
+          } catch {}
+        }
+
+        // 防止极端情况下 pending 过大占用内存；仍不丢数据，只是提前 flush。
+        if (pendingLen >= 3_000_000) {
+          flush();
+          return;
+        }
+
+        scheduleFlush();
       });
 
       // 关键处理节点：进程退出属于“语义分界点”（仍可显示历史输出，但不再可写入）。
       p.onExit((e) => {
+        // 退出前先把剩余输出刷出去，避免尾部丢失。
+        try {
+          flush();
+        } catch {}
         send({ type: 'exit', id: args.id, exitCode: e.exitCode, signal: e.signal ?? null });
         this.sessions.delete(args.id);
       });
@@ -133,4 +195,3 @@ export class PtyManager {
     this.sessions.delete(id);
   }
 }
-

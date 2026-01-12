@@ -69,7 +69,7 @@ export function TerminalView(props: TerminalViewProps) {
     dispatchRef.current = props.dispatch;
   }, [props.dispatch]);
 
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     panelIdSetRef.current = new Set(props.terminal.panelIds);
   }, [props.terminal.panelIds]);
 
@@ -170,7 +170,7 @@ export function TerminalView(props: TerminalViewProps) {
         const isCopyShortcut =
           (ctrl && shift && !alt && !meta && code === 'KeyC') || (ctrl && !shift && !alt && !meta && code === 'Insert');
         const isPasteShortcut =
-          (ctrl && shift && !alt && !meta && code === 'KeyV') || (shift && !ctrl && !alt && !meta && code === 'Insert');
+          (ctrl && !alt && !meta && code === 'KeyV') || (shift && !ctrl && !alt && !meta && code === 'Insert');
 
         if (isPasteShortcut) {
           pasteFromClipboardFor(id, term);
@@ -266,7 +266,7 @@ export function TerminalView(props: TerminalViewProps) {
     [setContainerFor]
   );
 
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     if (!hasPanels) return;
 
     const nextIds = props.terminal.panelIds;
