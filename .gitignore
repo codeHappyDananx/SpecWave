@@ -25,3 +25,6 @@ apps/**/src/**/*.d.ts.map
 
 # 外部工具产物（避免污染仓库）
 .kiro/
+
+# SpecWave 会话/工作区状态（机器相关，不进版本库）
+/.specwave/settings.json
