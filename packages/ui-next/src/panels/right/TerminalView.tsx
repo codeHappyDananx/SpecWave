@@ -245,6 +245,12 @@ export function TerminalView(props: TerminalViewProps) {
       inst.term.open(el);
       inst.isOpen = true;
 
+      // 关键：立刻派发一次尺寸事件，确保“会话创建”不依赖 FitAddon/ResizeObserver 的时序。
+      // cols/rows 即使还没 fit，也至少是默认的 80x24，足够让 pty 起起来并吐出提示符。
+      try {
+        dispatchRef.current({ type: 'TERMINAL_RESIZE', id, cols: inst.term.cols, rows: inst.term.rows });
+      } catch {}
+
       if (props.visible && id === activeId) {
         try {
           inst.term.focus();
