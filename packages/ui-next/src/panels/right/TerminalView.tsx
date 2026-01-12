@@ -237,8 +237,7 @@ export function TerminalView(props: TerminalViewProps) {
 
   const setContainerFor = React.useCallback(
     (id: string, el: HTMLDivElement | null) => {
-      const inst = instancesRef.current.get(id);
-      if (!inst) return;
+      const inst = instancesRef.current.get(id) ?? ensureInstance(id);
       inst.container = el;
       if (!el || inst.isOpen) return;
 
@@ -253,7 +252,7 @@ export function TerminalView(props: TerminalViewProps) {
         requestAnimationFrame(() => fitAndResize(id));
       }
     },
-    [activeId, fitAndResize, props.visible]
+    [activeId, ensureInstance, fitAndResize, props.visible]
   );
 
   const getContainerRef = React.useCallback(
