@@ -452,11 +452,8 @@ export function handleTaskIntent(args: { ctx: StoreCtx; state: AppState; intent:
 
       const existingId = ensurePanel();
       if (existingId) {
-        void (async () => {
-          const api = window.specwave;
-          if (!api?.terminalWrite) return;
-          api.terminalWrite(existingId, template);
-        })();
+        // 通过 intent 写入：由 TERMINAL_WRITE/TERMINAL_RESIZE 统一兜底“会话未创建”的场景。
+        void Promise.resolve().then(() => ctx.dispatch({ type: 'TERMINAL_WRITE', id: existingId, data: template }));
 
         return {
           vm: {
@@ -470,36 +467,7 @@ export function handleTaskIntent(args: { ctx: StoreCtx; state: AppState; intent:
 
       const nextId = `terminal-${Date.now()}`;
       ctx.terminalUserTyped.delete(nextId);
-      const cwd = vm.explorer.projectRoot ?? null;
-
-      void (async () => {
-        const api = window.specwave;
-        if (!api?.terminalCreateSession) return;
-        const res = await api.terminalCreateSession({ id: nextId, cwd });
-        if (!res.ok) {
-          if (api.showMessageBox) {
-            try {
-              await api.showMessageBox({
-                title: '终端启动失败',
-                message: '终端会话启动失败，已回滚该面板。',
-                detail: String(res.error || ''),
-                buttons: ['知道了'],
-                defaultId: 0
-              });
-            } catch {}
-          }
-          ctx.set((state2) => {
-            const vm2 = state2.vm;
-            const nextIds = vm2.terminal.panelIds.filter((id) => id !== nextId);
-            const nextActive = vm2.terminal.activePanelId === nextId ? (nextIds[0] ?? '') : vm2.terminal.activePanelId;
-            return { vm: { ...vm2, terminal: { ...vm2.terminal, panelIds: nextIds, activePanelId: nextActive } } };
-          });
-          return;
-        }
-        try {
-          api.terminalWrite?.(nextId, template);
-        } catch {}
-      })();
+      void Promise.resolve().then(() => ctx.dispatch({ type: 'TERMINAL_WRITE', id: nextId, data: template }));
 
       return {
         vm: {

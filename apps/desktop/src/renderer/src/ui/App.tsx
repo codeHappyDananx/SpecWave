@@ -6,10 +6,25 @@ export function App() {
   const vm = useAppStore((s) => s.vm);
   const dispatch = useAppStore((s) => s.dispatch);
 
-  const subscribeTerminalEvent = React.useCallback<SubscribeTerminalEvent>((cb) => {
+  const terminalSubsRef = React.useRef(new Set<(evt: unknown) => void>());
+
+  React.useLayoutEffect(() => {
     const api = window.specwave;
-    if (!api?.onTerminalEvent) return () => {};
-    return api.onTerminalEvent(cb as any);
+    if (!api?.onTerminalEvent) return;
+    return api.onTerminalEvent((evt) => {
+      for (const cb of terminalSubsRef.current) {
+        try {
+          cb(evt);
+        } catch {}
+      }
+    });
+  }, []);
+
+  const subscribeTerminalEvent = React.useCallback<SubscribeTerminalEvent>((cb) => {
+    terminalSubsRef.current.add(cb as any);
+    return () => {
+      terminalSubsRef.current.delete(cb as any);
+    };
   }, []);
 
   React.useEffect(() => {

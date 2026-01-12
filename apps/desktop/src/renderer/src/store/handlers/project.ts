@@ -79,10 +79,22 @@ async function restartIdleTerminalSessionsToCwd(args: {
 
   for (const id of args.terminalIds) {
     if (args.ctx.terminalUserTyped.has(id)) continue;
-    const res = await api.terminalCreateSession({ id, cwd: args.cwd });
-    if (!res.ok) {
-      console.warn('[SpecWave][terminal] 重建终端会话失败：', { id, error: res.error });
+    args.ctx.terminalSessionEnsured.delete(id);
+    const size = args.ctx.terminalLastSizeById.get(id);
+    const res = await api.terminalCreateSession({
+      id,
+      cwd: args.cwd,
+      cols: size?.cols ?? null,
+      rows: size?.rows ?? null
+    });
+    if (res.ok) {
+      args.ctx.terminalSessionEnsured.add(id);
+      try {
+        api.terminalWrite?.(id, '\r');
+      } catch {}
+      continue;
     }
+    console.warn('[SpecWave][terminal] 重建终端会话失败：', { id, error: res.error });
   }
 }
 

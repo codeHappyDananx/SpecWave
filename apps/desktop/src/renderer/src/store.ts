@@ -31,6 +31,8 @@ import { externalChangePromptState } from './store/shared/externalChangePrompt';
 const msg = (who: ChatMessageVM['who'], text: string): ChatMessageVM => ({ who, text });
 
 const terminalUserTyped = new Set<string>();
+const terminalSessionEnsured = new Set<string>();
+const terminalLastSizeById = new Map<string, { cols: number; rows: number }>();
 
 type SpecwaveWindowKind = 'welcome' | 'main';
 
@@ -557,7 +559,17 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set((state) => {
       const handled = dispatchByHandlers({
-        ctx: { set, get, dispatch: get().dispatch, terminalUserTyped, specwaveWindowKind, bootProjectPath, initialVm },
+        ctx: {
+          set,
+          get,
+          dispatch: get().dispatch,
+          terminalUserTyped,
+          terminalSessionEnsured,
+          terminalLastSizeById,
+          specwaveWindowKind,
+          bootProjectPath,
+          initialVm
+        },
         state,
         intent
       });
@@ -1232,27 +1244,6 @@ void (async () => {
       app: { ...state.vm.app, recentProjects }
     }
   }));
-})();
-
-void (async () => {
-  const api = window.specwave;
-  if (specwaveWindowKind !== 'main') return;
-  if (!api?.terminalCreateSession) return;
-
-  const id = useAppStore.getState().vm.terminal.activePanelId;
-  const cwd = bootProjectPath ?? useAppStore.getState().vm.explorer.projectRoot ?? null;
-  const res = await api.terminalCreateSession({ id, cwd });
-  if (!res.ok && api.showMessageBox) {
-    try {
-      await api.showMessageBox({
-        title: '终端启动失败',
-        message: '默认终端会话启动失败。',
-        detail: String(res.error || ''),
-        buttons: ['知道了'],
-        defaultId: 0
-      });
-    } catch {}
-  }
 })();
 
 let fsBridgeSubscribed = false;

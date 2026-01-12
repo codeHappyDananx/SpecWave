@@ -14,6 +14,8 @@ export type StoreCtx = {
   get: () => AppState;
   dispatch: (intent: UIIntent) => void;
   terminalUserTyped: Set<string>;
+  terminalSessionEnsured: Set<string>;
+  terminalLastSizeById: Map<string, { cols: number; rows: number }>;
   specwaveWindowKind: 'welcome' | 'main';
   bootProjectPath: string | null;
   initialVm: AppViewModel;

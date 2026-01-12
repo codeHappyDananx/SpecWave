@@ -15,6 +15,43 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
   const { ctx, state, intent } = args;
   const vm = state.vm;
 
+  const ensureSession = async (id: string, cols?: number | null, rows?: number | null) => {
+    if (ctx.terminalSessionEnsured.has(id)) return true;
+    const api = window.specwave;
+    if (!api?.terminalCreateSession) return false;
+
+    const cwd = ctx.bootProjectPath ?? ctx.get().vm.explorer.projectRoot ?? null;
+    const res = await api.terminalCreateSession({ id, cwd, cols: cols ?? null, rows: rows ?? null });
+    if (res.ok) {
+      ctx.terminalSessionEnsured.add(id);
+      return true;
+    }
+
+    if (api.showMessageBox) {
+      try {
+        await api.showMessageBox({
+          title: '终端启动失败',
+          message: '终端会话启动失败，已关闭该面板。',
+          detail: String(res.error || ''),
+          buttons: ['知道了'],
+          defaultId: 0
+        });
+      } catch {}
+    }
+
+    ctx.set((state2) => {
+      const vm2 = state2.vm;
+      if (!vm2.terminal.panelIds.includes(id)) return { vm: vm2 };
+      const nextIds = vm2.terminal.panelIds.filter((x) => x !== id);
+      const nextActive = vm2.terminal.activePanelId === id ? (nextIds[0] ?? '') : vm2.terminal.activePanelId;
+      return { vm: { ...vm2, terminal: { ...vm2.terminal, panelIds: nextIds, activePanelId: nextActive } } };
+    });
+    ctx.terminalUserTyped.delete(id);
+    ctx.terminalSessionEnsured.delete(id);
+    ctx.terminalLastSizeById.delete(id);
+    return false;
+  };
+
   switch (intent.type) {
     case 'TERMINAL_PANEL_CLOSE': {
       void (async () => {
@@ -24,6 +61,8 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
       })();
 
       ctx.terminalUserTyped.delete(intent.id);
+      ctx.terminalSessionEnsured.delete(intent.id);
+      ctx.terminalLastSizeById.delete(intent.id);
       const nextIds = vm.terminal.panelIds.filter((id) => id !== intent.id);
       const nextActive = vm.terminal.activePanelId === intent.id ? (nextIds[0] ?? '') : vm.terminal.activePanelId;
       return {
@@ -39,7 +78,19 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
       const api = window.specwave;
       if (!api?.terminalWrite) return { vm };
       ctx.terminalUserTyped.add(intent.id);
-      api.terminalWrite(intent.id, intent.data);
+      if (ctx.terminalSessionEnsured.has(intent.id)) {
+        api.terminalWrite(intent.id, intent.data);
+        return { vm };
+      }
+
+      void (async () => {
+        const size = ctx.terminalLastSizeById.get(intent.id);
+        const ok = await ensureSession(intent.id, size?.cols ?? null, size?.rows ?? null);
+        if (!ok) return;
+        try {
+          api.terminalWrite(intent.id, intent.data);
+        } catch {}
+      })();
       return { vm };
     }
     case 'TERMINAL_COPY': {
@@ -126,7 +177,23 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
     case 'TERMINAL_RESIZE': {
       const api = window.specwave;
       if (!api?.terminalResize) return { vm };
-      api.terminalResize(intent.id, intent.cols, intent.rows);
+      ctx.terminalLastSizeById.set(intent.id, { cols: intent.cols, rows: intent.rows });
+
+      if (ctx.terminalSessionEnsured.has(intent.id)) {
+        api.terminalResize(intent.id, intent.cols, intent.rows);
+        return { vm };
+      }
+
+      void (async () => {
+        const ok = await ensureSession(intent.id, intent.cols, intent.rows);
+        if (!ok) return;
+        try {
+          api.terminalResize(intent.id, intent.cols, intent.rows);
+        } catch {}
+        try {
+          api.terminalWrite?.(intent.id, '\r');
+        } catch {}
+      })();
       return { vm };
     }
     default:

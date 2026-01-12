@@ -308,7 +308,7 @@ export function TerminalView(props: TerminalViewProps) {
     });
   }, [enqueueWriteFor]);
 
-  useEffect(() => {
+  React.useLayoutEffect(() => {
     const subscribe = props.subscribeTerminalEvent;
     if (!subscribe) return;
     const unsub = subscribe((evt: TerminalEvent) => {
