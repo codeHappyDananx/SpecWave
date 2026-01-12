@@ -33,7 +33,7 @@ export type TopBarProps = {
   dispatch: (intent: TopBarIntent) => void;
 };
 
-export function TopBar(props: TopBarProps) {
+export const TopBar = React.memo(function TopBar(props: TopBarProps) {
   const activeTab = props.projects.activeTabId ? props.projects.openTabs.find((t) => t.id === props.projects.activeTabId) : null;
   const [searchValue, setSearchValue] = React.useState(props.globalSearchQuery);
 
@@ -216,4 +216,4 @@ export function TopBar(props: TopBarProps) {
       </div>
     </header>
   );
-}
+});

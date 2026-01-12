@@ -51,6 +51,8 @@
 | `packages/ui-next/src/panels/center/PhaseIndicator.tsx` | 阶段流转指示器：ReactBits Stepper 风格，展示 Story 6 阶段进度（诉求/需求/设计/任务/执行/完成），支持点击跳转，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 PhaseIndicatorVM，dispatch PHASE_INDICATOR_CLICK |
 | `packages/ui-next/src/panels/center/ReactBitsStepper.tsx` | React Bits Stepper 组件：展示 Story 3 阶段进度（需求/设计/任务），支持点击切换阶段，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 StoryStepperVM，dispatch STORY_STEPPER_PHASE_CLICK |
 | `packages/ui-next/src/panels/right` | 右栏：终端/对话 tabs | `primitives` | `shell` | 禁止 import 其他 panels |
+| `packages/ui-next/src/shell/ports.ts` | UI 端口类型：`subscribeTerminalEvent`（订阅终端事件） | 无 | `shell/SpecWaveApp`、`panels/right`、renderer `ui/App.tsx` | 只放类型定义，避免 UI 直接依赖 preload |
+| `packages/ui-next/src/panels/right/TerminalView.tsx` | 终端视图：封装 `@xterm/xterm`（终端组件），通过 `subscribeTerminalEvent`（订阅终端事件）直写 xterm 缓冲；处理自适应尺寸、滚动历史（xterm `scrollback`）、复制/粘贴快捷键与右键动作 | contracts + `shell/ports.ts` | `panels/right/RightPanel` | 只派发 `UIIntent`；剪贴板与 `pty`（伪终端）能力走 preload；终端输出不进 VM |
 | `packages/ui-next/src/primitives` | 可复用 UI 组件与样式 | tokens | panels/shell | 自写组件样式用 CSS Modules；shadcn 引入组件允许 Tailwind class（集中在 `primitives/shadcn`） |
 | `packages/ui-next/src/primitives/StoryCard.tsx` | Story 卡片组件：展示需求号、标题、任务进度、阶段标签，支持 isActive 高亮 | contracts | `panels/left/StoryBoardView` | 纯展示组件，不含业务逻辑 |
 | `packages/ui-next/src/primitives/TiltedCard.tsx` | Tilted Card 动效容器（克制 tilt/scale，自动尊重“减少动态效果”） | `motion/react` | `panels/center` | 只做动效与降级，不绑定业务字段 |
@@ -71,7 +73,7 @@
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
 | `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty（含目录监听与二进制读取） | Electron/Node | Electron entry | 系统能力集中在这里 |
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |
-| `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（含图片预览与文件外部变更处理） | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
+| `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |

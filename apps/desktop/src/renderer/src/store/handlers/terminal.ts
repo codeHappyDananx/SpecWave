@@ -26,12 +26,10 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
       ctx.terminalUserTyped.delete(intent.id);
       const nextIds = vm.terminal.panelIds.filter((id) => id !== intent.id);
       const nextActive = vm.terminal.activePanelId === intent.id ? (nextIds[0] ?? '') : vm.terminal.activePanelId;
-      const nextOutput = { ...vm.terminal.outputByPanel };
-      delete nextOutput[intent.id];
       return {
         vm: {
           ...vm,
-          terminal: { ...vm.terminal, panelIds: nextIds, activePanelId: nextActive, outputByPanel: nextOutput }
+          terminal: { ...vm.terminal, panelIds: nextIds, activePanelId: nextActive }
         }
       };
     }

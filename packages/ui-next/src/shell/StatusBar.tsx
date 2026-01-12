@@ -11,7 +11,7 @@ export type StatusBarProps = {
   theme: 'light' | 'dark';
 };
 
-export function StatusBar(props: StatusBarProps) {
+export const StatusBar = React.memo(function StatusBar(props: StatusBarProps) {
   const fileLabel = props.filePath ? props.filePath.split(/[/\\]/).pop() ?? props.filePath : null;
 
   return (
@@ -28,4 +28,4 @@ export function StatusBar(props: StatusBarProps) {
       </div>
     </footer>
   );
-}
+});

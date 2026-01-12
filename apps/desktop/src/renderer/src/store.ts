@@ -30,7 +30,6 @@ import { externalChangePromptState } from './store/shared/externalChangePrompt';
 
 const msg = (who: ChatMessageVM['who'], text: string): ChatMessageVM => ({ who, text });
 
-const initialTerminalBootText = ['正在启动终端…\r\n'];
 const terminalUserTyped = new Set<string>();
 
 type SpecwaveWindowKind = 'welcome' | 'main';
@@ -174,8 +173,7 @@ const initialVm: AppViewModel = {
   globalSearchQuery: '',
   terminal: {
     activePanelId: 'terminal-1',
-    panelIds: ['terminal-1'],
-    outputByPanel: { 'terminal-1': initialTerminalBootText }
+    panelIds: ['terminal-1']
   },
   chat: {
     sessionIds: ['chat-1', 'chat-2'],
@@ -218,8 +216,6 @@ const initialVm: AppViewModel = {
     phases: []
   }
 };
-
-const MAX_TERMINAL_CHUNKS = 2000;
 
 let openFileSeq = 0;
 
@@ -1104,6 +1100,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           if (vm.rightMode === 'terminal') {
             const nextId = `terminal-${Date.now()}`;
             terminalUserTyped.delete(nextId);
+            const prevActive = vm.terminal.activePanelId;
 
             void (async () => {
               const api = window.specwave;
@@ -1111,11 +1108,23 @@ export const useAppStore = create<AppState>((set, get) => ({
               const cwd = get().vm.explorer.projectRoot ?? null;
               const res = await api.terminalCreateSession({ id: nextId, cwd });
               if (res.ok) return;
+              if (api.showMessageBox) {
+                try {
+                  await api.showMessageBox({
+                    title: '终端启动失败',
+                    message: '终端会话启动失败，已回滚该面板。',
+                    detail: String(res.error || ''),
+                    buttons: ['知道了'],
+                    defaultId: 0
+                  });
+                } catch {}
+              }
               set((state) => {
                 const vm2 = state.vm;
-                const prev = vm2.terminal.outputByPanel[nextId] ?? [];
-                const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
-                return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: { ...vm2.terminal.outputByPanel, [nextId]: next } } } };
+                const nextIds = vm2.terminal.panelIds.filter((id) => id !== nextId);
+                const nextActive =
+                  vm2.terminal.activePanelId === nextId ? (prevActive || nextIds[0] || '') : vm2.terminal.activePanelId;
+                return { vm: { ...vm2, terminal: { ...vm2.terminal, panelIds: nextIds, activePanelId: nextActive } } };
               });
             })();
 
@@ -1124,8 +1133,7 @@ export const useAppStore = create<AppState>((set, get) => ({
                 ...vm,
                 terminal: {
                   panelIds: [...vm.terminal.panelIds, nextId],
-                  activePanelId: nextId,
-                  outputByPanel: { ...vm.terminal.outputByPanel, [nextId]: ['正在启动终端…\r\n'] }
+                  activePanelId: nextId
                 },
                 rightVisible: true
               }
@@ -1226,89 +1234,24 @@ void (async () => {
   }));
 })();
 
-let terminalBridgeSubscribed = false;
 void (async () => {
   const api = window.specwave;
-  if (!api?.onTerminalEvent) return;
-  if (terminalBridgeSubscribed) return;
-  terminalBridgeSubscribed = true;
+  if (specwaveWindowKind !== 'main') return;
+  if (!api?.terminalCreateSession) return;
 
-  const pending: Record<string, string[]> = {};
-  let scheduled = false;
-
-  const flush = () => {
-    scheduled = false;
-    const ids = Object.keys(pending);
-    if (ids.length === 0) return;
-
-    useAppStore.setState((state) => {
-      const vm = state.vm;
-      let nextOutputByPanel = vm.terminal.outputByPanel;
-
-      for (const id of ids) {
-        const chunks = pending[id];
-        if (!chunks || chunks.length === 0) continue;
-        delete pending[id];
-
-        const prevRaw = nextOutputByPanel[id] ?? [];
-        const prev = prevRaw.length === 1 && prevRaw[0]?.startsWith('正在启动终端…') ? [] : prevRaw;
-        // 性能优化：把本次 pending 的所有 chunk 合并成一个字符串，减少数组长度
-        const batchedChunk = chunks.join('');
-        const merged = [...prev, batchedChunk].slice(-MAX_TERMINAL_CHUNKS);
-        nextOutputByPanel = { ...nextOutputByPanel, [id]: merged };
-      }
-
-      return {
-        vm: {
-          ...vm,
-          terminal: {
-            ...vm.terminal,
-            outputByPanel: nextOutputByPanel
-          }
-        }
-      };
-    });
-  };
-
-  const scheduleFlush = () => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(flush);
-  };
-
-  api.onTerminalEvent((evt) => {
-    switch (evt.type) {
-      case 'data': {
-        (pending[evt.id] ||= []).push(evt.data);
-        scheduleFlush();
-        return;
-      }
-      case 'exit': {
-        const tail = `\r\n[进程已退出] exitCode=${evt.exitCode}${evt.signal ? ` signal=${evt.signal}` : ''}\r\n`;
-        (pending[evt.id] ||= []).push(tail);
-        scheduleFlush();
-        return;
-      }
-      case 'error': {
-        (pending[evt.id] ||= []).push(`\r\n[终端错误] ${evt.error}\r\n`);
-        scheduleFlush();
-        return;
-      }
-    }
-  });
-
-  if (specwaveWindowKind === 'main' && api.terminalCreateSession) {
-    const id = useAppStore.getState().vm.terminal.activePanelId;
-    const cwd = bootProjectPath ?? useAppStore.getState().vm.explorer.projectRoot ?? null;
-    const res = await api.terminalCreateSession({ id, cwd });
-    if (!res.ok) {
-      useAppStore.setState((state) => {
-        const vm = state.vm;
-        const prev = vm.terminal.outputByPanel[id] ?? [];
-        const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
-        return { vm: { ...vm, terminal: { ...vm.terminal, outputByPanel: { ...vm.terminal.outputByPanel, [id]: next } } } };
+  const id = useAppStore.getState().vm.terminal.activePanelId;
+  const cwd = bootProjectPath ?? useAppStore.getState().vm.explorer.projectRoot ?? null;
+  const res = await api.terminalCreateSession({ id, cwd });
+  if (!res.ok && api.showMessageBox) {
+    try {
+      await api.showMessageBox({
+        title: '终端启动失败',
+        message: '默认终端会话启动失败。',
+        detail: String(res.error || ''),
+        buttons: ['知道了'],
+        defaultId: 0
       });
-    }
+    } catch {}
   }
 })();
 

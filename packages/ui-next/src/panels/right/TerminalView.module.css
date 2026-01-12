@@ -1,6 +1,8 @@
 .root{min-height:0;height:100%;min-width:0;display:flex;flex-direction:column;background:transparent;}
 .pad{flex:1;min-height:0;min-width:0;padding:10px 12px;background:var(--sw-terminal-bg);}
-.xtermHost{min-height:0;height:100%;min-width:0;overflow:hidden;}
+.sessionStack{position:relative;min-height:0;height:100%;min-width:0;overflow:hidden;}
+.session{position:absolute;inset:0;min-height:0;min-width:0;}
+.session[data-active="0"]{display:none;}
 .emptyHint{width:100%;height:100%;display:grid;place-items:center;gap:8px;color:var(--sw-terminal-fg);text-align:center;padding:18px 16px;}
 .emptyHintTitle{font-weight:900;letter-spacing:-.02em;}
 .emptyHintMuted{font-weight:700;color:rgba(241,245,249,0.70);}

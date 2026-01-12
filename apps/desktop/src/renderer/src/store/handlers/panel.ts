@@ -15,10 +15,10 @@ const msg = (who: ChatMessageVM['who'], text: string): ChatMessageVM => ({ who, 
  * - 读写的 VM 字段：
  *   - leftVisible / centerVisible / rightVisible / rightMode / leftViewMode
  *   - layout（仅通过 normalizeLayoutStable 做归一化）
- *   - terminal（新增 panelId、activePanelId、outputByPanel）
+ *   - terminal（新增 panelId、activePanelId）
  *   - chat（新增 sessionId、activeSessionId、messagesBySession、draftBySession）
  * - 副作用：
- *   - RIGHT_PANEL_ADD + terminal 模式下，会调用 preload 的 terminalCreateSession；失败时回写 outputByPanel。
+ *   - RIGHT_PANEL_ADD + terminal 模式下，会调用 preload 的 terminalCreateSession；失败时弹窗提示并回滚 panel。
  * - 边界：
  *   - 关闭 center 时强制打开 right 且切到 terminal，保证工作区仍有可用输出面板。
  */
@@ -65,6 +65,7 @@ export function handlePanelIntent(args: { ctx: StoreCtx; state: AppState; intent
       if (vm.rightMode === 'terminal') {
         const nextId = `terminal-${Date.now()}`;
         ctx.terminalUserTyped.delete(nextId);
+        const prevActive = vm.terminal.activePanelId;
 
         void (async () => {
           const api = window.specwave;
@@ -72,11 +73,22 @@ export function handlePanelIntent(args: { ctx: StoreCtx; state: AppState; intent
           const cwd = ctx.get().vm.explorer.projectRoot ?? null;
           const res = await api.terminalCreateSession({ id: nextId, cwd });
           if (res.ok) return;
+          if (api.showMessageBox) {
+            try {
+              await api.showMessageBox({
+                title: '终端启动失败',
+                message: '终端会话启动失败，已回滚该面板。',
+                detail: String(res.error || ''),
+                buttons: ['知道了'],
+                defaultId: 0
+              });
+            } catch {}
+          }
           ctx.set((state2) => {
             const vm2 = state2.vm;
-            const prev = vm2.terminal.outputByPanel[nextId] ?? [];
-            const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
-            return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: { ...vm2.terminal.outputByPanel, [nextId]: next } } } };
+            const nextIds = vm2.terminal.panelIds.filter((id) => id !== nextId);
+            const nextActive = vm2.terminal.activePanelId === nextId ? (prevActive || nextIds[0] || '') : vm2.terminal.activePanelId;
+            return { vm: { ...vm2, terminal: { ...vm2.terminal, panelIds: nextIds, activePanelId: nextActive } } };
           });
         })();
 
@@ -86,7 +98,6 @@ export function handlePanelIntent(args: { ctx: StoreCtx; state: AppState; intent
             terminal: {
               panelIds: [...vm.terminal.panelIds, nextId],
               activePanelId: nextId,
-              outputByPanel: { ...vm.terminal.outputByPanel, [nextId]: ['正在启动终端…\r\n'] }
             },
             rightVisible: true
           }

@@ -292,7 +292,6 @@ export type AppViewModel = {
   terminal: {
     panelIds: string[];
     activePanelId: string;
-    outputByPanel: Record<string, string[]>;
   };
 
   chat: {

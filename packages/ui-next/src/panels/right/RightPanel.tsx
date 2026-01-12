@@ -6,6 +6,7 @@ import { ClosableTab } from '../../primitives/ClosableTab';
 import { Icon } from '../../primitives/Icons';
 import { IconButton } from '../../primitives/IconButton';
 import { Panel } from '../../primitives/Panel';
+import type { SubscribeTerminalEvent } from '../../shell/ports';
 import styles from './RightPanel.module.css';
 
 type RightIntent = Extract<
@@ -30,9 +31,10 @@ export type RightPanelProps = {
   chat: AppViewModel['chat'];
   dispatch: (intent: RightIntent) => void;
   minwPx: number;
+  subscribeTerminalEvent?: SubscribeTerminalEvent;
 };
 
-export function RightPanel(props: RightPanelProps) {
+export const RightPanel = React.memo(function RightPanel(props: RightPanelProps) {
   const panelVariant = props.rightMode === 'terminal' ? 'terminal' : 'default';
   const headerTabs =
     props.rightMode === 'terminal' ? (
@@ -113,11 +115,19 @@ export function RightPanel(props: RightPanelProps) {
         </div>
       }
     >
-      {props.rightMode === 'terminal' ? (
-        <TerminalView terminal={props.terminal} dispatch={props.dispatch} />
-      ) : (
-        <ChatView chat={props.chat} dispatch={props.dispatch} />
-      )}
+      <div className={styles.stack} aria-label="右区内容">
+        <div className={styles.pane} data-active={props.rightMode === 'terminal' ? '1' : '0'}>
+          <TerminalView
+            terminal={props.terminal}
+            dispatch={props.dispatch}
+            subscribeTerminalEvent={props.subscribeTerminalEvent}
+            visible={props.rightMode === 'terminal'}
+          />
+        </div>
+        <div className={styles.pane} data-active={props.rightMode === 'chat' ? '1' : '0'}>
+          <ChatView chat={props.chat} dispatch={props.dispatch} />
+        </div>
+      </div>
     </Panel>
   );
-}
+});

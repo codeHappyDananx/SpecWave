@@ -107,7 +107,7 @@ function iconForFileName(name: string) {
   return File;
 }
 
-export function LeftPanel(props: LeftPanelProps) {
+export const LeftPanel = React.memo(function LeftPanel(props: LeftPanelProps) {
   const iconClassName = 'text-ring/70';
   const chevronClassName = 'text-ring/50 transition-transform';
   const menuButtonClassName = 'text-[11px]';
@@ -510,4 +510,4 @@ export function LeftPanel(props: LeftPanelProps) {
         : null}
     </Panel>
   );
-}
+});

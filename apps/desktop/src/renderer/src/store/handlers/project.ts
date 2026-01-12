@@ -77,26 +77,12 @@ async function restartIdleTerminalSessionsToCwd(args: {
   const api = args.api;
   if (!api?.terminalCreateSession) return;
 
-  args.ctx.set((state) => {
-    const vm2 = state.vm;
-    const nextOutput = { ...vm2.terminal.outputByPanel };
-    for (const id of args.terminalIds) {
-      if (args.ctx.terminalUserTyped.has(id)) continue;
-      nextOutput[id] = ['正在启动终端…\r\n'];
-    }
-    return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: nextOutput } } };
-  });
-
   for (const id of args.terminalIds) {
     if (args.ctx.terminalUserTyped.has(id)) continue;
     const res = await api.terminalCreateSession({ id, cwd: args.cwd });
-    if (res.ok) continue;
-    args.ctx.set((state) => {
-      const vm2 = state.vm;
-      const prev = vm2.terminal.outputByPanel[id] ?? [];
-      const next = [...prev, `\r\n[终端启动失败] ${res.error}\r\n`];
-      return { vm: { ...vm2, terminal: { ...vm2.terminal, outputByPanel: { ...vm2.terminal.outputByPanel, [id]: next } } } };
-    });
+    if (!res.ok) {
+      console.warn('[SpecWave][terminal] 重建终端会话失败：', { id, error: res.error });
+    }
   }
 }
 

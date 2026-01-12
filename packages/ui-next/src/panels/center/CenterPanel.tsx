@@ -168,7 +168,7 @@ function highlightChildren(children: React.ReactNode, query: string): React.Reac
   });
 }
 
-export function CenterPanel(props: CenterPanelProps) {
+export const CenterPanel = React.memo(function CenterPanel(props: CenterPanelProps) {
   const file = props.content.file;
   const effectiveText = props.content.isDirty ? props.content.draftText : props.content.text;
   const find = props.content.find;
@@ -733,4 +733,4 @@ export function CenterPanel(props: CenterPanelProps) {
     </Panel>
     </div>
   );
-}
+});

@@ -1,10 +1,16 @@
 import React from 'react';
-import { SpecWaveApp } from '@specwave/ui-next';
+import { SpecWaveApp, type SubscribeTerminalEvent } from '@specwave/ui-next';
 import { useAppStore } from '../store';
 
 export function App() {
   const vm = useAppStore((s) => s.vm);
   const dispatch = useAppStore((s) => s.dispatch);
+
+  const subscribeTerminalEvent = React.useCallback<SubscribeTerminalEvent>((cb) => {
+    const api = window.specwave;
+    if (!api?.onTerminalEvent) return () => {};
+    return api.onTerminalEvent(cb as any);
+  }, []);
 
   React.useEffect(() => {
     const el = document.documentElement;
@@ -46,5 +52,5 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dispatch, vm.rightVisible]);
 
-  return <SpecWaveApp vm={vm} dispatch={dispatch} />;
+  return <SpecWaveApp vm={vm} dispatch={dispatch} subscribeTerminalEvent={subscribeTerminalEvent} />;
 }

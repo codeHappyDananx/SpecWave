@@ -16,3 +16,7 @@
 .header[data-mode="terminal"] .modeTab[aria-selected="true"]{background:rgba(241,245,249,0.12);color:#fff;}
 .header[data-mode="terminal"] .modeTab:hover{transform:none;background:rgba(241,245,249,0.10);}
 .header[data-mode="terminal"] .modeTab:active{transform:none;background:rgba(241,245,249,0.16);}
+
+.stack{position:relative;min-width:0;min-height:0;height:100%;}
+.pane{position:absolute;inset:0;min-width:0;min-height:0;}
+.pane[data-active="0"]{display:none;}

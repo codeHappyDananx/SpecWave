@@ -7,11 +7,13 @@ import { LayoutGrid } from './LayoutGrid';
 import { StatusBar } from './StatusBar';
 import { TopBar } from './TopBar';
 import { WelcomePage } from './WelcomePage';
+import type { SubscribeTerminalEvent } from './ports';
 import styles from './SpecWaveApp.module.css';
 
 export type SpecWaveAppProps = {
   vm: AppViewModel;
   dispatch: (intent: UIIntent) => void;
+  subscribeTerminalEvent?: SubscribeTerminalEvent;
 };
 
 export function SpecWaveApp(props: SpecWaveAppProps) {
@@ -101,7 +103,16 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           dispatch={wrappedDispatch}
           left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} activeStoryId={vm.storyStepper.storyId} dispatch={wrappedDispatch} minwPx={vm.panelMinW.leftPx} />}
           center={<CenterPanel content={vm.content} phaseIndicator={vm.phaseIndicator} storyStepper={vm.storyStepper} dispatch={wrappedDispatch} minwPx={0} />}
-          right={<RightPanel rightMode={vm.rightMode} terminal={vm.terminal} chat={vm.chat} dispatch={wrappedDispatch} minwPx={vm.panelMinW.rightPx} />}
+          right={
+            <RightPanel
+              rightMode={vm.rightMode}
+              terminal={vm.terminal}
+              chat={vm.chat}
+              dispatch={wrappedDispatch}
+              minwPx={vm.panelMinW.rightPx}
+              subscribeTerminalEvent={props.subscribeTerminalEvent}
+            />
+          }
         />
 
         <StatusBar
