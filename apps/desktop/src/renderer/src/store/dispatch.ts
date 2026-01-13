@@ -6,6 +6,7 @@ import { handleLayoutIntent } from './handlers/layout';
 import { handleThemeIntent } from './handlers/theme';
 import { handleProjectIntent } from './handlers/project';
 import { handleExplorerIntent } from './handlers/explorer';
+import { handleSpecwaveInitIntent } from './handlers/specwaveInit';
 import { handleTaskIntent } from './handlers/task';
 import { handleTerminalIntent } from './handlers/terminal';
 import { handleContentIntent } from './handlers/content';
@@ -16,6 +17,7 @@ export function dispatchByHandlers(args: { ctx: StoreCtx; state: AppState; inten
     handleLayoutIntent(args) ??
     handleThemeIntent(args) ??
     handleProjectIntent(args) ??
+    handleSpecwaveInitIntent(args) ??
     handleExplorerIntent(args) ??
     handleTaskIntent(args) ??
     handleTerminalIntent(args) ??

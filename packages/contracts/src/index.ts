@@ -90,6 +90,27 @@ export type LayoutVM = {
 
 export type ExplorerTree = "workspace" | "project";
 
+/**
+ * SpecWave 初始化引导（左栏）视图模型
+ *
+ * - 触发来源：左栏「SpecWave 工作区」未初始化态的“初始化”按钮
+ * - 字段语义：steps/progress/logs 用于可视化初始化过程；error 用于失败态；actions 控制按钮可用性
+ * - 为空语义：explorer.specwaveInit 为 null 表示未打开引导；logs 为空数组表示尚无日志
+ * - 失败语义：phase === 'failure' 时必须提供 error.title；canRetry 决定是否允许重试
+ */
+export type SpecWaveInitStepKey = 'check' | 'generatePlan' | 'writeFiles' | 'verify';
+export type SpecWaveInitStepStatus = 'todo' | 'doing' | 'done' | 'error';
+
+export type SpecWaveInitWizardVM = {
+  isOpen: boolean;
+  phase: 'idle' | 'running' | 'success' | 'failure';
+  steps: Array<{ key: SpecWaveInitStepKey; title: string; status: SpecWaveInitStepStatus }>;
+  progress?: { percent: number; label?: string };
+  logs: Array<{ level: 'info' | 'warn' | 'error'; text: string; time?: string }>;
+  error?: { title: string; detail?: string; canRetry: boolean; copyText?: string };
+  actions: { canClose: boolean; canRetry: boolean; canStart: boolean };
+};
+
 export type ExplorerNodeVM = {
   id: string;
   name: string;
@@ -110,6 +131,8 @@ export type ExplorerVM = {
   projectRoot: string | null;
   workspace: ExplorerNodeVM[];
   project: ExplorerNodeVM[];
+  // SpecWave 初始化引导（左栏）：由 store 统一维护；UI 只按 VM 渲染与派发意图。
+  specwaveInit: SpecWaveInitWizardVM | null;
   expanded: {
     workspace: string[];
     project: string[];
@@ -221,6 +244,17 @@ export type UIIntent =
   | { type: "EXPLORER_OPEN_FILE"; path: string }
   | { type: "EXPLORER_REVEAL_IN_OS"; path: string }
   | { type: "EXPLORER_SHOW_IGNORED_SET"; showIgnored: boolean }
+  /**
+   * SpecWave 初始化引导（左栏）
+   *
+   * - 触发来源：左栏「SpecWave 工作区」未初始化态的按钮/弹出框
+   * - 失败语义：由运行时返回结构化错误（可重试/可复制），store 映射到 explorer.specwaveInit.error
+   */
+  | { type: "SPECWAVE_INIT_OPEN" }
+  | { type: "SPECWAVE_INIT_START" }
+  | { type: "SPECWAVE_INIT_RETRY" }
+  | { type: "SPECWAVE_INIT_CLOSE" }
+  | { type: "SPECWAVE_INIT_COPY_ERROR"; text: string }
   | { type: "CONTENT_TOGGLE_VIEW_MODE" }
   | { type: "CONTENT_DRAFT_SET"; text: string }
   | { type: "CONTENT_SAVE_REQUEST" }

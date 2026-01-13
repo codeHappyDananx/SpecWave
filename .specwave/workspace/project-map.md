@@ -43,8 +43,10 @@
 | 路径 | 职责（简述） | 依赖谁 | 被谁依赖 | 边界/备注 |
 | --- | --- | --- | --- | --- |
 | `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
+| `packages/contracts/src/index.ts` | 交互契约实现文件：本次新增 `explorer.specwaveInit`：初始化引导视图模型 与 `SPECWAVE_INIT_*`：初始化相关意图 | 无 | `apps/desktop`、`packages/ui-next` | 仅类型与注释，禁止放实现 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果/Story 看板等展示（含右键菜单：复制路径/名称、打开所在文件夹） | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
+| `packages/ui-next/src/panels/left/SpecWaveInitGuide.tsx` | 左栏 SpecWave 未初始化态引导卡片 + 初始化弹出框（步骤/进度/日志/失败可复制） | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只渲染 `explorer.specwaveInit`，按钮只派发 `SPECWAVE_INIT_*` |
 | `packages/ui-next/src/panels/left/StoryBoardView.tsx` | Story 看板视图：列表展示 Story 卡片（按编号倒序），支持高亮当前活跃 Story | `primitives/StoryCard`、contracts | `panels/left/LeftPanel` | 只渲染 StoryBoardVM，dispatch STORY_CARD_CLICK |
 | `packages/ui-next/src/panels/left/StoryCardInExplorer.tsx` | 文件浏览器内嵌 Story 卡片：在 stories 目录下展示 Story 信息，支持归档状态和活动高亮 | contracts | `panels/left/LeftPanel` | 点击 dispatch STORY_CARD_SELECT |
 | `packages/ui-next/src/panels/center` | 中栏：内容工作区（markdown 渲染/源码编辑/文件内查找/图片预览/任务卡片看板 + 详情编辑 + “开始”联动终端） | `primitives`、contracts | `shell` | 禁止 import 其他 panels；UI 不解析 markdown，只消费 VM |
@@ -72,14 +74,17 @@
 | `apps/desktop/src/renderer/postcss.config.cjs` | renderer 的 PostCSS/Tailwind 配置 | `@tailwindcss/postcss` | Vite renderer | Tailwind v4：通过 `base` 指到仓库根，确保能扫到 `packages/ui-next` 里的 class；Tailwind 配置由 `styles.css` 的 `@config` 指定 |
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
 | `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty（含目录监听与二进制读取） | Electron/Node | Electron entry | 系统能力集中在这里 |
+| `apps/desktop/src/main/ipc.ts` | 主进程 `IPC`：进程间通信 注册；本次新增 `specwave:initStart`：初始化入口，并通过 `specwave:init:event` 推送结构化进度/结果事件 | Electron/Node | preload | 初始化实现从 `specwave-skills` 的 pack 资源拷贝 `.specwave` 到项目根 |
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |
+| `apps/desktop/src/preload/index.ts` | preload 桥接实现：本次新增 `window.specwave.specwaveInitStart` 与 `window.specwave.onSpecwaveInitEvent` | Electron | renderer store | 只暴露能力与事件订阅，不放业务编排 |
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
+| `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
 | `.codex/skills/specwave-router/session_guard.py` | 会话自愈脚本：把 `.specwave/settings.json` 的会话投影对齐到“当前 Codex 会话”，避免多会话串阶段 | Python | `AGENTS.md`、`specwave-router` | 并发会话会要求显式 `--session-id`；建议每次对话先 `sync` |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |
-| `specwave-skills` | skills/CLI 资源（可公开复用） | Node | `specwave` 命令 | 不属于业务源码 |
+| `specwave-skills` | skills/`CLI`：命令行 资源（可公开复用） | Node | `specwave` 命令、桌面端初始化引导 | pack 资源路径：`specwave-skills/resources/packs/core/light` |
 
 ## 4. 边界与约束（影响面）
 - 三栏互不 import：`left/center/right` 互相隔离，只能被 `shell` 组合。

@@ -37,6 +37,27 @@ type FsWatchStartResult = { ok: true } | { ok: false; error: string };
 type RevealInFolderResult = { ok: true } | { ok: false; error: string };
 type ClipboardWriteTextResult = { ok: true } | { ok: false; error: string };
 
+type SpecWaveInitStepKey = 'check' | 'generatePlan' | 'writeFiles' | 'verify';
+type SpecWaveInitStepStatus = 'todo' | 'doing' | 'done' | 'error';
+type SpecWaveInitStartArgs = { projectRoot: string };
+type SpecWaveInitStartResult = { ok: true } | { ok: false; error: string };
+
+type SpecWaveInitEventDTO =
+  | {
+      type: 'progress';
+      payload: {
+        step?: { key: SpecWaveInitStepKey; title?: string; status: SpecWaveInitStepStatus };
+        progress?: { percent: number; label?: string };
+        logAppend?: { level: 'info' | 'warn' | 'error'; text: string; time?: string };
+      };
+    }
+  | {
+      type: 'result';
+      payload:
+        | { ok: true }
+        | { ok: false; error: { title: string; detail?: string; canRetry: boolean; copyText?: string } };
+    };
+
 export type AppShellBridge = {
   openMainWindow: (args: { projectPath?: string | null }) => Promise<void> | void;
   openWelcomeWindow: (args: { fromWindowId?: number | null }) => Promise<void> | void;
@@ -175,6 +196,211 @@ async function readDirectoryEntries(dirPath: string): Promise<DirEntryDTO[]> {
   return entries;
 }
 
+const initRunningByWebContentsId = new Set<number>();
+
+function nowTimeText() {
+  try {
+    return new Date().toLocaleTimeString();
+  } catch {
+    return undefined;
+  }
+}
+
+function sendInitEvent(webContents: Electron.WebContents, evt: SpecWaveInitEventDTO) {
+  try {
+    webContents.send('specwave:init:event', evt);
+  } catch {}
+}
+
+function resolvePackLightRoot(): string | null {
+  const candidates = [
+    path.resolve(process.cwd(), 'specwave-skills', 'resources', 'packs', 'core', 'light'),
+    path.resolve(process.cwd(), '..', 'specwave-skills', 'resources', 'packs', 'core', 'light'),
+    path.resolve(process.cwd(), '..', '..', 'specwave-skills', 'resources', 'packs', 'core', 'light'),
+    path.resolve(__dirname, '..', '..', '..', '..', '..', 'specwave-skills', 'resources', 'packs', 'core', 'light')
+  ];
+  for (const base of candidates) {
+    const settingsPath = path.join(base, '.specwave', 'settings.json');
+    if (fsSync.existsSync(settingsPath)) return base;
+  }
+  return null;
+}
+
+async function listFilesRecursive(rootDir: string): Promise<string[]> {
+  const out: string[] = [];
+  const walk = async (dir: string) => {
+    const items = await fs.readdir(dir, { withFileTypes: true });
+    for (const it of items) {
+      const abs = path.join(dir, it.name);
+      if (it.isDirectory()) await walk(abs);
+      else out.push(abs);
+    }
+  };
+  await walk(rootDir);
+  return out;
+}
+
+function mergeJsonMissing(target: unknown, source: unknown): unknown {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) return target;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return target;
+  const t = target as Record<string, unknown>;
+  const s = source as Record<string, unknown>;
+  for (const k of Object.keys(s)) {
+    if (!(k in t)) {
+      t[k] = s[k];
+      continue;
+    }
+    t[k] = mergeJsonMissing(t[k], s[k]);
+  }
+  return t;
+}
+
+async function runProjectInit(args: { webContents: Electron.WebContents; projectRoot: string }) {
+  const { webContents, projectRoot } = args;
+
+  const setStep = (key: SpecWaveInitStepKey, status: SpecWaveInitStepStatus, title?: string) =>
+    sendInitEvent(webContents, { type: 'progress', payload: { step: { key, status, title } } });
+  const setProgress = (percent: number, label?: string) =>
+    sendInitEvent(webContents, { type: 'progress', payload: { progress: { percent, label } } });
+  const log = (level: 'info' | 'warn' | 'error', text: string) =>
+    sendInitEvent(webContents, { type: 'progress', payload: { logAppend: { level, text, time: nowTimeText() } } });
+
+  try {
+    setStep('check', 'doing', '检查环境');
+    const st = await fs.stat(projectRoot);
+    if (!st.isDirectory()) throw new Error('项目根不是目录。');
+    const packRoot = resolvePackLightRoot();
+    if (!packRoot) throw new Error('未找到初始化资源包（core/light）。');
+    const packSpecwaveDir = path.join(packRoot, '.specwave');
+    const packAgentsTemplate = path.join(packRoot, 'project-root', 'AGENTS.md.template');
+    setStep('check', 'done', '检查环境');
+
+    setStep('generatePlan', 'doing', '生成初始化计划');
+    const packFiles = await listFilesRecursive(packSpecwaveDir);
+    const willWriteCount = packFiles.length + (fsSync.existsSync(packAgentsTemplate) ? 1 : 0) + 1;
+    log('info', `目标目录：${projectRoot}`);
+    log('info', `资源包：${packRoot}`);
+    log('info', `计划：将写入/刷新 ${willWriteCount} 项（含 .specwave 与工作区目录）`);
+    setStep('generatePlan', 'done', '生成初始化计划');
+
+    setStep('writeFiles', 'doing', '写入文件');
+    setProgress(0, '准备写入…');
+
+    const targetSpecwaveDir = path.join(projectRoot, '.specwave');
+    const targetWorkspaceDir = path.join(targetSpecwaveDir, 'workspace');
+
+    const stepsTotal = packFiles.length + 6;
+    let done = 0;
+    const bump = (label: string) => {
+      done += 1;
+      setProgress(Math.round((done / stepsTotal) * 100), label);
+    };
+
+    await fs.mkdir(targetSpecwaveDir, { recursive: true });
+    bump('创建 .specwave/…');
+
+    for (const srcAbs of packFiles) {
+      const rel = path.relative(packSpecwaveDir, srcAbs);
+      const dstAbs = path.join(targetSpecwaveDir, rel);
+      const dstDir = path.dirname(dstAbs);
+      await fs.mkdir(dstDir, { recursive: true });
+
+      if (rel === 'settings.json') {
+        const srcText = await fs.readFile(srcAbs, 'utf8');
+        const srcJson = JSON.parse(srcText) as unknown;
+        let merged: unknown = srcJson;
+        if (fsSync.existsSync(dstAbs)) {
+          try {
+            const dstText = await fs.readFile(dstAbs, 'utf8');
+            const dstJson = JSON.parse(dstText) as unknown;
+            merged = mergeJsonMissing(dstJson, srcJson);
+            log('info', '合并 .specwave/settings.json（保留自定义与 currentSession）。');
+          } catch (err) {
+            log('warn', `读取既有 settings.json 失败，改为覆盖缺失字段：${toErrorMessage(err)}`);
+          }
+        } else {
+          log('info', '写入 .specwave/settings.json。');
+        }
+        await fs.writeFile(dstAbs, JSON.stringify(merged, null, 2), 'utf8');
+        bump(`写入 ${rel}`);
+        continue;
+      }
+
+      if (fsSync.existsSync(dstAbs)) {
+        bump(`跳过已存在：${rel}`);
+        continue;
+      }
+
+      await fs.copyFile(srcAbs, dstAbs);
+      bump(`写入 ${rel}`);
+    }
+
+    if (fsSync.existsSync(packAgentsTemplate)) {
+      const agentsTarget = path.join(projectRoot, 'AGENTS.md');
+      if (!fsSync.existsSync(agentsTarget)) {
+        await fs.copyFile(packAgentsTemplate, agentsTarget);
+        log('info', '创建 AGENTS.md。');
+      } else {
+        log('info', '已存在 AGENTS.md，跳过写入。');
+      }
+      bump('处理 AGENTS.md');
+    }
+
+    await fs.mkdir(path.join(targetWorkspaceDir, 'stories'), { recursive: true });
+    await fs.mkdir(path.join(targetWorkspaceDir, 'stories', 'archive'), { recursive: true });
+    await fs.mkdir(path.join(targetWorkspaceDir, 'bugs'), { recursive: true });
+    await fs.mkdir(path.join(targetWorkspaceDir, 'bugs', 'archive'), { recursive: true });
+    await fs.mkdir(path.join(targetWorkspaceDir, 'specs'), { recursive: true });
+    bump('创建 .specwave/workspace/…');
+
+    const projectMapPath = path.join(targetWorkspaceDir, 'project-map.md');
+    if (!fsSync.existsSync(projectMapPath)) {
+      const text = [
+        '# Project Map（项目路径图）',
+        '',
+        '> 这是本项目的“结构真相源”：只记录结论（结构/职责/边界），不写过程复盘。',
+        '',
+        '## 0. 初始化成果',
+        '- 初始化来源：桌面端初始化引导',
+        '',
+        '## 1. 入口与运行方式',
+        '- [待补充]',
+        '',
+        '## 2. 路径树',
+        '```text',
+        '.',
+        '```',
+        '',
+        '## 3. 关键目录/文件职责',
+        '| 路径 | 职责（简述） | 依赖谁 | 被谁依赖 | 边界/备注 |',
+        '| --- | --- | --- | --- | --- |',
+        ''
+      ].join('\n');
+      await fs.writeFile(projectMapPath, text, 'utf8');
+      log('info', '创建 .specwave/workspace/project-map.md。');
+    }
+    bump('写入 project-map.md');
+
+    setStep('writeFiles', 'done', '写入文件');
+
+    setStep('verify', 'doing', '校验结果');
+    if (!fsSync.existsSync(targetWorkspaceDir)) throw new Error('未生成 .specwave/workspace。');
+    if (!fsSync.existsSync(path.join(targetSpecwaveDir, 'settings.json'))) throw new Error('未生成 .specwave/settings.json。');
+    setStep('verify', 'done', '校验结果');
+    setProgress(100, '完成');
+
+    sendInitEvent(webContents, { type: 'result', payload: { ok: true } });
+  } catch (err) {
+    sendInitEvent(webContents, {
+      type: 'result',
+      payload: {
+        ok: false,
+        error: { title: '初始化失败', detail: toErrorMessage(err), canRetry: true, copyText: toErrorMessage(err) }
+      }
+    });
+  }
+}
+
 export function registerIpcHandlers(appShell: AppShellBridge) {
   ipcMain.handle('specwave:openMainWindow', async (_evt, args: { projectPath?: string | null }) => {
     await appShell.openMainWindow({ projectPath: args?.projectPath ?? null });
@@ -212,6 +438,25 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
     } catch (err) {
       return null;
     }
+  });
+
+  /**
+   * SpecWave 初始化引导（左栏）
+   *
+   * - 通道：specwave:initStart
+   * - 入参：projectRoot（项目根目录）
+   * - 出参：仅返回“是否已启动”；进度与结果通过 specwave:init:event 推送
+   * - 失败语义：启动失败（并发/参数错误）直接返回；执行中失败通过 result 事件返回，可重试
+   */
+  ipcMain.handle('specwave:initStart', async (evt, args: SpecWaveInitStartArgs): Promise<SpecWaveInitStartResult> => {
+    const webContents = evt.sender;
+    if (!args?.projectRoot) return { ok: false, error: '未提供项目根目录。' };
+    if (initRunningByWebContentsId.has(webContents.id)) return { ok: false, error: '初始化正在进行。' };
+    initRunningByWebContentsId.add(webContents.id);
+    void runProjectInit({ webContents, projectRoot: args.projectRoot }).finally(() => {
+      initRunningByWebContentsId.delete(webContents.id);
+    });
+    return { ok: true };
   });
 
   ipcMain.handle('specwave:readDirectory', async (_evt, args: { dirPath: string }): Promise<ReadDirectoryResult> => {

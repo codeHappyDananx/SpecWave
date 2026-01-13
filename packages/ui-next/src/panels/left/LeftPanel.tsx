@@ -35,6 +35,7 @@ import {
   SidebarProvider
 } from '../../primitives/shadcn/sidebar';
 import { StoryCardInExplorer } from './StoryCardInExplorer';
+import { SpecWaveInitDialog, SpecWaveUninitializedCard } from './SpecWaveInitGuide';
 
 type LeftIntent = Extract<
   UIIntent,
@@ -42,6 +43,11 @@ type LeftIntent = Extract<
   | { type: 'EXPLORER_OPEN_FILE' }
   | { type: 'EXPLORER_SHOW_IGNORED_SET' }
   | { type: 'EXPLORER_REVEAL_IN_OS' }
+  | { type: 'SPECWAVE_INIT_OPEN' }
+  | { type: 'SPECWAVE_INIT_START' }
+  | { type: 'SPECWAVE_INIT_RETRY' }
+  | { type: 'SPECWAVE_INIT_CLOSE' }
+  | { type: 'SPECWAVE_INIT_COPY_ERROR' }
   | { type: 'TERMINAL_COPY' }
   | { type: 'STORY_CARD_SELECT' }
 >;
@@ -424,7 +430,7 @@ export const LeftPanel = React.memo(function LeftPanel(props: LeftPanelProps) {
                   {props.explorer.workspaceRoot ? (
                     <SidebarMenu aria-label="工作区树">{visibleNodes(props.explorer.workspace).map((n) => renderNode('workspace', n))}</SidebarMenu>
                   ) : (
-                    <div className="px-2 py-2 text-xs text-muted-foreground">未找到 .specwave/workspace（该目录不是 SpecWave 项目或未初始化）。</div>
+                    <SpecWaveUninitializedCard dispatch={props.dispatch} />
                   )}
                 </SidebarGroupContent>
               </SidebarGroup>
@@ -447,6 +453,8 @@ export const LeftPanel = React.memo(function LeftPanel(props: LeftPanelProps) {
         </Sidebar>
       </SidebarProvider>
       </div>
+
+      <SpecWaveInitDialog init={props.explorer.specwaveInit} dispatch={props.dispatch} />
 
       {contextMenu.open && contextMenu.target && typeof document !== 'undefined'
         ? createPortal(

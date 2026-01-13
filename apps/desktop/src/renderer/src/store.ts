@@ -147,6 +147,7 @@ const initialVm: AppViewModel = {
     projectRoot: null,
     workspace: [],
     project: [],
+    specwaveInit: null,
     expanded: {
       workspace: restoredUiSession?.explorerExpanded?.workspace ?? [],
       project: restoredUiSession?.explorerExpanded?.project ?? []

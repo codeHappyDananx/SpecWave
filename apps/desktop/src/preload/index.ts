@@ -43,6 +43,25 @@ export type TerminalEventDTO =
   | { type: 'exit'; id: string; exitCode: number; signal?: number | null }
   | { type: 'error'; id: string; error: string };
 
+export type SpecWaveInitStepKey = 'check' | 'generatePlan' | 'writeFiles' | 'verify';
+export type SpecWaveInitStepStatus = 'todo' | 'doing' | 'done' | 'error';
+export type SpecWaveInitStartResult = { ok: true } | { ok: false; error: string };
+export type SpecWaveInitEventDTO =
+  | {
+      type: 'progress';
+      payload: {
+        step?: { key: SpecWaveInitStepKey; title?: string; status: SpecWaveInitStepStatus };
+        progress?: { percent: number; label?: string };
+        logAppend?: { level: 'info' | 'warn' | 'error'; text: string; time?: string };
+      };
+    }
+  | {
+      type: 'result';
+      payload:
+        | { ok: true }
+        | { ok: false; error: { title: string; detail?: string; canRetry: boolean; copyText?: string } };
+    };
+
 contextBridge.exposeInMainWorld('specwave', {
   ping: () => 'pong',
   openMainWindow: (projectPath?: string | null) =>
@@ -62,6 +81,16 @@ contextBridge.exposeInMainWorld('specwave', {
     ipcRenderer.invoke('specwave:readBinaryFile', { filePath }) as Promise<ReadBinaryFileResult>,
   saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) =>
     ipcRenderer.invoke('specwave:saveTextFile', { filePath, text, ifMatchSha256 }) as Promise<SaveTextFileResult>,
+
+  specwaveInitStart: (args: { projectRoot: string }) =>
+    ipcRenderer.invoke('specwave:initStart', args) as Promise<SpecWaveInitStartResult>,
+  onSpecwaveInitEvent: (cb: (evt: SpecWaveInitEventDTO) => void) => {
+    const listener = (_evt: unknown, payload: SpecWaveInitEventDTO) => cb(payload);
+    ipcRenderer.on('specwave:init:event', listener);
+    return () => {
+      ipcRenderer.off('specwave:init:event', listener);
+    };
+  },
 
   showMessageBox: (options: MessageBoxOptions) =>
     ipcRenderer.invoke('specwave:showMessageBox', options) as Promise<MessageBoxResult>,
@@ -121,6 +150,9 @@ declare global {
       readTextFile: (filePath: string) => Promise<ReadTextFileResult>;
       readBinaryFile: (filePath: string) => Promise<ReadBinaryFileResult>;
       saveTextFile: (filePath: string, text: string, ifMatchSha256?: string) => Promise<SaveTextFileResult>;
+
+      specwaveInitStart: (args: { projectRoot: string }) => Promise<SpecWaveInitStartResult>;
+      onSpecwaveInitEvent: (cb: (evt: SpecWaveInitEventDTO) => void) => () => void;
 
       showMessageBox: (options: MessageBoxOptions) => Promise<MessageBoxResult>;
 
