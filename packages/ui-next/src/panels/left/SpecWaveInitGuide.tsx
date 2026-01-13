@@ -72,6 +72,25 @@ export function SpecWaveInitDialog(props: { init: SpecWaveInitWizardVM | null; d
   const canStart = init.actions.canStart;
 
   const errorText = init.error?.copyText ?? (init.error ? [init.error.title, init.error.detail].filter(Boolean).join('\n') : '');
+  const phaseLabel =
+    init.phase === 'running'
+      ? '执行中'
+      : init.phase === 'success'
+        ? '已完成'
+        : init.phase === 'failure'
+          ? '失败'
+          : '待开始';
+  const phaseBadgeVariant = init.phase === 'failure' ? 'destructive' : init.phase === 'running' ? 'default' : 'secondary';
+  const currentStepIndex = (() => {
+    const idxDoing = init.steps.findIndex((s) => s.status === 'doing');
+    if (idxDoing >= 0) return idxDoing;
+    const idxError = init.steps.findIndex((s) => s.status === 'error');
+    if (idxError >= 0) return idxError;
+    const idxLastDone = [...init.steps].reverse().findIndex((s) => s.status === 'done');
+    if (idxLastDone >= 0) return init.steps.length - 1 - idxLastDone;
+    return 0;
+  })();
+  const stepHint = init.steps[currentStepIndex]?.title ? `第 ${currentStepIndex + 1} 步：${init.steps[currentStepIndex]!.title}` : '';
 
   return (
     <Dialog
@@ -82,7 +101,7 @@ export function SpecWaveInitDialog(props: { init: SpecWaveInitWizardVM | null; d
       }}
     >
       <DialogContent
-        className="max-w-[560px]"
+        className="flex max-w-[720px] flex-col gap-0 p-0"
         onEscapeKeyDown={(e) => {
           if (!canClose) e.preventDefault();
         }}
@@ -90,66 +109,122 @@ export function SpecWaveInitDialog(props: { init: SpecWaveInitWizardVM | null; d
           if (!canClose) e.preventDefault();
         }}
       >
-        <DialogHeader>
-          <DialogTitle>初始化 SpecWave</DialogTitle>
-          <DialogDescription>流程对齐 `CLI`：命令行，执行中会持续输出进度与日志。</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {init.steps.map((s, idx) => (
-              <Badge key={s.key} variant={badgeVariantForStepStatus(s.status)} className="gap-1">
-                <span className="opacity-80">{idx + 1}</span>
-                <span>{s.title}</span>
+        <div className="border-b px-6 py-4">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <DialogTitle className="text-base">初始化 SpecWave</DialogTitle>
+                <DialogDescription className="text-xs">
+                  流程对齐 `CLI`：命令行。{init.phase === 'running' ? '执行中可关闭，任务仍会在后台继续。' : '确认后再开始写入文件。'}
+                </DialogDescription>
+              </div>
+              <Badge variant={phaseBadgeVariant} className="shrink-0">
+                {phaseLabel}
               </Badge>
-            ))}
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{init.progress?.label ?? (init.phase === 'running' ? '正在执行…' : '准备就绪')}</span>
-              <span>{init.progress ? `${Math.max(0, Math.min(100, Math.round(init.progress.percent)))}%` : ''}</span>
             </div>
-            <Progress value={init.progress?.percent ?? 0} />
-          </div>
+          </DialogHeader>
+        </div>
 
-          {init.error ? (
-            <Alert variant="destructive">
-              <AlertTitle>{init.error.title}</AlertTitle>
-              <AlertDescription>
-                <div className="whitespace-pre-wrap text-xs leading-relaxed">{init.error.detail ?? ''}</div>
-              </AlertDescription>
-              {errorText ? (
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => props.dispatch({ type: 'SPECWAVE_INIT_COPY_ERROR', text: errorText })}
-                  >
-                    复制错误
-                  </Button>
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[240px_1fr]">
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground">步骤</div>
+              <div className="rounded-md border bg-muted/10 p-3">
+                <div className="space-y-2">
+                  {init.steps.map((s, idx) => {
+                    const isActive = idx === currentStepIndex && (init.phase === 'running' || init.phase === 'failure');
+                    const dotClass =
+                      s.status === 'done'
+                        ? 'bg-foreground'
+                        : s.status === 'doing'
+                          ? 'bg-blue-500'
+                          : s.status === 'error'
+                            ? 'bg-destructive'
+                            : 'bg-muted-foreground/40';
+                    return (
+                      <div key={s.key} className={isActive ? 'rounded-sm bg-muted/30 px-2 py-1' : 'px-2 py-1'}>
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="truncate text-xs">{s.title}</div>
+                              <Badge variant={badgeVariantForStepStatus(s.status)} className="h-5 px-2 text-[10px]">
+                                {idx + 1}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-muted/10 p-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{stepHint || init.progress?.label || (init.phase === 'running' ? '正在执行…' : '准备就绪')}</span>
+                  <span>{init.progress ? `${Math.max(0, Math.min(100, Math.round(init.progress.percent)))}%` : ''}</span>
+                </div>
+                <div className="mt-2">
+                  <Progress value={init.progress?.percent ?? 0} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">日志摘要</div>
+                <div className="text-[11px] text-muted-foreground">{init.logs.length > 0 ? `最近 ${init.logs.length} 条` : '暂无'}</div>
+              </div>
+
+              {init.error ? (
+                <Alert variant="destructive">
+                  <AlertTitle>{init.error.title}</AlertTitle>
+                  <AlertDescription>
+                    <div className="whitespace-pre-wrap text-xs leading-relaxed">{init.error.detail ?? ''}</div>
+                  </AlertDescription>
+                  {errorText ? (
+                    <div className="mt-2 flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => props.dispatch({ type: 'SPECWAVE_INIT_COPY_ERROR', text: errorText })}
+                      >
+                        复制错误
+                      </Button>
+                    </div>
+                  ) : null}
+                </Alert>
+              ) : null}
+
+              <ScrollArea className="h-52 rounded-md border bg-muted/10">
+                <div className="space-y-1 p-3 font-mono text-[11px] leading-relaxed">
+                  {init.logs.length === 0 ? <div className="text-muted-foreground">暂无日志。</div> : null}
+                  {init.logs.map((l, idx) => (
+                    <div
+                      key={idx}
+                      className={
+                        l.level === 'error' ? 'text-destructive' : l.level === 'warn' ? 'text-amber-700 dark:text-amber-500' : ''
+                      }
+                    >
+                      <span className="mr-2 select-none opacity-60">{String(idx + 1).padStart(3, '0')}</span>
+                      {l.time ? <span className="mr-2 opacity-70">{l.time}</span> : null}
+                      <span className="opacity-80">[{l.level}]</span> {l.text}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {init.phase === 'success' ? (
+                <div className="rounded-md border bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+                  已完成初始化。左栏工作区会自动刷新并展示 <span className="font-mono">.specwave/workspace</span>。
                 </div>
               ) : null}
-            </Alert>
-          ) : null}
-
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">日志摘要</div>
-            <ScrollArea className="h-40 rounded-md border bg-muted/20">
-              <div className="space-y-1 p-3 font-mono text-[11px] leading-relaxed">
-                {init.logs.length === 0 ? <div className="text-muted-foreground">暂无日志。</div> : null}
-                {init.logs.map((l, idx) => (
-                  <div key={idx} className={l.level === 'error' ? 'text-destructive' : l.level === 'warn' ? 'text-amber-600' : ''}>
-                    {l.time ? <span className="mr-2 opacity-70">{l.time}</span> : null}
-                    <span className="opacity-80">[{l.level}]</span> {l.text}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="gap-2 border-t px-6 py-4 sm:gap-2">
           <Button variant="outline" disabled={!canClose} onClick={() => props.dispatch({ type: 'SPECWAVE_INIT_CLOSE' })}>
             关闭
           </Button>
