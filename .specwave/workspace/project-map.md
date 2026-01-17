@@ -75,7 +75,7 @@
 | `apps/desktop/src/renderer/postcss.config.cjs` | renderer 的 PostCSS/Tailwind 配置 | `@tailwindcss/postcss` | Vite renderer | Tailwind v4：通过 `base` 指到仓库根，确保能扫到 `packages/ui-next` 里的 class；Tailwind 配置由 `styles.css` 的 `@config` 指定 |
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
 | `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty（含目录监听与二进制读取） | Electron/Node | Electron entry | 系统能力集中在这里 |
-| `apps/desktop/src/main/ipc.ts` | 主进程 `IPC`：进程间通信 注册；本次新增 `specwave:initStart`：初始化入口，并通过 `specwave:init:event` 推送结构化进度/结果事件 | Electron/Node | preload | 初始化实现从 `specwave-skills` 的 pack 资源拷贝 `.specwave` 到项目根 |
+| `apps/desktop/src/main/ipc.ts` | 主进程 `IPC`：进程间通信 注册；本次新增 `specwave:initStart`：初始化入口，并通过 `specwave:init:event` 推送结构化进度/结果事件；新增 `specwave:clipboardReadTextSync`：剪贴板文本读取 | Electron/Node | preload | 初始化实现从 `specwave-skills` 的 pack 资源拷贝 `.specwave` 到项目根 |
 | `apps/desktop/src/main/terminal/ipc.ts` | 终端 `IPC`：进程间通信 注册终端写入/尺寸/图片粘贴通道 | Electron/Node | preload | 只做 `IPC` 转发 |
 | `apps/desktop/src/main/terminal/pasteImage.ts` | 终端图片粘贴助手：剪贴板读图、落盘 `.terminal-paste`、必要时写入 `.gitignore` | Electron/Node | `main/terminal/ipc.ts` | 仅主进程使用 |
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |

@@ -36,6 +36,7 @@ type FsWatchStartArgs = { workspaceRoot?: string | null; projectRoot?: string | 
 type FsWatchStartResult = { ok: true } | { ok: false; error: string };
 type RevealInFolderResult = { ok: true } | { ok: false; error: string };
 type ClipboardWriteTextResult = { ok: true } | { ok: false; error: string };
+type ClipboardReadTextResult = { ok: true; text: string } | { ok: false; error: string };
 
 type SpecWaveInitStepKey = 'check' | 'generatePlan' | 'writeFiles' | 'verify';
 type SpecWaveInitStepStatus = 'todo' | 'doing' | 'done' | 'error';
@@ -539,6 +540,15 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
     try {
       clipboard.writeText(text);
       evt.returnValue = { ok: true };
+    } catch (err) {
+      evt.returnValue = { ok: false, error: toErrorMessage(err) };
+    }
+    return evt.returnValue;
+  });
+
+  ipcMain.on('specwave:clipboardReadTextSync', (evt): ClipboardReadTextResult => {
+    try {
+      evt.returnValue = { ok: true, text: clipboard.readText() };
     } catch (err) {
       evt.returnValue = { ok: false, error: toErrorMessage(err) };
     }

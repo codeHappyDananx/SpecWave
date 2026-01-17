@@ -118,7 +118,20 @@ contextBridge.exposeInMainWorld('specwave', {
     };
   },
 
-  clipboardReadText: () => clipboard.readText(),
+  clipboardReadText: () => {
+    try {
+      const res = ipcRenderer.sendSync('specwave:clipboardReadTextSync') as
+        | { ok: true; text: string }
+        | { ok: false; error: string }
+        | undefined;
+      if (res?.ok) return typeof res.text === 'string' ? res.text : '';
+    } catch {}
+    try {
+      return clipboard.readText();
+    } catch {
+      return '';
+    }
+  },
   clipboardReadFilePaths: () => {
     if (process.platform === 'win32') {
       try {
