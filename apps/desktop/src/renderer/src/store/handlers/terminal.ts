@@ -2,6 +2,8 @@ import type { UIIntent } from '@specwave/contracts';
 
 import type { AppState, StoreCtx } from '../types';
 
+const terminalPasteInFlight = new Set<string>();
+
 /**
  * Terminal handler（终端面板/输入输出/剪贴板/尺寸变化）
  *
@@ -155,7 +157,38 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
       void (async () => {
         const api = window.specwave;
         if (!api?.terminalWrite) return;
+        if (terminalPasteInFlight.has(intent.id)) return;
+        terminalPasteInFlight.add(intent.id);
         try {
+          let pasted = false;
+          if (api.terminalPasteImage) {
+            try {
+              const cwd = ctx.bootProjectPath ?? ctx.get().vm.explorer.projectRoot ?? null;
+              const result = await api.terminalPasteImage({ cwd, prefix: 'img-' });
+              if (result?.ok) {
+                const outputPath = result.filePath || result.fileName;
+                if (outputPath) {
+                  api.terminalWrite(intent.id, outputPath);
+                  pasted = true;
+                }
+              }
+            } catch {}
+          }
+
+          if (!pasted && api.clipboardReadFilePaths) {
+            try {
+              const filePaths = api.clipboardReadFilePaths();
+              if (filePaths.length > 0) {
+                const joined = filePaths.join('\n');
+                const normalized = joined.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
+                api.terminalWrite(intent.id, normalized);
+                pasted = true;
+              }
+            } catch {}
+          }
+
+          if (pasted) return;
+
           let text = api.clipboardReadText?.() ?? '';
           if (!text) {
             const canNavigatorClipboard = typeof navigator !== 'undefined' && Boolean(navigator.clipboard?.readText);
@@ -171,6 +204,11 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
           text = text.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
           api.terminalWrite(intent.id, text);
         } catch {}
+        finally {
+          window.setTimeout(() => {
+            terminalPasteInFlight.delete(intent.id);
+          }, 120);
+        }
       })();
       return { vm };
     }

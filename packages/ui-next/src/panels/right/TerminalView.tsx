@@ -171,6 +171,13 @@ export function TerminalView(props: TerminalViewProps) {
           (ctrl && shift && !alt && !meta && code === 'KeyC') || (ctrl && !shift && !alt && !meta && code === 'Insert');
         const isPasteShortcut =
           (ctrl && !alt && !meta && code === 'KeyV') || (shift && !ctrl && !alt && !meta && code === 'Insert');
+        const isShiftEnter =
+          shift && !ctrl && !alt && !meta && (code === 'Enter' || code === 'NumpadEnter' || e.key === 'Enter');
+
+        if (isShiftEnter) {
+          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\r' });
+          return false;
+        }
 
         if (isPasteShortcut) {
           pasteFromClipboardFor(id, term);

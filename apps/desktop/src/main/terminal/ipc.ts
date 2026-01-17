@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import type { PtyManager } from './ptyManager';
+import { saveClipboardImage, type TerminalPasteImageOptions } from './pasteImage';
 
 export function registerTerminalIpcHandlers(pty: PtyManager) {
   ipcMain.handle(
@@ -17,8 +18,11 @@ export function registerTerminalIpcHandlers(pty: PtyManager) {
     pty.resize({ id: args.id, cols: args.cols, rows: args.rows });
   });
 
+  ipcMain.handle('specwave:terminal:pasteImage', async (_evt, args: TerminalPasteImageOptions) => {
+    return saveClipboardImage(args ?? {});
+  });
+
   ipcMain.handle('specwave:terminal:kill', async (_evt, args: { id: string }) => {
     pty.kill(args.id);
   });
 }
-

@@ -67,6 +67,84 @@ function LineNumberedCode(props: { text: string; query: string }) {
   );
 }
 
+type TaskDetailItem = {
+  label: string;
+  value: string;
+  raw: string;
+};
+
+function parseTaskDetailItems(body: string) {
+  const normalized = body.replaceAll('\r\n', '\n');
+  const lines = normalized.split('\n');
+  const items: TaskDetailItem[] = [];
+  const rest: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const cleaned = trimmed.replace(/^[-*+]\s+/, '').trim();
+    const match = cleaned.match(/^([\u4e00-\u9fa5A-Za-z0-9_\- ]{1,24})[：:]\s*(.*)$/);
+    if (match) {
+      const label = match[1]?.trim() ?? '';
+      const value = match[2]?.trim() ?? '';
+      if (label) {
+        items.push({ label, value, raw: trimmed });
+        continue;
+      }
+    }
+    rest.push(trimmed);
+  }
+
+  return { items, restText: rest.join('\n').trim() };
+}
+
+function TaskDetailView(props: { body: string; onEdit: () => void }) {
+  const rawBody = props.body ?? '';
+  const trimmed = rawBody.trim();
+  if (!trimmed) {
+    return (
+      <div
+        className={styles.taskBodyText}
+        role="button"
+        tabIndex={0}
+        aria-label="双击编辑正文"
+        onDoubleClick={props.onEdit}
+      >
+        暂无详情。
+      </div>
+    );
+  }
+
+  const { items, restText } = parseTaskDetailItems(rawBody);
+  if (!items.length) {
+    return (
+      <div
+        className={styles.taskBodyText}
+        role="button"
+        tabIndex={0}
+        aria-label="双击编辑正文"
+        onDoubleClick={props.onEdit}
+      >
+        {rawBody}
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.taskDetail} role="button" tabIndex={0} aria-label="双击编辑正文" onDoubleClick={props.onEdit}>
+      <div className={styles.taskDetailList}>
+        {items.map((item, idx) => (
+          <div key={`${item.label}-${idx}`} className={styles.taskDetailItem}>
+            <div className={styles.taskDetailLabel}>{item.label}</div>
+            <div className={styles.taskDetailValue}>{item.value || '—'}</div>
+          </div>
+        ))}
+      </div>
+      {restText ? <div className={styles.taskDetailNote}>{restText}</div> : null}
+    </div>
+  );
+}
+
 type CenterIntent = Extract<
   UIIntent,
   | { type: 'CONTENT_TOGGLE_VIEW_MODE' }
@@ -492,15 +570,10 @@ export const CenterPanel = React.memo(function CenterPanel(props: CenterPanelPro
                                     <div className={styles.taskEditHint}>Ctrl+Enter 保存，Esc 退出编辑</div>
                                   </div>
                                 ) : (
-                                  <div
-                                    className={styles.taskBodyText}
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-label="双击编辑正文"
-                                    onDoubleClick={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: activeTask.id, mode: 'edit' })}
-                                  >
-                                    {activeTask.body ? activeTask.body : '暂无详情。'}
-                                  </div>
+                                  <TaskDetailView
+                                    body={activeTask.body}
+                                    onEdit={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: activeTask.id, mode: 'edit' })}
+                                  />
                                 )}
 
                                 {/* 关联引用 Badge */}
@@ -683,15 +756,10 @@ export const CenterPanel = React.memo(function CenterPanel(props: CenterPanelPro
                                       <div className={styles.taskEditHint}>Ctrl+Enter 保存，Esc 退出编辑</div>
                                     </div>
                                   ) : (
-                                    <div
-                                      className={styles.taskBodyText}
-                                      role="button"
-                                      tabIndex={0}
-                                      aria-label="双击编辑正文"
-                                      onDoubleClick={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: t.id, mode: 'edit' })}
-                                    >
-                                      {t.body ? t.body : '暂无详情。'}
-                                    </div>
+                                    <TaskDetailView
+                                      body={t.body}
+                                      onEdit={() => props.dispatch({ type: 'TASK_DETAIL_OPEN', taskId: t.id, mode: 'edit' })}
+                                    />
                                   )}
                                 </div>
                               </article>

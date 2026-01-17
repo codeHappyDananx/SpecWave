@@ -49,12 +49,13 @@
 | `packages/ui-next/src/panels/left/SpecWaveInitGuide.tsx` | 左栏 SpecWave 未初始化态引导卡片 + 初始化弹出框（步骤/进度/日志/失败可复制） | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只渲染 `explorer.specwaveInit`，按钮只派发 `SPECWAVE_INIT_*` |
 | `packages/ui-next/src/panels/left/StoryBoardView.tsx` | Story 看板视图：列表展示 Story 卡片（按编号倒序），支持高亮当前活跃 Story | `primitives/StoryCard`、contracts | `panels/left/LeftPanel` | 只渲染 StoryBoardVM，dispatch STORY_CARD_CLICK |
 | `packages/ui-next/src/panels/left/StoryCardInExplorer.tsx` | 文件浏览器内嵌 Story 卡片：在 stories 目录下展示 Story 信息，支持归档状态和活动高亮 | contracts | `panels/left/LeftPanel` | 点击 dispatch STORY_CARD_SELECT |
-| `packages/ui-next/src/panels/center` | 中栏：内容工作区（markdown 渲染/源码编辑/文件内查找/图片预览/任务卡片看板 + 详情编辑 + “开始”联动终端） | `primitives`、contracts | `shell` | 禁止 import 其他 panels；UI 不解析 markdown，只消费 VM |
+| `packages/ui-next/src/panels/center` | 中栏：内容工作区（markdown 渲染/源码编辑/文件内查找/图片预览/任务卡片看板 + 详情编辑 + 详情条目化展示 + “开始”联动终端） | `primitives`、contracts | `shell` | 禁止 import 其他 panels；UI 不解析 markdown，只消费 VM |
 | `packages/ui-next/src/panels/center/PhaseIndicator.tsx` | 阶段流转指示器：ReactBits Stepper 风格，展示 Story 6 阶段进度（诉求/需求/设计/任务/执行/完成），支持点击跳转，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 PhaseIndicatorVM，dispatch PHASE_INDICATOR_CLICK |
 | `packages/ui-next/src/panels/center/ReactBitsStepper.tsx` | React Bits Stepper 组件：展示 Story 3 阶段进度（需求/设计/任务），支持点击切换阶段，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 StoryStepperVM，dispatch STORY_STEPPER_PHASE_CLICK |
+| `packages/ui-next/src/panels/center/CenterPanel.tsx` | 中栏主面板：任务卡片详情展示与编辑入口（详情条目化展示） | `primitives`、contracts | `shell` | 仅展示与交互采集 |
 | `packages/ui-next/src/panels/right` | 右栏：终端/对话 tabs | `primitives` | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/shell/ports.ts` | UI 端口类型：`subscribeTerminalEvent`（订阅终端事件） | 无 | `shell/SpecWaveApp`、`panels/right`、renderer `ui/App.tsx` | 只放类型定义，避免 UI 直接依赖 preload |
-| `packages/ui-next/src/panels/right/TerminalView.tsx` | 终端视图：封装 `@xterm/xterm`（终端组件），通过 `subscribeTerminalEvent`（订阅终端事件）直写 xterm 缓冲；处理自适应尺寸、滚动历史（xterm `scrollback`）、复制/粘贴快捷键与右键动作 | contracts + `shell/ports.ts` | `panels/right/RightPanel` | 只派发 `UIIntent`；剪贴板与 `pty`（伪终端）能力走 preload；终端输出不进 VM |
+| `packages/ui-next/src/panels/right/TerminalView.tsx` | 终端视图：封装 `@xterm/xterm`（终端组件），通过 `subscribeTerminalEvent`（订阅终端事件）直写 xterm 缓冲；处理自适应尺寸、滚动历史（xterm `scrollback`）、复制/粘贴快捷键、右键无选区粘贴、`Shift`：换挡键 + `Enter`：回车键 换行 | contracts + `shell/ports.ts` | `panels/right/RightPanel` | 只派发 `UIIntent`；剪贴板与 `pty`（伪终端）能力走 preload；终端输出不进 VM |
 | `packages/ui-next/src/primitives` | 可复用 UI 组件与样式 | tokens | panels/shell | 自写组件样式用 CSS Modules；shadcn 引入组件允许 Tailwind class（集中在 `primitives/shadcn`） |
 | `packages/ui-next/src/primitives/StoryCard.tsx` | Story 卡片组件：展示需求号、标题、任务进度、阶段标签，支持 isActive 高亮 | contracts | `panels/left/StoryBoardView` | 纯展示组件，不含业务逻辑 |
 | `packages/ui-next/src/primitives/TiltedCard.tsx` | Tilted Card 动效容器（克制 tilt/scale，自动尊重“减少动态效果”） | `motion/react` | `panels/center` | 只做动效与降级，不绑定业务字段 |
@@ -75,8 +76,10 @@
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
 | `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty（含目录监听与二进制读取） | Electron/Node | Electron entry | 系统能力集中在这里 |
 | `apps/desktop/src/main/ipc.ts` | 主进程 `IPC`：进程间通信 注册；本次新增 `specwave:initStart`：初始化入口，并通过 `specwave:init:event` 推送结构化进度/结果事件 | Electron/Node | preload | 初始化实现从 `specwave-skills` 的 pack 资源拷贝 `.specwave` 到项目根 |
+| `apps/desktop/src/main/terminal/ipc.ts` | 终端 `IPC`：进程间通信 注册终端写入/尺寸/图片粘贴通道 | Electron/Node | preload | 只做 `IPC` 转发 |
+| `apps/desktop/src/main/terminal/pasteImage.ts` | 终端图片粘贴助手：剪贴板读图、落盘 `.terminal-paste`、必要时写入 `.gitignore` | Electron/Node | `main/terminal/ipc.ts` | 仅主进程使用 |
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |
-| `apps/desktop/src/preload/index.ts` | preload 桥接实现：本次新增 `window.specwave.specwaveInitStart` 与 `window.specwave.onSpecwaveInitEvent` | Electron | renderer store | 只暴露能力与事件订阅，不放业务编排 |
+| `apps/desktop/src/preload/index.ts` | preload 桥接实现：新增 `window.specwave.specwaveInitStart` 与 `window.specwave.onSpecwaveInitEvent`，并暴露 `terminalPasteImage`：终端图片粘贴能力、`clipboardReadFilePaths`：剪贴板文件路径读取能力 | Electron | renderer store | 只暴露能力与事件订阅，不放业务编排 |
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
 | `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
