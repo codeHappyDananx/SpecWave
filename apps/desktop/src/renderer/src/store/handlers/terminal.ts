@@ -26,6 +26,9 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
     const res = await api.terminalCreateSession({ id, cwd, cols: cols ?? null, rows: rows ?? null });
     if (res.ok) {
       ctx.terminalSessionEnsured.add(id);
+      try {
+        api.terminalWrite?.(id, '\x1b[?2004h');
+      } catch {}
       return true;
     }
 
