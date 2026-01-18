@@ -42,6 +42,8 @@ export function TerminalView(props: TerminalViewProps) {
     lastSize: { cols: number; rows: number } | null;
     writeQueue: string[];
     writeInFlight: boolean;
+    pasteTarget: HTMLTextAreaElement | null;
+    pasteHandler: ((event: ClipboardEvent) => void) | null;
     dispose: () => void;
   };
 
@@ -151,6 +153,16 @@ export function TerminalView(props: TerminalViewProps) {
       const fit = new FitAddon();
       term.loadAddon(fit);
 
+      const pasteTarget = term.textarea ?? null;
+      let pasteHandler: ((event: ClipboardEvent) => void) | null = null;
+      if (pasteTarget) {
+        pasteHandler = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        };
+        pasteTarget.addEventListener('paste', pasteHandler);
+      }
+
       const onData = term.onData((data) => {
         dispatchRef.current({ type: 'TERMINAL_WRITE', id, data });
       });
@@ -175,7 +187,7 @@ export function TerminalView(props: TerminalViewProps) {
           shift && !ctrl && !alt && !meta && (code === 'Enter' || code === 'NumpadEnter' || e.key === 'Enter');
 
         if (isShiftEnter) {
-          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\r' });
+          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\x1b[200~\n\x1b[201~' });
           return false;
         }
 
@@ -207,10 +219,17 @@ export function TerminalView(props: TerminalViewProps) {
         lastSize: null,
         writeQueue: [],
         writeInFlight: false,
+        pasteTarget,
+        pasteHandler,
         dispose: () => {
           try {
             onData.dispose();
           } catch {}
+          if (pasteTarget && pasteHandler) {
+            try {
+              pasteTarget.removeEventListener('paste', pasteHandler);
+            } catch {}
+          }
           try {
             term.dispose();
           } catch {}
