@@ -44,6 +44,7 @@ export function TerminalView(props: TerminalViewProps) {
     writeInFlight: boolean;
     pasteTarget: HTMLTextAreaElement | null;
     pasteHandler: ((event: ClipboardEvent) => void) | null;
+    bracketPasteOpen: boolean;
     dispose: () => void;
   };
 
@@ -183,11 +184,23 @@ export function TerminalView(props: TerminalViewProps) {
           (ctrl && shift && !alt && !meta && code === 'KeyC') || (ctrl && !shift && !alt && !meta && code === 'Insert');
         const isPasteShortcut =
           (ctrl && !alt && !meta && code === 'KeyV') || (shift && !ctrl && !alt && !meta && code === 'Insert');
+        const isEnter =
+          !shift && !ctrl && !alt && !meta && (code === 'Enter' || code === 'NumpadEnter' || e.key === 'Enter');
         const isShiftEnter =
           shift && !ctrl && !alt && !meta && (code === 'Enter' || code === 'NumpadEnter' || e.key === 'Enter');
 
         if (isShiftEnter) {
-          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\x1b[200~\n\x1b[201~' });
+          if (!inst.bracketPasteOpen) {
+            dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\x1b[200~' });
+            inst.bracketPasteOpen = true;
+          }
+          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\n' });
+          return false;
+        }
+
+        if (isEnter && inst.bracketPasteOpen) {
+          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\x1b[201~\r' });
+          inst.bracketPasteOpen = false;
           return false;
         }
 
@@ -221,6 +234,7 @@ export function TerminalView(props: TerminalViewProps) {
         writeInFlight: false,
         pasteTarget,
         pasteHandler,
+        bracketPasteOpen: false,
         dispose: () => {
           try {
             onData.dispose();
