@@ -187,7 +187,8 @@ export function TerminalView(props: TerminalViewProps) {
           shift && !ctrl && !alt && !meta && (code === 'Enter' || code === 'NumpadEnter' || e.key === 'Enter');
 
         if (isShiftEnter) {
-          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\x1b[200~\n\x1b[201~' });
+          // 模拟 Ctrl+V + Enter：插入字面换行而不是直接执行。
+          dispatchRef.current({ type: 'TERMINAL_WRITE', id, data: '\x16\r' });
           return false;
         }
 
