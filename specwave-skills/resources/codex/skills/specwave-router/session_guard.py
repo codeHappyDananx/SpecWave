@@ -30,6 +30,16 @@ def _owner_key(explicit: Optional[str]) -> str:
     env = os.environ.get("SPECWAVE_OWNER_KEY", "").strip()
     if env:
         return env
+    for name in (
+        "CODEX_SESSION_ID",
+        "CODEX_CLIENT_ID",
+        "CODEX_RUN_ID",
+        "WT_SESSION",
+        "TERM_SESSION_ID",
+    ):
+        v = os.environ.get(name, "").strip()
+        if v:
+            return f"env:{name}:{v}"
     # 默认用父进程 pid 作为“窗口/Agent 归属”，避免同项目多窗口串线。
     return f"ppid:{os.getppid()}"
 
@@ -304,7 +314,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     state_path = _state_path()
-    owner = _owner_key(args.session_id)
+    owner = _owner_key(args.owner_key)
 
     try:
         _load_settings(settings_path)
@@ -327,7 +337,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     state_path = _state_path()
-    owner = _owner_key(args.session_id)
+    owner = _owner_key(args.owner_key)
 
     # settings.json 仅作为规则配置文件：存在性检查即可，不再写入 currentSession。
     _load_settings(settings_path)
@@ -345,7 +355,7 @@ def cmd_set(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     state_path = _state_path()
-    owner = _owner_key(args.session_id)
+    owner = _owner_key(args.owner_key)
 
     _load_settings(settings_path)
 
@@ -371,7 +381,7 @@ def cmd_clear(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     state_path = _state_path()
-    owner = _owner_key(args.session_id)
+    owner = _owner_key(args.owner_key)
 
     _load_settings(settings_path)
 
@@ -400,6 +410,7 @@ def _reorder_argv_for_global_flags(argv: list[str]) -> list[str]:
         "--project-root": 1,
         "--sessions-root": 1,
         "--session-id": 1,
+        "--owner-key": 1,
         "--recent-limit": 1,
         "--ambiguity-seconds": 1,
     }
@@ -447,8 +458,15 @@ def main() -> int:
     )
     parser.add_argument(
         "--session-id",
+        dest="owner_key",
         default=None,
-        help="显式指定 session id（并发时建议使用）",
+        help="显式指定 owner key（兼容旧参数名）",
+    )
+    parser.add_argument(
+        "--owner-key",
+        dest="owner_key",
+        default=None,
+        help="显式指定 owner key（可选）",
     )
     parser.add_argument(
         "--recent-limit",
