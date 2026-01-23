@@ -42,6 +42,7 @@ export function TerminalView(props: TerminalViewProps) {
     lastSize: { cols: number; rows: number } | null;
     writeQueue: string[];
     writeInFlight: boolean;
+    lastPasteRequestAt: number;
     pasteTarget: HTMLTextAreaElement | null;
     pasteHandler: ((event: ClipboardEvent) => void) | null;
     dispose: () => void;
@@ -153,16 +154,6 @@ export function TerminalView(props: TerminalViewProps) {
       const fit = new FitAddon();
       term.loadAddon(fit);
 
-      const pasteTarget = term.textarea ?? null;
-      let pasteHandler: ((event: ClipboardEvent) => void) | null = null;
-      if (pasteTarget) {
-        pasteHandler = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        };
-        pasteTarget.addEventListener('paste', pasteHandler);
-      }
-
       const onData = term.onData((data) => {
         dispatchRef.current({ type: 'TERMINAL_WRITE', id, data });
       });
@@ -193,6 +184,9 @@ export function TerminalView(props: TerminalViewProps) {
         }
 
         if (isPasteShortcut) {
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+          const inst2 = instancesRef.current.get(id);
+          if (inst2) inst2.lastPasteRequestAt = now;
           pasteFromClipboardFor(id, term);
           return false;
         }
@@ -220,15 +214,16 @@ export function TerminalView(props: TerminalViewProps) {
         lastSize: null,
         writeQueue: [],
         writeInFlight: false,
-        pasteTarget,
-        pasteHandler,
+        lastPasteRequestAt: 0,
+        pasteTarget: null,
+        pasteHandler: null,
         dispose: () => {
           try {
             onData.dispose();
           } catch {}
-          if (pasteTarget && pasteHandler) {
+          if (inst.pasteTarget && inst.pasteHandler) {
             try {
-              pasteTarget.removeEventListener('paste', pasteHandler);
+              inst.pasteTarget.removeEventListener('paste', inst.pasteHandler, true);
             } catch {}
           }
           try {
@@ -262,6 +257,40 @@ export function TerminalView(props: TerminalViewProps) {
     []
   );
 
+  const ensurePasteHandler = React.useCallback(
+    (inst: TermInstance) => {
+      const target =
+        inst.term.textarea ??
+        ((inst.container?.querySelector?.('textarea') as HTMLTextAreaElement | null) ?? null);
+      if (!target) return;
+      if (inst.pasteTarget === target && inst.pasteHandler) return;
+
+      if (inst.pasteTarget && inst.pasteHandler) {
+        try {
+          inst.pasteTarget.removeEventListener('paste', inst.pasteHandler, true);
+        } catch {}
+      }
+
+      const handler = (event: ClipboardEvent) => {
+        try {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+        } catch {}
+
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        if (now - inst.lastPasteRequestAt < 80) return;
+        inst.lastPasteRequestAt = now;
+        pasteFromClipboardFor(inst.id, inst.term);
+      };
+
+      target.addEventListener('paste', handler, true);
+      inst.pasteTarget = target;
+      inst.pasteHandler = handler;
+    },
+    [pasteFromClipboardFor]
+  );
+
   const setContainerFor = React.useCallback(
     (id: string, el: HTMLDivElement | null) => {
       const inst = instancesRef.current.get(id) ?? ensureInstance(id);
@@ -271,6 +300,7 @@ export function TerminalView(props: TerminalViewProps) {
       el.innerHTML = '';
       inst.term.open(el);
       inst.isOpen = true;
+      ensurePasteHandler(inst);
 
       if (props.visible && id === activeId) {
         try {
@@ -279,7 +309,7 @@ export function TerminalView(props: TerminalViewProps) {
         requestAnimationFrame(() => fitAndResize(id));
       }
     },
-    [activeId, ensureInstance, fitAndResize, props.visible]
+    [activeId, ensureInstance, ensurePasteHandler, fitAndResize, props.visible]
   );
 
   const getContainerRef = React.useCallback(
