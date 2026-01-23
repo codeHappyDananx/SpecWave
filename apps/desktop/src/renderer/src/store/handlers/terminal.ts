@@ -1,6 +1,7 @@
 import type { UIIntent } from '@specwave/contracts';
 
 import type { AppState, StoreCtx } from '../types';
+import { applyDockDrop, applyDockSplitter, normalizeTerminalDock, setDockActiveTab } from '../shared/terminalDock';
 
 const terminalPasteInFlight = new Set<string>();
 
@@ -70,15 +71,39 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
       ctx.terminalLastSizeById.delete(intent.id);
       const nextIds = vm.terminal.panelIds.filter((id) => id !== intent.id);
       const nextActive = vm.terminal.activePanelId === intent.id ? (nextIds[0] ?? '') : vm.terminal.activePanelId;
+      const nextDock = normalizeTerminalDock({ panelIds: nextIds, activePanelId: nextActive, dock: vm.terminal.dock });
       return {
         vm: {
           ...vm,
-          terminal: { ...vm.terminal, panelIds: nextIds, activePanelId: nextActive }
+          terminal: { ...vm.terminal, panelIds: nextIds, activePanelId: nextActive, dock: nextDock }
         }
       };
     }
-    case 'TERMINAL_PANEL_SET_ACTIVE':
-      return { vm: { ...vm, terminal: { ...vm.terminal, activePanelId: intent.id }, rightVisible: true } };
+    case 'TERMINAL_PANEL_SET_ACTIVE': {
+      const dock0 = setDockActiveTab({
+        panelIds: vm.terminal.panelIds,
+        activePanelId: intent.id,
+        dock: vm.terminal.dock,
+        id: intent.id
+      });
+      return { vm: { ...vm, terminal: { ...vm.terminal, activePanelId: intent.id, dock: dock0 }, rightVisible: true } };
+    }
+    case 'TERMINAL_DOCK_SPLITTER_SET': {
+      const dock0 = normalizeTerminalDock({ panelIds: vm.terminal.panelIds, activePanelId: vm.terminal.activePanelId, dock: vm.terminal.dock });
+      const dock1 = applyDockSplitter({ dock: dock0, key: intent.key, ratio: intent.ratio });
+      return { vm: { ...vm, terminal: { ...vm.terminal, dock: dock1 } } };
+    }
+    case 'TERMINAL_DOCK_DROP': {
+      const dock0 = normalizeTerminalDock({ panelIds: vm.terminal.panelIds, activePanelId: vm.terminal.activePanelId, dock: vm.terminal.dock });
+      const dock1 = applyDockDrop({
+        panelIds: vm.terminal.panelIds,
+        activePanelId: vm.terminal.activePanelId,
+        dock: dock0,
+        id: intent.id,
+        drop: intent.drop
+      });
+      return { vm: { ...vm, terminal: { ...vm.terminal, activePanelId: intent.id, dock: dock1 }, rightVisible: true } };
+    }
     case 'TERMINAL_WRITE': {
       const api = window.specwave;
       if (!api?.terminalWrite) return { vm };

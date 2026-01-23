@@ -6,6 +6,7 @@ import { normalizeFsPath } from '../shared/path';
 import { loadLinkedDocs } from '../shared/linkedDocs';
 import { selfWriteAtByPath } from '../shared/selfWriteSilence';
 import { EMPTY_TASK_DETAIL, parseTaskBoardV2 } from '../shared/taskBoard';
+import { normalizeTerminalDock } from '../shared/terminalDock';
 
 function toggleCharAt(text: string, pos: number, nextChar: string) {
   if (pos < 0 || pos >= text.length) return text;
@@ -455,12 +456,13 @@ export function handleTaskIntent(args: { ctx: StoreCtx; state: AppState; intent:
         // 通过 intent 写入：由 TERMINAL_WRITE/TERMINAL_RESIZE 统一兜底“会话未创建”的场景。
         void Promise.resolve().then(() => ctx.dispatch({ type: 'TERMINAL_WRITE', id: existingId, data: template }));
 
+        const dock = normalizeTerminalDock({ panelIds: vm.terminal.panelIds, activePanelId: existingId, dock: vm.terminal.dock });
         return {
           vm: {
             ...vm,
             rightVisible: true,
             rightMode: 'terminal' as const,
-            terminal: { ...vm.terminal, activePanelId: existingId }
+            terminal: { ...vm.terminal, activePanelId: existingId, dock }
           }
         };
       }
@@ -469,14 +471,30 @@ export function handleTaskIntent(args: { ctx: StoreCtx; state: AppState; intent:
       ctx.terminalUserTyped.delete(nextId);
       void Promise.resolve().then(() => ctx.dispatch({ type: 'TERMINAL_WRITE', id: nextId, data: template }));
 
+      const nextPanelIds = [...vm.terminal.panelIds, nextId];
+      const dock0 = normalizeTerminalDock({ panelIds: vm.terminal.panelIds, activePanelId: vm.terminal.activePanelId, dock: vm.terminal.dock });
+      const activeRegionId =
+        dock0.regions.find((r) => r.tabIds.includes(vm.terminal.activePanelId))?.id ?? dock0.regions[0]?.id ?? 'A';
+      const dock1 = normalizeTerminalDock({
+        panelIds: nextPanelIds,
+        activePanelId: nextId,
+        dock: {
+          ...dock0,
+          regions: dock0.regions.length
+            ? dock0.regions.map((r) => (r.id === activeRegionId ? { ...r, tabIds: [...r.tabIds, nextId], activeTabId: nextId } : r))
+            : [{ id: 'A', tabIds: [nextId], activeTabId: nextId }]
+        }
+      });
+
       return {
         vm: {
           ...vm,
           rightVisible: true,
           rightMode: 'terminal' as const,
           terminal: {
-            panelIds: [...vm.terminal.panelIds, nextId],
+            panelIds: nextPanelIds,
             activePanelId: nextId,
+            dock: dock1,
           }
         }
       };

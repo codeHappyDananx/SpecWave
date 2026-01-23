@@ -176,7 +176,11 @@ const initialVm: AppViewModel = {
   globalSearchQuery: '',
   terminal: {
     activePanelId: 'terminal-1',
-    panelIds: ['terminal-1']
+    panelIds: ['terminal-1'],
+    dock: {
+      layout: { kind: 'one' },
+      regions: [{ id: 'A', tabIds: ['terminal-1'], activeTabId: 'terminal-1' }]
+    }
   },
   chat: {
     sessionIds: ['chat-1', 'chat-2'],
@@ -1109,68 +1113,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           };
         }
-        case 'RIGHT_PANEL_ADD': {
-          if (vm.rightMode === 'terminal') {
-            const nextId = `terminal-${Date.now()}`;
-            terminalUserTyped.delete(nextId);
-            const prevActive = vm.terminal.activePanelId;
-
-            void (async () => {
-              const api = window.specwave;
-              if (!api?.terminalCreateSession) return;
-              const cwd = get().vm.explorer.projectRoot ?? null;
-              const res = await api.terminalCreateSession({ id: nextId, cwd });
-              if (res.ok) return;
-              if (api.showMessageBox) {
-                try {
-                  await api.showMessageBox({
-                    title: '终端启动失败',
-                    message: '终端会话启动失败，已回滚该面板。',
-                    detail: String(res.error || ''),
-                    buttons: ['知道了'],
-                    defaultId: 0
-                  });
-                } catch {}
-              }
-              set((state) => {
-                const vm2 = state.vm;
-                const nextIds = vm2.terminal.panelIds.filter((id) => id !== nextId);
-                const nextActive =
-                  vm2.terminal.activePanelId === nextId ? (prevActive || nextIds[0] || '') : vm2.terminal.activePanelId;
-                return { vm: { ...vm2, terminal: { ...vm2.terminal, panelIds: nextIds, activePanelId: nextActive } } };
-              });
-            })();
-
-            return {
-              vm: {
-                ...vm,
-                terminal: {
-                  panelIds: [...vm.terminal.panelIds, nextId],
-                  activePanelId: nextId
-                },
-                rightVisible: true
-              }
-            };
-          }
-
-          const nextId = `chat-${vm.chat.sessionIds.length + 1}`;
-          return {
-            vm: {
-              ...vm,
-              chat: {
-                ...vm.chat,
-                sessionIds: [...vm.chat.sessionIds, nextId],
-                activeSessionId: nextId,
-                messagesBySession: {
-                  ...vm.chat.messagesBySession,
-                  [nextId]: [msg('AI', '新会话已创建（示意）。')]
-                },
-                draftBySession: { ...vm.chat.draftBySession, [nextId]: '' }
-              },
-              rightVisible: true
-            }
-          };
-        }
+        case 'RIGHT_PANEL_ADD':
+          // 已迁移到 store/handlers/panel.ts：避免此处与 handlers 双写产生状态不一致
+          return { vm };
         case 'SHORTCUT_SAVE':
           if (!vm.content.file || !vm.content.isDirty) return { vm };
           void (async () => {

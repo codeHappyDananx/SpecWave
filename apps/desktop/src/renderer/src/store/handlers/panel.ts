@@ -2,6 +2,7 @@ import type { ChatMessageVM, UIIntent } from '@specwave/contracts';
 
 import type { AppState, StoreCtx } from '../types';
 import { normalizeLayoutStable } from '../shared/layout';
+import { normalizeTerminalDock } from '../shared/terminalDock';
 
 const msg = (who: ChatMessageVM['who'], text: string): ChatMessageVM => ({ who, text });
 
@@ -63,13 +64,28 @@ export function handlePanelIntent(args: { ctx: StoreCtx; state: AppState; intent
       if (vm.rightMode === 'terminal') {
         const nextId = `terminal-${Date.now()}`;
         ctx.terminalUserTyped.delete(nextId);
+        const nextPanelIds = [...vm.terminal.panelIds, nextId];
+        const dock0 = normalizeTerminalDock({ panelIds: vm.terminal.panelIds, activePanelId: vm.terminal.activePanelId, dock: vm.terminal.dock });
+        const activeRegionId =
+          dock0.regions.find((r) => r.tabIds.includes(vm.terminal.activePanelId))?.id ?? dock0.regions[0]?.id ?? 'A';
+        const dock1 = normalizeTerminalDock({
+          panelIds: nextPanelIds,
+          activePanelId: nextId,
+          dock: {
+            ...dock0,
+            regions: dock0.regions.map((r) =>
+              r.id === activeRegionId ? { ...r, tabIds: [...r.tabIds, nextId], activeTabId: nextId } : r
+            )
+          }
+        });
 
         return {
           vm: {
             ...vm,
             terminal: {
-              panelIds: [...vm.terminal.panelIds, nextId],
+              panelIds: nextPanelIds,
               activePanelId: nextId,
+              dock: dock1,
             },
             rightVisible: true
           }

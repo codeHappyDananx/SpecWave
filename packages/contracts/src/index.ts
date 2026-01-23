@@ -220,6 +220,30 @@ export type ContentVM = {
   find: ContentFindVM;
 };
 
+export type TerminalDockLayoutVM =
+  | { kind: "one" }
+  | { kind: "two"; dir: "rows" | "cols"; ratio: number }
+  | { kind: "three"; primary: "top" | "bottom"; ratio: number; secondaryRatio: number }
+  | { kind: "four"; splitX: number; splitY: number };
+
+export type TerminalDockRegionVM = {
+  id: "A" | "B" | "C" | "D";
+  tabIds: string[];
+  activeTabId: string | null;
+};
+
+export type TerminalDockVM = {
+  layout: TerminalDockLayoutVM;
+  regions: TerminalDockRegionVM[];
+};
+
+export type TerminalDockSplitterKeyVM = "two" | "threePrimary" | "threeSecondary" | "fourX" | "fourY";
+
+export type TerminalDockDropVM =
+  | { kind: "merge"; targetRegionId: TerminalDockRegionVM["id"] }
+  | { kind: "swap"; targetTabId: string }
+  | { kind: "split"; targetRegionId: TerminalDockRegionVM["id"]; side: "left" | "right" | "top" | "bottom" };
+
 export type UIIntent =
   | { type: "APP_QUIT_REQUEST" }
   | { type: "PANEL_TOGGLE_LEFT" }
@@ -280,6 +304,8 @@ export type UIIntent =
   | { type: "SKIN_CYCLE" }
   | { type: "TERMINAL_PANEL_CLOSE"; id: string }
   | { type: "TERMINAL_PANEL_SET_ACTIVE"; id: string }
+  | { type: "TERMINAL_DOCK_SPLITTER_SET"; key: TerminalDockSplitterKeyVM; ratio: number }
+  | { type: "TERMINAL_DOCK_DROP"; id: string; drop: TerminalDockDropVM }
   | { type: "TERMINAL_COPY"; text: string }
   | { type: "TERMINAL_PASTE"; id: string }
   | { type: "CHAT_SESSION_CLOSE"; id: string }
@@ -326,6 +352,7 @@ export type AppViewModel = {
   terminal: {
     panelIds: string[];
     activePanelId: string;
+    dock: TerminalDockVM;
   };
 
   chat: {

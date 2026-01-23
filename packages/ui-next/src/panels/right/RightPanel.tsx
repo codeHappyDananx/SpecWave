@@ -1,7 +1,7 @@
 import React from 'react';
 import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { ChatView } from './ChatView';
-import { TerminalView } from './TerminalView';
+import { TerminalDockView } from './TerminalDockView';
 import { ClosableTab } from '../../primitives/ClosableTab';
 import { Icon } from '../../primitives/Icons';
 import { IconButton } from '../../primitives/IconButton';
@@ -15,6 +15,8 @@ type RightIntent = Extract<
   | { type: 'RIGHT_PANEL_ADD' }
   | { type: 'TERMINAL_PANEL_SET_ACTIVE' }
   | { type: 'TERMINAL_PANEL_CLOSE' }
+  | { type: 'TERMINAL_DOCK_DROP' }
+  | { type: 'TERMINAL_DOCK_SPLITTER_SET' }
   | { type: 'TERMINAL_COPY' }
   | { type: 'TERMINAL_PASTE' }
   | { type: 'CHAT_SESSION_SET_ACTIVE' }
@@ -38,18 +40,7 @@ export const RightPanel = React.memo(function RightPanel(props: RightPanelProps)
   const panelVariant = props.rightMode === 'terminal' ? 'terminal' : 'default';
   const headerTabs =
     props.rightMode === 'terminal' ? (
-      <div className={styles.headerTabs} role="tablist" aria-label="终端页签">
-        {props.terminal.panelIds.map((id, idx) => (
-          <ClosableTab
-            key={id}
-            selected={id === props.terminal.activePanelId}
-            title={`PS${idx + 1}`}
-            variant="terminal"
-            onSelect={() => props.dispatch({ type: 'TERMINAL_PANEL_SET_ACTIVE', id })}
-            onClose={() => props.dispatch({ type: 'TERMINAL_PANEL_CLOSE', id })}
-          />
-        ))}
-      </div>
+      <div className={styles.headerTabs} aria-label="终端分区" />
     ) : (
       <div className={styles.headerTabs} role="tablist" aria-label="对话会话">
         {props.chat.sessionIds.map((id, idx) => (
@@ -117,7 +108,7 @@ export const RightPanel = React.memo(function RightPanel(props: RightPanelProps)
     >
       <div className={styles.stack} aria-label="右区内容">
         <div className={styles.pane} data-active={props.rightMode === 'terminal' ? '1' : '0'}>
-          <TerminalView
+          <TerminalDockView
             terminal={props.terminal}
             dispatch={props.dispatch}
             subscribeTerminalEvent={props.subscribeTerminalEvent}

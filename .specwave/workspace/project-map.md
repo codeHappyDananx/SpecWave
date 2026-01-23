@@ -43,7 +43,7 @@
 | 路径 | 职责（简述） | 依赖谁 | 被谁依赖 | 边界/备注 |
 | --- | --- | --- | --- | --- |
 | `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
-| `packages/contracts/src/index.ts` | 交互契约实现文件：本次新增 `explorer.specwaveInit`：初始化引导视图模型 与 `SPECWAVE_INIT_*`：初始化相关意图 | 无 | `apps/desktop`、`packages/ui-next` | 仅类型与注释，禁止放实现 |
+| `packages/contracts/src/index.ts` | 交互契约实现文件：本次新增终端分区 `TerminalDockVM` 与 `TERMINAL_DOCK_*`：分区拖拽/分隔条相关意图 | 无 | `apps/desktop`、`packages/ui-next` | 仅类型与注释，禁止放实现 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果/Story 看板等展示（含右键菜单：复制路径/名称、打开所在文件夹） | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/panels/left/SpecWaveInitGuide.tsx` | 左栏 SpecWave 未初始化态引导卡片 + 初始化弹出框（步骤/进度/日志/失败可复制） | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只渲染 `explorer.specwaveInit`，按钮只派发 `SPECWAVE_INIT_*` |
@@ -53,9 +53,11 @@
 | `packages/ui-next/src/panels/center/PhaseIndicator.tsx` | 阶段流转指示器：ReactBits Stepper 风格，展示 Story 6 阶段进度（诉求/需求/设计/任务/执行/完成），支持点击跳转，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 PhaseIndicatorVM，dispatch PHASE_INDICATOR_CLICK |
 | `packages/ui-next/src/panels/center/ReactBitsStepper.tsx` | React Bits Stepper 组件：展示 Story 3 阶段进度（需求/设计/任务），支持点击切换阶段，带动画效果 | contracts、motion/react | `panels/center/CenterPanel` | 只渲染 StoryStepperVM，dispatch STORY_STEPPER_PHASE_CLICK |
 | `packages/ui-next/src/panels/center/CenterPanel.tsx` | 中栏主面板：任务卡片详情展示与编辑入口（详情条目化展示） | `primitives`、contracts | `shell` | 仅展示与交互采集 |
-| `packages/ui-next/src/panels/right` | 右栏：终端/对话 tabs | `primitives` | `shell` | 禁止 import 其他 panels |
+| `packages/ui-next/src/panels/right` | 右栏：终端分区/对话（右区切换 + 终端分区拖拽布局） | `primitives` | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/shell/ports.ts` | UI 端口类型：`subscribeTerminalEvent`（订阅终端事件） | 无 | `shell/SpecWaveApp`、`panels/right`、renderer `ui/App.tsx` | 只放类型定义，避免 UI 直接依赖 preload |
-| `packages/ui-next/src/panels/right/TerminalView.tsx` | 终端视图：封装 `@xterm/xterm`（终端组件），通过 `subscribeTerminalEvent`（订阅终端事件）直写 xterm 缓冲；处理自适应尺寸、滚动历史（xterm `scrollback`）、复制/粘贴快捷键、右键无选区粘贴、`Shift`：换挡键 + `Enter`：回车键 换行 | contracts + `shell/ports.ts` | `panels/right/RightPanel` | 只派发 `UIIntent`；剪贴板与 `pty`（伪终端）能力走 preload；终端输出不进 VM |
+| `packages/ui-next/src/panels/right/TerminalDockView.tsx` | 终端分区视图：最多 4 区布局；拖拽标题页签实现移动/交换/合并/分区；分隔条拖动调整尺寸 | contracts + `TerminalRuntime` | `panels/right/RightPanel` | 只派发 `UIIntent`；布局与拖拽命中留在 UI，分区归一化逻辑在 store |
+| `packages/ui-next/src/panels/right/TerminalRuntime.tsx` | 终端运行时：封装 `@xterm/xterm` 实例生命周期，订阅终端事件并直写缓冲；负责复制/粘贴/自适应尺寸（通过分区挂载点） | contracts + `shell/ports.ts` | `TerminalDockView` | 终端输出不进 VM；剪贴板与 `pty`（伪终端）能力走 preload |
+| `packages/ui-next/src/panels/right/TerminalView.tsx` | 终端视图：单区模式的 `@xterm/xterm` 封装（保留旧入口） | contracts + `shell/ports.ts` | （保留） | 只派发 `UIIntent`；终端输出不进 VM |
 | `packages/ui-next/src/primitives` | 可复用 UI 组件与样式 | tokens | panels/shell | 自写组件样式用 CSS Modules；shadcn 引入组件允许 Tailwind class（集中在 `primitives/shadcn`） |
 | `packages/ui-next/src/primitives/StoryCard.tsx` | Story 卡片组件：展示需求号、标题、任务进度、阶段标签，支持 isActive 高亮 | contracts | `panels/left/StoryBoardView` | 纯展示组件，不含业务逻辑 |
 | `packages/ui-next/src/primitives/TiltedCard.tsx` | Tilted Card 动效容器（克制 tilt/scale，自动尊重“减少动态效果”） | `motion/react` | `panels/center` | 只做动效与降级，不绑定业务字段 |
@@ -81,6 +83,7 @@
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |
 | `apps/desktop/src/preload/index.ts` | preload 桥接实现：新增 `window.specwave.specwaveInitStart` 与 `window.specwave.onSpecwaveInitEvent`，并暴露 `terminalPasteImage`：终端图片粘贴能力、`clipboardReadFilePaths`：剪贴板文件路径读取能力 | Electron | renderer store | 只暴露能力与事件订阅，不放业务编排 |
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
+| `apps/desktop/src/renderer/src/store/shared/terminalDock.ts` | 终端分区纯函数：分区归一化、拖拽落点（移动/交换/合并/分区）、分隔条比例更新 | contracts | `store/handlers/panel.ts`、`store/handlers/terminal.ts`、`store/handlers/task.ts` | 不触发副作用；保证“最多 4 区且不留空区” |
 | `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |

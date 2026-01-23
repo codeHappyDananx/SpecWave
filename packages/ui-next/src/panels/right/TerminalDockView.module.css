@@ -1,0 +1,30 @@
+.root{min-height:0;height:100%;min-width:0;display:flex;flex-direction:column;background:transparent;}
+.pad{flex:1;min-height:0;min-width:0;padding:10px 12px;background:var(--sw-terminal-bg);}
+.frame{height:100%;min-height:0;min-width:0;border:1px solid rgba(241,245,249,0.14);border-radius:12px;overflow:hidden;background:rgba(0,0,0,0.08);}
+
+.layout{position:relative;height:100%;min-height:0;min-width:0;display:grid;}
+
+.region{min-height:0;min-width:0;display:flex;flex-direction:column;background:rgba(15,23,42,0.35);}
+.regionHeader{height:34px;display:flex;align-items:center;gap:6px;padding:0 8px;border-bottom:1px solid rgba(241,245,249,0.10);background:rgba(15,23,42,0.62);overflow:hidden;}
+.regionTabs{min-width:0;flex:1 1 auto;display:flex;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;padding:0 2px;}
+.regionHeaderHint{flex:0 0 auto;color:rgba(241,245,249,0.55);font-weight:700;font-size:12px;}
+.regionBody{position:relative;flex:1;min-height:0;min-width:0;}
+.mount{position:absolute;inset:0;min-height:0;min-width:0;}
+
+.divider{background:rgba(241,245,249,0.10);transition:background var(--t-quick);user-select:none;}
+.divider:hover{background:rgba(241,245,249,0.22);}
+.divider[data-axis="x"]{cursor:col-resize;}
+.divider[data-axis="y"]{cursor:row-resize;}
+
+.dropOverlay{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(59,130,246,0.85);border-radius:10px;background:rgba(59,130,246,0.10);opacity:0;transition:opacity var(--t-quick);}
+.dropOverlay[data-active="1"]{opacity:1;}
+
+.twoCols{grid-template-columns:var(--sw-split-x) 6px calc(100% - var(--sw-split-x));grid-template-rows:100%;}
+.twoRows{grid-template-columns:100%;grid-template-rows:var(--sw-split-y) 6px calc(100% - var(--sw-split-y));}
+
+.threeTop{grid-template-columns:100%;grid-template-rows:var(--sw-split-y) 6px calc(100% - var(--sw-split-y));}
+.threeBottom{grid-template-columns:100%;grid-template-rows:calc(100% - var(--sw-split-y)) 6px var(--sw-split-y);}
+.threeSplitRow{display:grid;min-height:0;min-width:0;}
+.threeSplitRow{grid-template-columns:var(--sw-split-x) 6px calc(100% - var(--sw-split-x));grid-template-rows:100%;}
+
+.fourGrid{grid-template-columns:var(--sw-split-x) 6px calc(100% - var(--sw-split-x));grid-template-rows:var(--sw-split-y) 6px calc(100% - var(--sw-split-y));}
