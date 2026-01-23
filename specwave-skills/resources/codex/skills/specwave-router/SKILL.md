@@ -12,12 +12,12 @@ license: MIT
 
 > **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `~/.codex/skills/specwave-router/`）。
 
-- 在做会话/阶段判断前，先执行一次会话守卫：`python $CODEX_HOME/skills/specwave-router/session_guard.py sync`（它会把会话投影写入 `$CODEX_HOME/specwave/state.json`，不再写项目内的 `.specwave/settings.json`）。
+- 在做会话/阶段判断前，先执行一次会话守卫：`python ~/.codex/skills/specwave-router/session_guard.py sync`（它会把会话投影写入 `~/.codex/specwave/state.json`，不再写项目内的 `.specwave/settings.json`；如果设置了 `CODEX_HOME`：Codex 家目录，则会写入 `$CODEX_HOME/specwave/state.json`）。
 - 会话身份默认按“当前窗口进程”自动隔离：同项目多开窗口也不会串线；必要时才用 `--session-id` 显式指定一个固定键。
 
 ## 最高优先级：会话锁定（进入 spec 后绝对服从）
 
-- 每次对话都以 `$CODEX_HOME/specwave/state.json` 为准（先跑过 `sync` 就按对齐后的结果判断）。
+- 每次对话都以 `~/.codex/specwave/state.json` 为准（先跑过 `sync` 就按对齐后的结果判断；如果设置了 `CODEX_HOME`：Codex 家目录，则以 `$CODEX_HOME/specwave/state.json` 为准）。
 - 如果存在 `currentSession` 且 `mode === "spec"`：立刻进入 spec，按 `phase` 继续；不要再用"vibe 关键词"做判断。
 - `.specwave/settings.json` 只保留规则配置（门禁、模板等），不承载运行态会话信息。
 

@@ -12,12 +12,12 @@ You route the conversation to the right mode/role and keep execution gated.
 
 > **Path note**: Skill scripts are installed at `$CODEX_HOME/skills/specwave-router/` (default `~/.codex/skills/specwave-router/`).
 
-- Before making any routing decisions, run: `python $CODEX_HOME/skills/specwave-router/session_guard.py sync` (it writes the session projection into `$CODEX_HOME/specwave/state.json` and no longer writes `.specwave/settings.json`).
+- Before making any routing decisions, run: `python ~/.codex/skills/specwave-router/session_guard.py sync` (it writes into `~/.codex/specwave/state.json` and no longer writes `.specwave/settings.json`; if `CODEX_HOME` is set, it writes to `$CODEX_HOME/specwave/state.json`).
 - Session identity is isolated by the current window/process by default; use `--session-id` only if you need an explicit fixed key.
 
 ## Highest priority: session lock (absolute in spec)
 
-- Always use `$CODEX_HOME/specwave/state.json` as the source of truth (if you ran `sync`, rely on the post-sync result).
+- Always use `~/.codex/specwave/state.json` as the source of truth (if you ran `sync`, rely on the post-sync result; if `CODEX_HOME` is set, use `$CODEX_HOME/specwave/state.json`).
 - If `currentSession.mode === "spec"`: you are in spec; continue by `phase`. Do not route back to vibe based on keywords.
 
 ## Mode routing (only when there is no spec session)
