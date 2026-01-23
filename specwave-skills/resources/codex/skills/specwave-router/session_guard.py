@@ -22,6 +22,18 @@ def _norm_path(p: str) -> str:
     return os.path.normcase(os.path.normpath(os.path.abspath(p)))
 
 
+def _owner_key(explicit: Optional[str]) -> str:
+    if explicit:
+        v = str(explicit).strip()
+        if v:
+            return v
+    env = os.environ.get("SPECWAVE_OWNER_KEY", "").strip()
+    if env:
+        return env
+    # 默认用父进程 pid 作为“窗口/Agent 归属”，避免同项目多窗口串线。
+    return f"ppid:{os.getppid()}"
+
+
 def _codex_home_dir() -> Path:
     env_codex_home = os.environ.get("CODEX_HOME", "").strip()
     if env_codex_home:
@@ -261,40 +273,49 @@ def _ensure_project_state(state: dict[str, Any], project_root: Path) -> tuple[st
     if not isinstance(bucket, dict):
         bucket = {}
         projects[key] = bucket
-    if "currentSession" not in bucket:
-        bucket["currentSession"] = None
-    _ensure_session_store(bucket)
+    if not isinstance(bucket.get("ownersByKey"), dict):
+        bucket["ownersByKey"] = {}
+    if not isinstance(bucket.get("legacy"), dict):
+        bucket["legacy"] = {}
     if "updatedAt" not in bucket:
         bucket["updatedAt"] = _now_iso()
     return key, bucket
 
 
+def _ensure_owner_bucket(project_bucket: dict[str, Any], owner: str) -> dict[str, Any]:
+    owners = project_bucket.get("ownersByKey")
+    if not isinstance(owners, dict):
+        owners = {}
+        project_bucket["ownersByKey"] = owners
+    bucket = owners.get(owner)
+    if not isinstance(bucket, dict):
+        bucket = {"currentSession": None, "createdAt": _now_iso()}
+        owners[owner] = bucket
+    if "currentSession" not in bucket:
+        bucket["currentSession"] = None
+    if "createdAt" not in bucket:
+        bucket["createdAt"] = _now_iso()
+    bucket["updatedAt"] = _now_iso()
+    project_bucket["updatedAt"] = _now_iso()
+    return bucket
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
-    sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
     state_path = _state_path()
+    owner = _owner_key(args.session_id)
 
     try:
-        sid, used_sessions_root, candidates = resolve_session_id(
-            project_root=project_root,
-            sessions_root=sessions_root,
-            explicit_session_id=args.session_id,
-            recent_limit=args.recent_limit,
-            ambiguity_seconds=args.ambiguity_seconds,
-        )
+        _load_settings(settings_path)
         print(f"project_root: {project_root}")
         print(f"settings: {settings_path}")
-        print(f"sessions_root: {used_sessions_root}")
         print(f"state: {state_path}")
-        print(f"session_id: {sid}")
-        if candidates:
-            print(f"candidates: {len(candidates)} (showing up to 3)")
-            for c in candidates[:3]:
-                print(f"- {c.session_id}  mtime={int(c.mtime)}  {c.rollout_path}")
+        print(f"owner: {owner}")
         state = _load_state(state_path)
         _, project_bucket = _ensure_project_state(state, project_root)
-        current = project_bucket.get("currentSession")
+        owner_bucket = _ensure_owner_bucket(project_bucket, owner)
+        current = owner_bucket.get("currentSession")
         print(f"currentSession: {json.dumps(current, ensure_ascii=False)}")
         return 0
     except Exception as e:
@@ -305,64 +326,32 @@ def cmd_status(args: argparse.Namespace) -> int:
 def cmd_sync(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
-    sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
     state_path = _state_path()
-
-    sid, _, _ = resolve_session_id(
-        project_root=project_root,
-        sessions_root=sessions_root,
-        explicit_session_id=args.session_id,
-        recent_limit=args.recent_limit,
-        ambiguity_seconds=args.ambiguity_seconds,
-    )
+    owner = _owner_key(args.session_id)
 
     # settings.json 仅作为规则配置文件：存在性检查即可，不再写入 currentSession。
     _load_settings(settings_path)
 
     state = _load_state(state_path)
     _, project_bucket = _ensure_project_state(state, project_root)
-    store = project_bucket["sessionStore"]
-
-    by_sid: dict[str, Any] = store["bySessionId"]
-    bucket = by_sid.get(sid)
-    if not isinstance(bucket, dict):
-        bucket = {"currentSession": None, "updatedAt": _now_iso()}
-        by_sid[sid] = bucket
-
-    # currentSession 仅作为“当前项目的会话投影”（每个 CODEX_HOME 独立）。
-    project_bucket["currentSession"] = bucket.get("currentSession")
-    bucket["updatedAt"] = _now_iso()
-    project_bucket["updatedAt"] = _now_iso()
+    bucket = _ensure_owner_bucket(project_bucket, owner)
 
     _atomic_write_json(state_path, state)
-    print(f"sync: OK  session_id={sid}  state={state_path}")
+    print(f"sync: OK  owner={owner}  state={state_path}  currentSession={json.dumps(bucket.get('currentSession'), ensure_ascii=False)}")
     return 0
 
 
 def cmd_set(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
-    sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
     state_path = _state_path()
-
-    sid, _, _ = resolve_session_id(
-        project_root=project_root,
-        sessions_root=sessions_root,
-        explicit_session_id=args.session_id,
-        recent_limit=args.recent_limit,
-        ambiguity_seconds=args.ambiguity_seconds,
-    )
+    owner = _owner_key(args.session_id)
 
     _load_settings(settings_path)
 
     state = _load_state(state_path)
     _, project_bucket = _ensure_project_state(state, project_root)
-    store = project_bucket["sessionStore"]
-    by_sid: dict[str, Any] = store["bySessionId"]
-    bucket = by_sid.get(sid)
-    if not isinstance(bucket, dict):
-        bucket = {"currentSession": None}
-        by_sid[sid] = bucket
+    bucket = _ensure_owner_bucket(project_bucket, owner)
 
     current = {
         "mode": args.mode,
@@ -372,46 +361,27 @@ def cmd_set(args: argparse.Namespace) -> int:
     }
 
     bucket["currentSession"] = current
-    bucket["updatedAt"] = _now_iso()
-    project_bucket["currentSession"] = current
-    project_bucket["updatedAt"] = _now_iso()
 
     _atomic_write_json(state_path, state)
-    print(f"set: OK  session_id={sid}  story={args.story}  phase={args.phase}  state={state_path}")
+    print(f"set: OK  owner={owner}  story={args.story}  phase={args.phase}  state={state_path}")
     return 0
 
 
 def cmd_clear(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
-    sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
     state_path = _state_path()
-
-    sid, _, _ = resolve_session_id(
-        project_root=project_root,
-        sessions_root=sessions_root,
-        explicit_session_id=args.session_id,
-        recent_limit=args.recent_limit,
-        ambiguity_seconds=args.ambiguity_seconds,
-    )
+    owner = _owner_key(args.session_id)
 
     _load_settings(settings_path)
 
     state = _load_state(state_path)
     _, project_bucket = _ensure_project_state(state, project_root)
-    store = project_bucket["sessionStore"]
-    by_sid: dict[str, Any] = store["bySessionId"]
-    bucket = by_sid.get(sid)
-    if not isinstance(bucket, dict):
-        bucket = {}
-        by_sid[sid] = bucket
+    bucket = _ensure_owner_bucket(project_bucket, owner)
     bucket["currentSession"] = None
-    bucket["updatedAt"] = _now_iso()
-    project_bucket["currentSession"] = None
-    project_bucket["updatedAt"] = _now_iso()
 
     _atomic_write_json(state_path, state)
-    print(f"clear: OK  session_id={sid}  state={state_path}")
+    print(f"clear: OK  owner={owner}  state={state_path}")
     return 0
 
 

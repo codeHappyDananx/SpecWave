@@ -13,7 +13,7 @@ license: MIT
 > **路径说明**：技能脚本安装在 `$CODEX_HOME/skills/specwave-router/`（默认 `~/.codex/skills/specwave-router/`）。
 
 - 在做会话/阶段判断前，先执行一次会话守卫：`python $CODEX_HOME/skills/specwave-router/session_guard.py sync`（它会把会话投影写入 `$CODEX_HOME/specwave/state.json`，不再写项目内的 `.specwave/settings.json`）。
-- 如果提示"同项目存在多个活跃会话，无法自动绑定"，先用 `python $CODEX_HOME/skills/specwave-router/session_guard.py status` 看候选，再显式传 `--session-id` 重试。
+- 会话身份默认按“当前窗口进程”自动隔离：同项目多开窗口也不会串线；必要时才用 `--session-id` 显式指定一个固定键。
 
 ## 最高优先级：会话锁定（进入 spec 后绝对服从）
 

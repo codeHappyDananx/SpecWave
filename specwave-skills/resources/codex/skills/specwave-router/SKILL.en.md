@@ -13,7 +13,7 @@ You route the conversation to the right mode/role and keep execution gated.
 > **Path note**: Skill scripts are installed at `$CODEX_HOME/skills/specwave-router/` (default `~/.codex/skills/specwave-router/`).
 
 - Before making any routing decisions, run: `python $CODEX_HOME/skills/specwave-router/session_guard.py sync` (it writes the session projection into `$CODEX_HOME/specwave/state.json` and no longer writes `.specwave/settings.json`).
-- If it says there are multiple active sessions, run `status` first and then retry with `--session-id`.
+- Session identity is isolated by the current window/process by default; use `--session-id` only if you need an explicit fixed key.
 
 ## Highest priority: session lock (absolute in spec)
 

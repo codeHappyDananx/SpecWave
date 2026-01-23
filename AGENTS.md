@@ -8,7 +8,7 @@
 
 只有当用户触发 SpecWave 的技能（`specwave-router` 或斜杠命令）时，才做会话/阶段判断：
 1) 先执行 `python $CODEX_HOME/skills/specwave-router/session_guard.py sync`
-2) 再以 `$CODEX_HOME/specwave/state.json` 中该项目的 `currentSession` 为准
+2) 再以 `$CODEX_HOME/specwave/state.json` 中该窗口对应的 `currentSession` 为准（默认按窗口进程自动隔离）
 
 | currentSession | 模式 | 行为 |
 |----------------|------|------|
