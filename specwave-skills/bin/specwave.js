@@ -1258,13 +1258,6 @@ function mergeSettings(templateObj, existingObj) {
   // 4) executionGate：完全由模板定义（强制规范）
   if ('executionGate' in template) merged.executionGate = template.executionGate;
 
-  // 4.5) currentSession：运行时状态，create/refresh 不应把用户的会话锁定清空
-  // - 模板里通常是 null（表示“无会话”），但如果用户当前正在 spec 会话中，应当保留现状。
-  if ('currentSession' in existing) {
-    const session = existing.currentSession;
-    if (session != null) merged.currentSession = session;
-  }
-
   // 5) requirementsTemplate：
   // - 旧版本默认值会让协作变“重”（首次进入就提模板选择等）。
   // - 这里做一次温和迁移：如果用户没有自定义（仍是 default-* 且没有 customTemplateText），就用新模板覆盖为轻量默认。
@@ -1600,10 +1593,15 @@ function assertCreateConsistency({ resourcesRoot, specwaveSourceRoot, uiLang }) 
   for (const filePath of routerFiles) {
     const text = readFileUtf8(filePath);
     checkTextForForbiddenTokens(`codex/skills/specwave-router/${path.basename(filePath)}`, text);
-    if (!text.includes('.specwave/settings.json') || !text.includes('currentSession')) {
+    const hasCurrentSession = text.includes('currentSession');
+    const hasState =
+      text.includes('$CODEX_HOME/specwave/state.json') ||
+      text.includes('CODEX_HOME/specwave/state.json') ||
+      text.includes('specwave/state.json');
+    if (!hasState || !hasCurrentSession) {
       fail(
-        `资源口径不一致：${path.basename(filePath)} 缺少“会话锁定”规则（需要包含 .specwave/settings.json 与 currentSession）`,
-        `Resource consistency error: ${path.basename(filePath)} missing session-lock rule (.specwave/settings.json & currentSession)`
+        `资源口径不一致：${path.basename(filePath)} 缺少“会话锁定”规则（需要包含 specwave/state.json 与 currentSession）`,
+        `Resource consistency error: ${path.basename(filePath)} missing session-lock rule (specwave/state.json & currentSession)`
       );
     }
   }

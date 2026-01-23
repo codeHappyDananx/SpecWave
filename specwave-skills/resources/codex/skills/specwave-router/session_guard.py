@@ -19,7 +19,25 @@ def _now_iso() -> str:
 
 
 def _norm_path(p: str) -> str:
-    return os.path.normcase(os.path.normpath(p))
+    return os.path.normcase(os.path.normpath(os.path.abspath(p)))
+
+
+def _codex_home_dir() -> Path:
+    env_codex_home = os.environ.get("CODEX_HOME", "").strip()
+    if env_codex_home:
+        return Path(env_codex_home).expanduser().resolve()
+    user_profile = os.environ.get("USERPROFILE", "").strip()
+    if user_profile:
+        return Path(user_profile).expanduser().resolve() / ".codex"
+    return Path.home().expanduser().resolve() / ".codex"
+
+
+def _state_path() -> Path:
+    return _codex_home_dir() / "specwave" / "state.json"
+
+
+def _project_key(project_root: Path) -> str:
+    return _norm_path(str(project_root.resolve()))
 
 
 def _default_sessions_roots() -> list[Path]:
@@ -27,7 +45,8 @@ def _default_sessions_roots() -> list[Path]:
 
     env_codex_home = os.environ.get("CODEX_HOME", "").strip()
     if env_codex_home:
-        roots.append(Path(env_codex_home).expanduser().resolve() / "sessions")
+        # 显式指定了 CODEX_HOME：只认这个目录，避免同机多窗口串线。
+        return [Path(env_codex_home).expanduser().resolve() / "sessions"]
 
     user_profile = os.environ.get("USERPROFILE", "").strip()
     if user_profile:
@@ -160,6 +179,7 @@ def _load_settings(settings_path: Path) -> dict[str, Any]:
 
 def _atomic_write_json(path: Path, obj: dict[str, Any]) -> None:
     content = json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(content, encoding="utf-8")
     deadline = time.monotonic() + 5.0
@@ -214,10 +234,46 @@ def _ensure_session_store(settings: dict[str, Any]) -> dict[str, Any]:
     return store
 
 
+def _load_state(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"version": 1, "projects": {}}
+    try:
+        raw = path.read_text(encoding="utf-8")
+        obj = json.loads(raw)
+        if not isinstance(obj, dict):
+            return {"version": 1, "projects": {}}
+        if "version" not in obj:
+            obj["version"] = 1
+        if not isinstance(obj.get("projects"), dict):
+            obj["projects"] = {}
+        return obj
+    except Exception:
+        return {"version": 1, "projects": {}}
+
+
+def _ensure_project_state(state: dict[str, Any], project_root: Path) -> tuple[str, dict[str, Any]]:
+    key = _project_key(project_root)
+    projects = state.get("projects")
+    if not isinstance(projects, dict):
+        projects = {}
+        state["projects"] = projects
+    bucket = projects.get(key)
+    if not isinstance(bucket, dict):
+        bucket = {}
+        projects[key] = bucket
+    if "currentSession" not in bucket:
+        bucket["currentSession"] = None
+    _ensure_session_store(bucket)
+    if "updatedAt" not in bucket:
+        bucket["updatedAt"] = _now_iso()
+    return key, bucket
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
+    state_path = _state_path()
 
     try:
         sid, used_sessions_root, candidates = resolve_session_id(
@@ -230,11 +286,16 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(f"project_root: {project_root}")
         print(f"settings: {settings_path}")
         print(f"sessions_root: {used_sessions_root}")
+        print(f"state: {state_path}")
         print(f"session_id: {sid}")
         if candidates:
             print(f"candidates: {len(candidates)} (showing up to 3)")
             for c in candidates[:3]:
                 print(f"- {c.session_id}  mtime={int(c.mtime)}  {c.rollout_path}")
+        state = _load_state(state_path)
+        _, project_bucket = _ensure_project_state(state, project_root)
+        current = project_bucket.get("currentSession")
+        print(f"currentSession: {json.dumps(current, ensure_ascii=False)}")
         return 0
     except Exception as e:
         print(f"status: FAILED: {e}", file=sys.stderr)
@@ -245,6 +306,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
+    state_path = _state_path()
 
     sid, _, _ = resolve_session_id(
         project_root=project_root,
@@ -254,15 +316,12 @@ def cmd_sync(args: argparse.Namespace) -> int:
         ambiguity_seconds=args.ambiguity_seconds,
     )
 
-    settings = _load_settings(settings_path)
-    store = _ensure_session_store(settings)
+    # settings.json 仅作为规则配置文件：存在性检查即可，不再写入 currentSession。
+    _load_settings(settings_path)
 
-    # 迁移旧的全局 currentSession：只收容到 legacy，避免影响其他会话。
-    if settings.get("currentSession") is not None:
-        legacy = store.get("legacy")
-        if isinstance(legacy, dict) and "globalCurrentSession" not in legacy:
-            legacy["globalCurrentSession"] = settings.get("currentSession")
-        settings["currentSession"] = None
+    state = _load_state(state_path)
+    _, project_bucket = _ensure_project_state(state, project_root)
+    store = project_bucket["sessionStore"]
 
     by_sid: dict[str, Any] = store["bySessionId"]
     bucket = by_sid.get(sid)
@@ -270,12 +329,13 @@ def cmd_sync(args: argparse.Namespace) -> int:
         bucket = {"currentSession": None, "updatedAt": _now_iso()}
         by_sid[sid] = bucket
 
-    # currentSession 仅作为“当前会话投影”
-    settings["currentSession"] = bucket.get("currentSession")
+    # currentSession 仅作为“当前项目的会话投影”（每个 CODEX_HOME 独立）。
+    project_bucket["currentSession"] = bucket.get("currentSession")
     bucket["updatedAt"] = _now_iso()
+    project_bucket["updatedAt"] = _now_iso()
 
-    _atomic_write_json(settings_path, settings)
-    print(f"sync: OK  session_id={sid}")
+    _atomic_write_json(state_path, state)
+    print(f"sync: OK  session_id={sid}  state={state_path}")
     return 0
 
 
@@ -283,6 +343,7 @@ def cmd_set(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
+    state_path = _state_path()
 
     sid, _, _ = resolve_session_id(
         project_root=project_root,
@@ -292,8 +353,11 @@ def cmd_set(args: argparse.Namespace) -> int:
         ambiguity_seconds=args.ambiguity_seconds,
     )
 
-    settings = _load_settings(settings_path)
-    store = _ensure_session_store(settings)
+    _load_settings(settings_path)
+
+    state = _load_state(state_path)
+    _, project_bucket = _ensure_project_state(state, project_root)
+    store = project_bucket["sessionStore"]
     by_sid: dict[str, Any] = store["bySessionId"]
     bucket = by_sid.get(sid)
     if not isinstance(bucket, dict):
@@ -309,10 +373,11 @@ def cmd_set(args: argparse.Namespace) -> int:
 
     bucket["currentSession"] = current
     bucket["updatedAt"] = _now_iso()
-    settings["currentSession"] = current
+    project_bucket["currentSession"] = current
+    project_bucket["updatedAt"] = _now_iso()
 
-    _atomic_write_json(settings_path, settings)
-    print(f"set: OK  session_id={sid}  story={args.story}  phase={args.phase}")
+    _atomic_write_json(state_path, state)
+    print(f"set: OK  session_id={sid}  story={args.story}  phase={args.phase}  state={state_path}")
     return 0
 
 
@@ -320,6 +385,7 @@ def cmd_clear(args: argparse.Namespace) -> int:
     project_root = Path(args.project_root).resolve()
     settings_path = project_root / ".specwave" / "settings.json"
     sessions_root = Path(args.sessions_root).resolve() if args.sessions_root else None
+    state_path = _state_path()
 
     sid, _, _ = resolve_session_id(
         project_root=project_root,
@@ -329,8 +395,11 @@ def cmd_clear(args: argparse.Namespace) -> int:
         ambiguity_seconds=args.ambiguity_seconds,
     )
 
-    settings = _load_settings(settings_path)
-    store = _ensure_session_store(settings)
+    _load_settings(settings_path)
+
+    state = _load_state(state_path)
+    _, project_bucket = _ensure_project_state(state, project_root)
+    store = project_bucket["sessionStore"]
     by_sid: dict[str, Any] = store["bySessionId"]
     bucket = by_sid.get(sid)
     if not isinstance(bucket, dict):
@@ -338,10 +407,11 @@ def cmd_clear(args: argparse.Namespace) -> int:
         by_sid[sid] = bucket
     bucket["currentSession"] = None
     bucket["updatedAt"] = _now_iso()
-    settings["currentSession"] = None
+    project_bucket["currentSession"] = None
+    project_bucket["updatedAt"] = _now_iso()
 
-    _atomic_write_json(settings_path, settings)
-    print(f"clear: OK  session_id={sid}")
+    _atomic_write_json(state_path, state)
+    print(f"clear: OK  session_id={sid}  state={state_path}")
     return 0
 
 

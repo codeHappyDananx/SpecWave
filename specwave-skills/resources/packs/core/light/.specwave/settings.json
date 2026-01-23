@@ -2,12 +2,6 @@
   "specwave": {
     "version": "0.3.0"
   },
-  "currentSession": null,
-  "sessionStore": {
-    "version": 1,
-    "bySessionId": {},
-    "legacy": {}
-  },
   "executionGate": {
     "requiresExplicitApproval": true,
     "requiresRequirementConfirmation": true

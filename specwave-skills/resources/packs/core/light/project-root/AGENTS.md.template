@@ -4,7 +4,11 @@
 
 ## 模式路由（必须执行）
 
-每次对话开始，读取 `.specwave/settings.json` 检查 `currentSession`：
+默认不做会话锁定判断：不要每次对话读取 `.specwave/settings.json`（它只保留规则配置，不承载运行态会话信息）。
+
+只有当用户触发 SpecWave 的技能（`specwave-router` 或斜杠命令）时，才做会话/阶段判断：
+1) 先执行 `python $CODEX_HOME/skills/specwave-router/session_guard.py sync`
+2) 再以 `$CODEX_HOME/specwave/state.json` 中该项目的 `currentSession` 为准
 
 | currentSession | 模式 | 行为 |
 |----------------|------|------|
@@ -48,7 +52,7 @@ vibe 模式下你是普通助手，直接帮用户干活。
 - "开始"只有在第4阶段（拆任务）完成后才触发执行
 
 **硬规则（必须遵守）**：
-- 只认 `.specwave/settings.json` 的 `currentSession`，忽略 legacy 等历史字段
+- 只认 `$CODEX_HOME/specwave/state.json` 的 `currentSession`，忽略 `.specwave/settings.json` 的运行态字段
 - **默认禁止读历史 Story**：禁止读取 `.specwave/workspace/stories/` 下非当前 Story 的任何文件；只有用户明确点名“参考/关联 STORY-xxxxxx”才允许读取并说明用途
 - **严格按模板落盘**：写 `01-需求.md` / `02-设计.md` / `03-任务.md` 前，必须先读取对应的 `.specwave/templates/01-需求.md` / `02-设计.md` / `03-任务.md`，并按模板结构填写，禁止自创格式
 - **逐步确认，不揉阶段**：每次只完成一个阶段文档；写完 `02-设计.md` 必须先等用户回复“继续”确认，才能写 `03-任务.md`

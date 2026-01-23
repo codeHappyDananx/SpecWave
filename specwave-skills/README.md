@@ -104,6 +104,7 @@ SpecWave 会安装 Codex 全局资源（`specwave-router` + 斜杠命令）：
 - 自动识别 SpecWave 项目，建议下一步与角色
 - 变更门禁：只有用户明确授权才会改代码
 - 默认写入全局 `CODEX_HOME`（默认 `~/.codex`，Windows 对应用户目录下的 `.codex`）；要只影响当前项目，把 `CODEX_HOME` 指到项目根目录的 `.codex`
+- 多窗口隔离建议：窗口 A 用 `<repo>/.codex-A`，窗口 B 用 `<repo>/.codex-B`（各自的 `sessions/` 与 `specwave/state.json` 互不影响）
 
 单独安装/更新 Codex 资源：
 
