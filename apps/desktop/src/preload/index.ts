@@ -1,4 +1,5 @@
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
+import type { CodexMcpServerVM, CodexSkillVM } from '@specwave/contracts';
 
 export type DirEntryDTO = {
   name: string;
@@ -25,6 +26,8 @@ export type MessageBoxOptions = {
   cancelId?: number;
 };
 export type MessageBoxResult = { ok: true; response: number } | { ok: false; error: string };
+
+export type SelectFileArgs = { title?: string; filters?: Array<{ name: string; extensions: string[] }> };
 
 export type FsEventDTO = { event: 'rename' | 'change'; path: string };
 export type FsWatchStartResult = { ok: true } | { ok: false; error: string };
@@ -75,6 +78,18 @@ export type SpecWaveInitEventDTO =
         | { ok: false; error: { title: string; detail?: string; canRetry: boolean; copyText?: string } };
     };
 
+export type CodexCapabilitiesProbeResult =
+  | { ok: true; checkedAt: string; mcpServers: CodexMcpServerVM[]; skills: CodexSkillVM[] }
+  | { ok: false; error: string };
+
+export type CodexMcpInstallFromJsonResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string; code?: 'invalid-input' | 'already-exists' | 'unsupported' | 'failed' };
+
+export type CodexSkillInstallResult =
+  | { ok: true; message?: string }
+  | { ok: false; error: string; code?: 'invalid-input' | 'already-exists' | 'unsupported' | 'failed' };
+
 contextBridge.exposeInMainWorld('specwave', {
   ping: () => 'pong',
   openMainWindow: (projectPath?: string | null) =>
@@ -85,7 +100,9 @@ contextBridge.exposeInMainWorld('specwave', {
   touchRecentProject: (p: string) => ipcRenderer.invoke('specwave:touchRecentProject', { path: p }) as Promise<RecentProjectDTO[]>,
   removeRecentProject: (p: string) =>
     ipcRenderer.invoke('specwave:removeRecentProject', { path: p }) as Promise<RecentProjectDTO[]>,
-  selectDirectory: () => ipcRenderer.invoke('specwave:selectDirectory') as Promise<string | null>,
+  selectDirectory: (args?: { title?: string }) =>
+    ipcRenderer.invoke('specwave:selectDirectory', args) as Promise<string | null>,
+  selectFile: (args: SelectFileArgs) => ipcRenderer.invoke('specwave:selectFile', args) as Promise<string | null>,
   readDirectory: (dirPath: string) =>
     ipcRenderer.invoke('specwave:readDirectory', { dirPath }) as Promise<ReadDirectoryResult>,
   readTextFile: (filePath: string) =>
@@ -107,6 +124,17 @@ contextBridge.exposeInMainWorld('specwave', {
 
   showMessageBox: (options: MessageBoxOptions) =>
     ipcRenderer.invoke('specwave:showMessageBox', options) as Promise<MessageBoxResult>,
+
+  codexCapabilitiesProbe: (args: { includeConnectivityProbe: boolean; projectRoot: string | null }) =>
+    ipcRenderer.invoke('specwave:codex:probe', args) as Promise<CodexCapabilitiesProbeResult>,
+  codexMcpInstallFromJson: (args: { rawJson: string; overwrite: boolean }) =>
+    ipcRenderer.invoke('specwave:codex:mcpInstallFromJson', args) as Promise<CodexMcpInstallFromJsonResult>,
+  codexSkillInstall: (args: {
+    source: { kind: 'zip' | 'md' | 'dir'; path: string };
+    targetScope: 'user' | 'project';
+    projectRoot: string | null;
+    overwrite: boolean;
+  }) => ipcRenderer.invoke('specwave:codex:skillInstall', args) as Promise<CodexSkillInstallResult>,
 
   fsWatchStart: (args: { workspaceRoot?: string | null; projectRoot?: string | null }) =>
     ipcRenderer.invoke('specwave:fsWatchStart', args) as Promise<FsWatchStartResult>,
@@ -199,7 +227,8 @@ declare global {
       getRecentProjects: () => Promise<RecentProjectDTO[]>;
       touchRecentProject: (path: string) => Promise<RecentProjectDTO[]>;
       removeRecentProject: (path: string) => Promise<RecentProjectDTO[]>;
-      selectDirectory: () => Promise<string | null>;
+      selectDirectory: (args?: { title?: string }) => Promise<string | null>;
+      selectFile: (args: SelectFileArgs) => Promise<string | null>;
       readDirectory: (dirPath: string) => Promise<ReadDirectoryResult>;
       readTextFile: (filePath: string) => Promise<ReadTextFileResult>;
       readBinaryFile: (filePath: string) => Promise<ReadBinaryFileResult>;
@@ -209,6 +238,15 @@ declare global {
       onSpecwaveInitEvent: (cb: (evt: SpecWaveInitEventDTO) => void) => () => void;
 
       showMessageBox: (options: MessageBoxOptions) => Promise<MessageBoxResult>;
+
+      codexCapabilitiesProbe: (args: { includeConnectivityProbe: boolean; projectRoot: string | null }) => Promise<CodexCapabilitiesProbeResult>;
+      codexMcpInstallFromJson: (args: { rawJson: string; overwrite: boolean }) => Promise<CodexMcpInstallFromJsonResult>;
+      codexSkillInstall: (args: {
+        source: { kind: 'zip' | 'md' | 'dir'; path: string };
+        targetScope: 'user' | 'project';
+        projectRoot: string | null;
+        overwrite: boolean;
+      }) => Promise<CodexSkillInstallResult>;
 
       fsWatchStart: (args: { workspaceRoot?: string | null; projectRoot?: string | null }) => Promise<FsWatchStartResult>;
       onFsEvent: (cb: (evt: FsEventDTO) => void) => () => void;

@@ -81,6 +81,7 @@ type UiSessionSnapshot = {
   centerVisible?: boolean;
   rightVisible?: boolean;
   rightMode?: AppViewModel['rightMode'];
+  leftTab?: AppViewModel['leftTab'];
   explorerExpanded?: { workspace?: string[]; project?: string[] };
   explorerSelectedPath?: string | null;
   lastOpenFilePath?: string | null;
@@ -105,6 +106,7 @@ function loadUiSession(): UiSessionSnapshot | null {
     if (typeof obj.centerVisible === 'boolean') snap.centerVisible = obj.centerVisible;
     if (typeof obj.rightVisible === 'boolean') snap.rightVisible = obj.rightVisible;
     if (obj.rightMode === 'terminal' || obj.rightMode === 'chat') snap.rightMode = obj.rightMode;
+    if (obj.leftTab === 'workbench' || obj.leftTab === 'codexCapabilities') snap.leftTab = obj.leftTab;
     if (typeof obj.explorerSelectedPath === 'string' || obj.explorerSelectedPath === null) snap.explorerSelectedPath = obj.explorerSelectedPath;
     if (typeof obj.lastOpenFilePath === 'string' || obj.lastOpenFilePath === null) snap.lastOpenFilePath = obj.lastOpenFilePath;
     if (typeof obj.projectRoot === 'string' || obj.projectRoot === null) snap.projectRoot = obj.projectRoot;
@@ -170,10 +172,20 @@ const initialVm: AppViewModel = {
   },
   leftVisible: restoredUiSession?.leftVisible ?? true,
   leftViewMode: 'storyBoard',
+  leftTab: restoredUiSession?.leftTab ?? 'workbench',
   centerVisible: restoredUiSession?.centerVisible ?? true,
   rightVisible: restoredUiSession?.rightVisible ?? true,
   rightMode: restoredUiSession?.rightMode ?? 'terminal',
   globalSearchQuery: '',
+  codexCapabilities: {
+    includeConnectivityProbe: true,
+    lastCheckedAt: null,
+    error: null,
+    isChecking: false,
+    mcpServers: [],
+    skills: [],
+    install: { isInstallingMcp: false, isInstallingSkill: false, lastError: null, lastMessage: null }
+  },
   terminal: {
     activePanelId: 'terminal-1',
     panelIds: ['terminal-1'],
@@ -936,6 +948,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               centerVisible: true,
               rightVisible: vm.rightVisible,
               rightMode: vm.rightMode,
+              leftTab: vm.leftTab,
               explorerExpanded: vm.explorer.expanded,
               explorerSelectedPath: filePath,
               lastOpenFilePath: filePath,
@@ -1484,6 +1497,7 @@ void (() => {
       centerVisible: vm.centerVisible,
       rightVisible: vm.rightVisible,
       rightMode: vm.rightMode,
+      leftTab: vm.leftTab,
       explorerExpanded: vm.explorer.expanded,
       explorerSelectedPath: vm.explorer.selectedPath,
       lastOpenFilePath: vm.content.file?.path ?? vm.explorer.selectedPath ?? null,
@@ -1505,6 +1519,7 @@ void (() => {
         centerVisible: vm.centerVisible,
         rightVisible: vm.rightVisible,
         rightMode: vm.rightMode,
+        leftTab: vm.leftTab,
         explorerExpanded: vm.explorer.expanded,
         explorerSelectedPath: vm.explorer.selectedPath,
         lastOpenFilePath: vm.content.file?.path ?? vm.explorer.selectedPath ?? null,

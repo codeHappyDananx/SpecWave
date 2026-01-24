@@ -101,7 +101,17 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           showCenter={vm.centerVisible}
           showRight={vm.rightVisible}
           dispatch={wrappedDispatch}
-          left={<LeftPanel explorer={vm.explorer} globalSearchQuery={vm.globalSearchQuery} activeStoryId={vm.storyStepper.storyId} dispatch={wrappedDispatch} minwPx={vm.panelMinW.leftPx} />}
+          left={
+            <LeftPanel
+              explorer={vm.explorer}
+              leftTab={vm.leftTab}
+              codexCapabilities={vm.codexCapabilities}
+              globalSearchQuery={vm.globalSearchQuery}
+              activeStoryId={vm.storyStepper.storyId}
+              dispatch={wrappedDispatch}
+              minwPx={vm.panelMinW.leftPx}
+            />
+          }
           center={<CenterPanel content={vm.content} phaseIndicator={vm.phaseIndicator} storyStepper={vm.storyStepper} dispatch={wrappedDispatch} minwPx={0} />}
           right={
             <RightPanel

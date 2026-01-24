@@ -4,6 +4,7 @@ import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getRecentProjects, removeRecentProject, touchRecentProject } from './recentProjects';
+import { codexCapabilitiesProbe, codexMcpInstallFromJson, codexSkillInstall } from './codexCapabilities';
 
 type DirEntryDTO = {
   name: string;
@@ -428,10 +429,10 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
     return removeRecentProject(args.path);
   });
 
-  ipcMain.handle('specwave:selectDirectory', async () => {
+  ipcMain.handle('specwave:selectDirectory', async (_evt, args?: { title?: string }) => {
     try {
       const res = await dialog.showOpenDialog({
-        title: '选择项目目录',
+        title: args?.title ?? '选择项目目录',
         properties: ['openDirectory']
       });
       if (res.canceled || res.filePaths.length === 0) return null;
@@ -440,6 +441,57 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
       return null;
     }
   });
+
+  ipcMain.handle(
+    'specwave:selectFile',
+    async (_evt, args: { title?: string; filters?: Array<{ name: string; extensions: string[] }> }) => {
+      try {
+        const res = await dialog.showOpenDialog({
+          title: args?.title ?? '选择文件',
+          properties: ['openFile'],
+          filters: Array.isArray(args?.filters) ? args.filters : undefined
+        });
+        if (res.canceled || res.filePaths.length === 0) return null;
+        return res.filePaths[0];
+      } catch {
+        return null;
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'specwave:codex:probe',
+    async (_evt, args: { includeConnectivityProbe: boolean; projectRoot: string | null }) => {
+      return await codexCapabilitiesProbe({
+        includeConnectivityProbe: Boolean(args?.includeConnectivityProbe),
+        projectRoot: args?.projectRoot ?? null
+      });
+    }
+  );
+
+  ipcMain.handle('specwave:codex:mcpInstallFromJson', async (_evt, args: { rawJson: string; overwrite: boolean }) => {
+    return await codexMcpInstallFromJson({ rawJson: args?.rawJson ?? '', overwrite: Boolean(args?.overwrite) });
+  });
+
+  ipcMain.handle(
+    'specwave:codex:skillInstall',
+    async (
+      _evt,
+      args: {
+        source: { kind: 'zip' | 'md' | 'dir'; path: string };
+        targetScope: 'user' | 'project';
+        projectRoot: string | null;
+        overwrite: boolean;
+      }
+    ) => {
+      return await codexSkillInstall({
+        source: args?.source ?? { kind: 'md', path: '' },
+        targetScope: args?.targetScope ?? 'user',
+        projectRoot: args?.projectRoot ?? null,
+        overwrite: Boolean(args?.overwrite)
+      });
+    }
+  );
 
   /**
    * SpecWave 初始化引导（左栏）

@@ -64,6 +64,53 @@ export type StoryStepperVM = {
 // 左区视图模式
 export type LeftViewMode = 'explorer' | 'storyBoard';
 
+// 左区主 Tab（工作区 / codex 能力）
+export type LeftPanelTab = 'workbench' | 'codexCapabilities';
+
+export type HealthState = 'unknown' | 'checking' | 'ok' | 'error';
+
+export type CodexMcpTransportType = 'stdio' | 'http';
+
+export type CodexMcpServerVM = {
+  name: string;
+  enabled: boolean;
+  transportType: CodexMcpTransportType;
+  authStatus?: string | null;
+  disabledReason?: string | null;
+  health: { state: HealthState; message?: string };
+  safeConfig: {
+    command?: string | null;
+    args?: string[] | null;
+    url?: string | null;
+    cwd?: string | null;
+    envKeys?: string[];
+  };
+};
+
+export type CodexSkillVM = {
+  id: string;
+  name: string;
+  description: string;
+  location: 'repo' | 'user';
+  health: { state: HealthState; message?: string };
+  safeMeta: { hasSkillMd: boolean; hasValidFrontMatter: boolean };
+};
+
+export type CodexCapabilitiesVM = {
+  includeConnectivityProbe: boolean;
+  lastCheckedAt: string | null;
+  error: string | null;
+  isChecking: boolean;
+  mcpServers: CodexMcpServerVM[];
+  skills: CodexSkillVM[];
+  install: {
+    isInstallingMcp: boolean;
+    isInstallingSkill: boolean;
+    lastError: string | null;
+    lastMessage: string | null;
+  };
+};
+
 export type ProjectTabVM = {
   id: string;
   folderName: string;
@@ -251,6 +298,10 @@ export type UIIntent =
   | { type: "PANEL_TOGGLE_RIGHT" }
   | { type: "RIGHT_MODE_SET"; mode: RightMode }
   | { type: "LEFT_VIEW_MODE_SET"; mode: LeftViewMode }
+  | { type: "LEFT_PANEL_TAB_SET"; tab: LeftPanelTab }
+  | { type: "CODEX_CAPABILITIES_REFRESH"; includeConnectivityProbe?: boolean }
+  | { type: "CODEX_MCP_INSTALL_FROM_JSON"; rawJson: string; overwrite?: boolean }
+  | { type: "CODEX_SKILL_INSTALL_OPEN"; sourceKind: "zip" | "md" | "dir"; targetScope: "user" | "project" }
   | { type: "STORY_BOARD_LOAD" }
   | { type: "STORY_BOARD_REFRESH" }
   | { type: "STORY_CARD_CLICK"; storyId: string }
@@ -343,11 +394,14 @@ export type AppViewModel = {
 
   leftVisible: boolean;
   leftViewMode: LeftViewMode;
+  leftTab: LeftPanelTab;
   centerVisible: boolean;
   rightVisible: boolean;
   rightMode: RightMode;
 
   globalSearchQuery: string;
+
+  codexCapabilities: CodexCapabilitiesVM;
 
   terminal: {
     panelIds: string[];

@@ -10,11 +10,14 @@
     "build": "electron-vite build",
     "dist:win": "pnpm run build && electron-builder --win --x64",
     "preview": "electron-vite preview",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@specwave/contracts": "workspace:*",
     "@specwave/ui-next": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.11.2",
+    "adm-zip": "^0.5.12",
     "node-pty": "^1.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -23,6 +26,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.10.2",
+    "@types/adm-zip": "^0.5.7",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
@@ -32,7 +36,8 @@
     "electron-vite": "^2.3.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
   },
   "build": {
     "appId": "com.specwave.desktop",

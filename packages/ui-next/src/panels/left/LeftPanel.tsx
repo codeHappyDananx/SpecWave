@@ -36,6 +36,8 @@ import {
 } from '../../primitives/shadcn/sidebar';
 import { StoryCardInExplorer } from './StoryCardInExplorer';
 import { SpecWaveInitDialog, SpecWaveUninitializedCard } from './SpecWaveInitGuide';
+import { LeftRailSwitcher } from './LeftRailSwitcher';
+import { CodexCapabilitiesView } from './codexCapabilities/CodexCapabilitiesView';
 
 type LeftIntent = Extract<
   UIIntent,
@@ -50,10 +52,16 @@ type LeftIntent = Extract<
   | { type: 'SPECWAVE_INIT_COPY_ERROR' }
   | { type: 'TERMINAL_COPY' }
   | { type: 'STORY_CARD_SELECT' }
+  | { type: 'LEFT_PANEL_TAB_SET' }
+  | { type: 'CODEX_CAPABILITIES_REFRESH' }
+  | { type: 'CODEX_MCP_INSTALL_FROM_JSON' }
+  | { type: 'CODEX_SKILL_INSTALL_OPEN' }
 >;
 
 export type LeftPanelProps = {
   explorer: AppViewModel['explorer'];
+  leftTab: AppViewModel['leftTab'];
+  codexCapabilities: AppViewModel['codexCapabilities'];
   globalSearchQuery: string;
   activeStoryId: string | null;
   dispatch: (intent: LeftIntent) => void;
@@ -340,7 +348,15 @@ export const LeftPanel = React.memo(function LeftPanel(props: LeftPanelProps) {
       minwPx={props.minwPx}
       bodyBleed
     >
-      <div onPointerDownCapture={onRightPointerDownCapture} onContextMenuCapture={onContextMenuCapture}>
+      <div className="flex h-full min-h-0">
+        <LeftRailSwitcher tab={props.leftTab} dispatch={props.dispatch} />
+        <div className="min-w-0 flex-1">
+      <div
+        className="h-full min-h-0"
+        style={{ display: props.leftTab === 'workbench' ? 'block' : 'none' }}
+        onPointerDownCapture={onRightPointerDownCapture}
+        onContextMenuCapture={onContextMenuCapture}
+      >
         <SidebarProvider className="h-full min-h-0 w-full">
           <Sidebar collapsible="none" className="h-full w-full">
           {!props.explorer.projectRoot ? (
@@ -454,9 +470,15 @@ export const LeftPanel = React.memo(function LeftPanel(props: LeftPanelProps) {
       </SidebarProvider>
       </div>
 
-      <SpecWaveInitDialog init={props.explorer.specwaveInit} dispatch={props.dispatch} />
+      <div className="h-full min-h-0" style={{ display: props.leftTab === 'codexCapabilities' ? 'block' : 'none' }}>
+        <CodexCapabilitiesView vm={props.codexCapabilities} dispatch={props.dispatch} />
+      </div>
 
-      {contextMenu.open && contextMenu.target && typeof document !== 'undefined'
+      {props.leftTab === 'workbench' ? (
+        <SpecWaveInitDialog init={props.explorer.specwaveInit} dispatch={props.dispatch} />
+      ) : null}
+
+      {props.leftTab === 'workbench' && contextMenu.open && contextMenu.target && typeof document !== 'undefined'
         ? createPortal(
             <div
               ref={contextMenuRef}
@@ -516,6 +538,8 @@ export const LeftPanel = React.memo(function LeftPanel(props: LeftPanelProps) {
             document.body
           )
         : null}
+        </div>
+      </div>
     </Panel>
   );
 });

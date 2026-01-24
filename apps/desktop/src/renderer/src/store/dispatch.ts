@@ -10,6 +10,7 @@ import { handleSpecwaveInitIntent } from './handlers/specwaveInit';
 import { handleTaskIntent } from './handlers/task';
 import { handleTerminalIntent } from './handlers/terminal';
 import { handleContentIntent } from './handlers/content';
+import { handleCodexCapabilitiesIntent } from './handlers/codexCapabilities';
 
 export function dispatchByHandlers(args: { ctx: StoreCtx; state: AppState; intent: UIIntent }): Partial<AppState> | null {
   return (
@@ -17,6 +18,7 @@ export function dispatchByHandlers(args: { ctx: StoreCtx; state: AppState; inten
     handleLayoutIntent(args) ??
     handleThemeIntent(args) ??
     handleProjectIntent(args) ??
+    handleCodexCapabilitiesIntent(args) ??
     handleSpecwaveInitIntent(args) ??
     handleExplorerIntent(args) ??
     handleTaskIntent(args) ??
