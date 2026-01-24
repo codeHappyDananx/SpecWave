@@ -201,11 +201,11 @@ export function TerminalDockView(props: TerminalDockViewProps) {
     vars['--sw-split-y'] = ratioStr(layout.splitY);
   }
 
-  const renderRegion = (region: TerminalDockRegionVM, mountId: string | null) => {
+  const renderRegion = (region: TerminalDockRegionVM, mountId: string | null, regionStyle?: React.CSSProperties) => {
     const tabs = region.tabIds;
     const active = region.activeTabId;
     return (
-      <div className={styles.region} aria-label={`终端区域 ${region.id}`}>
+      <div className={styles.region} style={regionStyle} aria-label={`终端区域 ${region.id}`}>
         <div
           className={styles.regionHeader}
           role="tablist"
@@ -435,9 +435,7 @@ export function TerminalDockView(props: TerminalDockViewProps) {
 
       {layout.kind === 'four' && (
         <div className={`${styles.layout} ${styles.fourGrid}`} style={{ ...vars }} aria-label="四区布局">
-          <div style={{ gridColumn: '1', gridRow: '1', minWidth: 0, minHeight: 0 }}>
-            {renderRegion(safeRegion(0), safeRegion(0).activeTabId ?? null)}
-          </div>
+          {renderRegion(safeRegion(0), safeRegion(0).activeTabId ?? null, { gridColumn: '1', gridRow: '1' })}
           <div
             className={styles.divider}
             data-axis="x"
@@ -446,9 +444,7 @@ export function TerminalDockView(props: TerminalDockViewProps) {
             style={{ gridColumn: '2', gridRow: '1 / 4' }}
             onPointerDown={(e) => startSplitDrag({ e, key: 'fourX', axis: 'x', el: rootRef.current })}
           />
-          <div style={{ gridColumn: '3', gridRow: '1', minWidth: 0, minHeight: 0 }}>
-            {renderRegion(safeRegion(1), safeRegion(1).activeTabId ?? null)}
-          </div>
+          {renderRegion(safeRegion(1), safeRegion(1).activeTabId ?? null, { gridColumn: '3', gridRow: '1' })}
           <div
             className={styles.divider}
             data-axis="y"
@@ -457,12 +453,8 @@ export function TerminalDockView(props: TerminalDockViewProps) {
             style={{ gridColumn: '1 / 4', gridRow: '2' }}
             onPointerDown={(e) => startSplitDrag({ e, key: 'fourY', axis: 'y', el: rootRef.current })}
           />
-          <div style={{ gridColumn: '1', gridRow: '3', minWidth: 0, minHeight: 0 }}>
-            {renderRegion(safeRegion(2), safeRegion(2).activeTabId ?? null)}
-          </div>
-          <div style={{ gridColumn: '3', gridRow: '3', minWidth: 0, minHeight: 0 }}>
-            {renderRegion(safeRegion(3), safeRegion(3).activeTabId ?? null)}
-          </div>
+          {renderRegion(safeRegion(2), safeRegion(2).activeTabId ?? null, { gridColumn: '1', gridRow: '3' })}
+          {renderRegion(safeRegion(3), safeRegion(3).activeTabId ?? null, { gridColumn: '3', gridRow: '3' })}
         </div>
       )}
     </div>
