@@ -32,7 +32,7 @@ type DropPreview =
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 const clamp01 = (v: number) => (Number.isFinite(v) ? clamp(v, 0, 1) : 0);
 const clampSplit = (v: number) => clamp(clamp01(v), 0.15, 0.85);
-const pct = (ratio: number) => `${Math.round(clamp01(ratio) * 10_000) / 100}%`;
+const ratioStr = (ratio: number) => `${Math.round(clampSplit(ratio) * 10_000) / 10_000}`;
 
 export function TerminalDockView(props: TerminalDockViewProps) {
   const terminal = props.terminal;
@@ -81,14 +81,22 @@ export function TerminalDockView(props: TerminalDockViewProps) {
       const rect = (args.e.currentTarget as HTMLElement).getBoundingClientRect();
       const x = args.e.clientX - rect.left;
       const y = args.e.clientY - rect.top;
-      const edge = Math.min(64, Math.max(36, Math.min(rect.width, rect.height) * 0.18));
+      const ux = rect.width > 0 ? x / rect.width : 0.5;
+      const uy = rect.height > 0 ? y / rect.height : 0.5;
 
+      if (dock.regions.length === 1) {
+        const dx = Math.abs(ux - 0.5);
+        const dy = Math.abs(uy - 0.5);
+        const side = dy >= dx ? (uy < 0.5 ? 'top' : 'bottom') : ux < 0.5 ? 'left' : 'right';
+        if (canSplitHere(1, side)) return { kind: 'split', targetRegionId: args.regionId, side };
+        return { kind: 'merge', targetRegionId: args.regionId };
+      }
+
+      const edge = Math.min(64, Math.max(36, Math.min(rect.width, rect.height) * 0.18));
       const side =
         x <= edge ? 'left' : x >= rect.width - edge ? 'right' : y <= edge ? 'top' : y >= rect.height - edge ? 'bottom' : null;
 
-      if (side && canSplitHere(dock.regions.length, side)) {
-        return { kind: 'split', targetRegionId: args.regionId, side };
-      }
+      if (side && canSplitHere(dock.regions.length, side)) return { kind: 'split', targetRegionId: args.regionId, side };
       return { kind: 'merge', targetRegionId: args.regionId };
     },
     [canSplitHere, dock.regions.length]
@@ -158,16 +166,16 @@ export function TerminalDockView(props: TerminalDockViewProps) {
   const layout = dock.layout;
   const vars: React.CSSProperties & Record<string, string> = {};
   if (layout.kind === 'two') {
-    if (layout.dir === 'cols') vars['--sw-split-x'] = pct(layout.ratio);
-    if (layout.dir === 'rows') vars['--sw-split-y'] = pct(layout.ratio);
+    if (layout.dir === 'cols') vars['--sw-split-x'] = ratioStr(layout.ratio);
+    if (layout.dir === 'rows') vars['--sw-split-y'] = ratioStr(layout.ratio);
   }
   if (layout.kind === 'three') {
-    vars['--sw-split-y'] = pct(layout.ratio);
-    vars['--sw-split-x'] = pct(layout.secondaryRatio);
+    vars['--sw-split-y'] = ratioStr(layout.ratio);
+    vars['--sw-split-x'] = ratioStr(layout.secondaryRatio);
   }
   if (layout.kind === 'four') {
-    vars['--sw-split-x'] = pct(layout.splitX);
-    vars['--sw-split-y'] = pct(layout.splitY);
+    vars['--sw-split-x'] = ratioStr(layout.splitX);
+    vars['--sw-split-y'] = ratioStr(layout.splitY);
   }
 
   const renderRegion = (region: TerminalDockRegionVM, mountId: string | null) => {
