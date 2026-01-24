@@ -256,9 +256,6 @@ export function handleTerminalIntent(args: { ctx: StoreCtx; state: AppState; int
         try {
           api.terminalResize(intent.id, intent.cols, intent.rows);
         } catch {}
-        try {
-          api.terminalWrite?.(intent.id, '\r');
-        } catch {}
       })();
       return { vm };
     }
