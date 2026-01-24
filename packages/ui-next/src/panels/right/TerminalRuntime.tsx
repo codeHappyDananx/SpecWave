@@ -19,6 +19,7 @@ export type TerminalRuntimeProps = {
   visibleIds: string[];
   focusedId: string | null;
   mountById: Map<string, HTMLDivElement | null>;
+  mountVersion: number;
   dispatch: (intent: TerminalIntent) => void;
   subscribeTerminalEvent?: SubscribeTerminalEvent;
   visible: boolean;
@@ -390,7 +391,16 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
         }
       }
     }
-  }, [ensurePasteHandler, fitAndResize, hasPanels, props.mountById, props.panelIds, props.visible, props.visibleIds]);
+  }, [
+    ensurePasteHandler,
+    fitAndResize,
+    hasPanels,
+    props.mountById,
+    props.mountVersion,
+    props.panelIds,
+    props.visible,
+    props.visibleIds
+  ]);
 
   React.useLayoutEffect(() => {
     if (!hasPanels) return;

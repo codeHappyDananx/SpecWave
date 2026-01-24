@@ -43,6 +43,7 @@ export function TerminalDockView(props: TerminalDockViewProps) {
   const splitRowRef = React.useRef<HTMLDivElement | null>(null);
 
   const mountByIdRef = React.useRef<Map<string, HTMLDivElement | null>>(new Map());
+  const [mountVersion, setMountVersion] = React.useState(0);
   const containerRefFnById = React.useRef<Map<string, (el: HTMLDivElement | null) => void>>(new Map());
   const [dropPreview, setDropPreview] = React.useState<DropPreview | null>(null);
 
@@ -52,7 +53,10 @@ export function TerminalDockView(props: TerminalDockViewProps) {
     const hit = containerRefFnById.current.get(id);
     if (hit) return hit;
     const fn = (el: HTMLDivElement | null) => {
+      const prev = mountByIdRef.current.get(id) ?? null;
+      if (prev === el) return;
       mountByIdRef.current.set(id, el);
+      setMountVersion((v) => (v + 1) % 1_000_000);
     };
     containerRefFnById.current.set(id, fn);
     return fn;
@@ -341,6 +345,7 @@ export function TerminalDockView(props: TerminalDockViewProps) {
         visibleIds={visibleIds}
         focusedId={focusedId}
         mountById={mountByIdRef.current}
+        mountVersion={mountVersion}
         dispatch={props.dispatch}
         subscribeTerminalEvent={props.subscribeTerminalEvent}
         visible={props.visible}
