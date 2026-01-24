@@ -42,6 +42,7 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
     fit: FitAddon;
     rootEl: HTMLDivElement;
     isOpen: boolean;
+    didFallbackEnsure: boolean;
     lastSize: { cols: number; rows: number } | null;
     writeQueue: string[];
     writeInFlight: boolean;
@@ -157,10 +158,21 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
     try {
       inst.fit.fit();
     } catch {
+      if (!inst.didFallbackEnsure) {
+        inst.didFallbackEnsure = true;
+        dispatchRef.current({ type: 'TERMINAL_RESIZE', id, cols: 80, rows: 24 });
+      }
       return;
     }
     const cols = inst.term.cols;
     const rows = inst.term.rows;
+    if (cols < 2 || rows < 2) {
+      if (!inst.didFallbackEnsure) {
+        inst.didFallbackEnsure = true;
+        dispatchRef.current({ type: 'TERMINAL_RESIZE', id, cols: 80, rows: 24 });
+      }
+      return;
+    }
     const last = inst.lastSize;
     if (last && last.cols === cols && last.rows === rows) return;
     inst.lastSize = { cols, rows };
@@ -266,6 +278,7 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
         fit,
         rootEl,
         isOpen: false,
+        didFallbackEnsure: false,
         lastSize: null,
         writeQueue: [],
         writeInFlight: false,
@@ -377,7 +390,7 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
           inst.ro.disconnect();
           inst.ro.observe(mount);
         } catch {}
-        requestAnimationFrame(() => fitAndResize(id));
+        requestAnimationFrame(() => requestAnimationFrame(() => fitAndResize(id)));
       } else {
         if (inst.ro) {
           try {
