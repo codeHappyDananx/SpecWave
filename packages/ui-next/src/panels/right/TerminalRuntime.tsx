@@ -319,10 +319,7 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
   }, [enqueueWriteFor]);
 
   React.useLayoutEffect(() => {
-    const pool = poolRef.current;
-    if (!pool) return;
     if (!hasPanels) return;
-
     const nextIds = props.panelIds;
     for (const id of nextIds) ensureInstance(id);
 
@@ -334,20 +331,7 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
       instancesRef.current.delete(id);
       pendingByIdRef.current.delete(id);
     }
-
-    for (const id of nextIds) {
-      const inst = instancesRef.current.get(id);
-      if (!inst) continue;
-      if (!inst.isOpen) {
-        try {
-          pool.appendChild(inst.rootEl);
-          inst.term.open(inst.rootEl);
-          inst.isOpen = true;
-          ensurePasteHandler(inst);
-        } catch {}
-      }
-    }
-  }, [ensureInstance, ensurePasteHandler, hasPanels, props.panelIds]);
+  }, [ensureInstance, hasPanels, props.panelIds]);
 
   React.useLayoutEffect(() => {
     const pool = poolRef.current;
@@ -363,6 +347,21 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
       const mount = isVisible ? props.mountById.get(id) ?? null : null;
 
       if (isVisible && mount) {
+        if (!inst.isOpen) {
+          try {
+            mount.replaceChildren(inst.rootEl);
+          } catch {
+            try {
+              mount.innerHTML = '';
+              mount.appendChild(inst.rootEl);
+            } catch {}
+          }
+          try {
+            inst.term.open(inst.rootEl);
+            inst.isOpen = true;
+            ensurePasteHandler(inst);
+          } catch {}
+        } else {
         try {
           mount.replaceChildren(inst.rootEl);
         } catch {
@@ -370,6 +369,7 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
             mount.innerHTML = '';
             mount.appendChild(inst.rootEl);
           } catch {}
+        }
         }
         if (!inst.ro) inst.ro = new ResizeObserver(() => fitAndResize(id));
         try {
@@ -383,12 +383,14 @@ export function TerminalRuntime(props: TerminalRuntimeProps) {
             inst.ro.disconnect();
           } catch {}
         }
-        try {
-          pool.appendChild(inst.rootEl);
-        } catch {}
+        if (inst.isOpen) {
+          try {
+            pool.appendChild(inst.rootEl);
+          } catch {}
+        }
       }
     }
-  }, [fitAndResize, hasPanels, props.mountById, props.panelIds, props.visible, props.visibleIds]);
+  }, [ensurePasteHandler, fitAndResize, hasPanels, props.mountById, props.panelIds, props.visible, props.visibleIds]);
 
   React.useLayoutEffect(() => {
     if (!hasPanels) return;

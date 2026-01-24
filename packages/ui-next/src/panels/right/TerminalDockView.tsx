@@ -84,7 +84,11 @@ export function TerminalDockView(props: TerminalDockViewProps) {
       const ux = rect.width > 0 ? x / rect.width : 0.5;
       const uy = rect.height > 0 ? y / rect.height : 0.5;
 
-      if (dock.regions.length === 1) {
+      const regionsCount = dock.regions.length;
+      if (terminal.panelIds.length < 2) return { kind: 'merge', targetRegionId: args.regionId };
+      if (regionsCount >= 4) return { kind: 'merge', targetRegionId: args.regionId };
+
+      if (regionsCount === 1) {
         const dx = Math.abs(ux - 0.5);
         const dy = Math.abs(uy - 0.5);
         const side = dy >= dx ? (uy < 0.5 ? 'top' : 'bottom') : ux < 0.5 ? 'left' : 'right';
@@ -92,14 +96,29 @@ export function TerminalDockView(props: TerminalDockViewProps) {
         return { kind: 'merge', targetRegionId: args.regionId };
       }
 
+      if (regionsCount === 2) {
+        const side = uy < 0.5 ? 'top' : 'bottom';
+        if (canSplitHere(2, side)) return { kind: 'split', targetRegionId: args.regionId, side };
+        return { kind: 'merge', targetRegionId: args.regionId };
+      }
+
+      if (regionsCount === 3 && dock.layout.kind === 'three') {
+        const primaryRegionId = dock.layout.primary === 'top' ? dock.regions[0]?.id : dock.regions[2]?.id;
+        if (primaryRegionId && primaryRegionId === args.regionId) {
+          const side = ux < 0.5 ? 'left' : 'right';
+          if (canSplitHere(3, side)) return { kind: 'split', targetRegionId: args.regionId, side };
+          return { kind: 'merge', targetRegionId: args.regionId };
+        }
+      }
+
       const edge = Math.min(64, Math.max(36, Math.min(rect.width, rect.height) * 0.18));
       const side =
         x <= edge ? 'left' : x >= rect.width - edge ? 'right' : y <= edge ? 'top' : y >= rect.height - edge ? 'bottom' : null;
 
-      if (side && canSplitHere(dock.regions.length, side)) return { kind: 'split', targetRegionId: args.regionId, side };
+      if (side && canSplitHere(regionsCount, side)) return { kind: 'split', targetRegionId: args.regionId, side };
       return { kind: 'merge', targetRegionId: args.regionId };
     },
-    [canSplitHere, dock.regions.length]
+    [canSplitHere, dock.layout.kind, dock.regions, terminal.panelIds.length]
   );
 
   const onDropWith = React.useCallback(
@@ -261,12 +280,41 @@ export function TerminalDockView(props: TerminalDockViewProps) {
         >
           <div className={styles.mount} ref={mountId ? getMountRef(mountId) : undefined} aria-label="终端挂载点" />
           <div
+            className={styles.splitOverlay}
+            data-active={dropPreview?.regionId === region.id && dropPreview.kind === 'split' ? '1' : '0'}
+            data-dir={
+              dropPreview?.regionId === region.id && dropPreview.kind === 'split' && (dropPreview.side === 'left' || dropPreview.side === 'right')
+                ? 'cols'
+                : 'rows'
+            }
+            aria-hidden
+          >
+            <div
+              className={styles.splitBox}
+              data-hot={
+                dropPreview?.regionId === region.id &&
+                dropPreview.kind === 'split' &&
+                (dropPreview.side === 'left' || dropPreview.side === 'top')
+                  ? '1'
+                  : '0'
+              }
+            />
+            <div
+              className={styles.splitBox}
+              data-hot={
+                dropPreview?.regionId === region.id &&
+                dropPreview.kind === 'split' &&
+                (dropPreview.side === 'right' || dropPreview.side === 'bottom')
+                  ? '1'
+                  : '0'
+              }
+            />
+          </div>
+          <div
             className={styles.dropOverlay}
             data-active={
               dropPreview?.regionId === region.id &&
-              (dropPreview.kind === 'merge' ||
-                dropPreview.kind === 'swap' ||
-                (dropPreview.kind === 'split' && dock.regions.length < 4))
+              (dropPreview.kind === 'merge' || dropPreview.kind === 'swap')
                 ? '1'
                 : '0'
             }

@@ -19,6 +19,13 @@
 .dropOverlay{position:absolute;inset:0;pointer-events:none;border:2px dashed rgba(59,130,246,0.85);border-radius:10px;background:rgba(59,130,246,0.10);opacity:0;transition:opacity var(--t-quick);}
 .dropOverlay[data-active="1"]{opacity:1;}
 
+.splitOverlay{position:absolute;inset:0;pointer-events:none;display:grid;gap:8px;padding:10px;opacity:0;transition:opacity var(--t-quick);}
+.splitOverlay[data-active="1"]{opacity:1;}
+.splitOverlay[data-dir="cols"]{grid-template-columns:1fr 1fr;grid-template-rows:1fr;}
+.splitOverlay[data-dir="rows"]{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
+.splitBox{border:2px dashed rgba(59,130,246,0.70);border-radius:10px;background:rgba(59,130,246,0.06);}
+.splitBox[data-hot="1"]{border-color:rgba(59,130,246,0.95);background:rgba(59,130,246,0.14);}
+
 .twoCols{grid-template-columns:calc((100% - 6px) * var(--sw-split-x)) 6px calc((100% - 6px) * (1 - var(--sw-split-x)));grid-template-rows:100%;}
 .twoRows{grid-template-columns:100%;grid-template-rows:calc((100% - 6px) * var(--sw-split-y)) 6px calc((100% - 6px) * (1 - var(--sw-split-y)));}
 
