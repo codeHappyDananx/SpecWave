@@ -99,10 +99,14 @@ export type CodexSkillVM = {
 export type CodexCapabilitiesVM = {
   includeConnectivityProbe: boolean;
   lastCheckedAt: string | null;
+  lastCheckedAtMcp: string | null;
+  lastCheckedAtSkills: string | null;
   error: string | null;
   mcpError: string | null;
   skillsError: string | null;
   isChecking: boolean;
+  isCheckingMcp: boolean;
+  isCheckingSkills: boolean;
   mcpServers: CodexMcpServerVM[];
   skills: CodexSkillVM[];
   install: {

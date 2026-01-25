@@ -56,6 +56,7 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
 
   const installingMcp = props.vm.install.isInstallingMcp;
   const installingSkill = props.vm.install.isInstallingSkill;
+  const isCheckingAny = props.vm.isCheckingMcp || props.vm.isCheckingSkills;
 
   const parsedPreview = React.useMemo(() => safeJsonPreview(mcpInstallJson), [mcpInstallJson]);
 
@@ -66,7 +67,16 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
           <Wrench className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
           <div className="text-[12px] font-semibold">能力</div>
           <div className="text-[11px] text-muted-foreground">
-            {props.vm.lastCheckedAt ? `最近探测：${new Date(props.vm.lastCheckedAt).toLocaleString()}` : '尚未探测'}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>
+                MCP：
+                {props.vm.lastCheckedAtMcp ? new Date(props.vm.lastCheckedAtMcp).toLocaleString() : '未探测'}
+              </span>
+              <span>
+                技能：
+                {props.vm.lastCheckedAtSkills ? new Date(props.vm.lastCheckedAtSkills).toLocaleString() : '未探测'}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -76,10 +86,10 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
             className="h-8 w-8 shadow-none"
             aria-label="刷新"
             title="刷新"
-            disabled={props.vm.isChecking || installingMcp || installingSkill}
+            disabled={isCheckingAny || installingMcp || installingSkill}
             onClick={() => props.dispatch({ type: 'CODEX_CAPABILITIES_REFRESH' })}
           >
-            <RefreshCw className={props.vm.isChecking ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden={true} />
+            <RefreshCw className={isCheckingAny ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden={true} />
           </Button>
         </div>
       </div>
@@ -118,6 +128,11 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                     <Boxes className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
                     MCP
                   </CardTitle>
+                  {props.vm.isCheckingMcp ? (
+                    <Badge tone="secondary" className="shrink-0">
+                      检测中
+                    </Badge>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="secondary"
@@ -144,7 +159,7 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                 ) : null}
                 {props.vm.mcpServers.length === 0 ? (
                   <div className="rounded-md border-2 bg-background p-3 text-xs text-muted-foreground">
-                    暂无已配置的 MCP。可以点“安装 MCP”导入。
+                    {props.vm.isCheckingMcp ? 'MCP 检测中…' : '暂无已配置的 MCP。可以点“安装 MCP”导入。'}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -199,6 +214,11 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                     <Boxes className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
                     技能
                   </CardTitle>
+                  {props.vm.isCheckingSkills ? (
+                    <Badge tone="secondary" className="shrink-0">
+                      检测中
+                    </Badge>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="secondary"
@@ -225,7 +245,7 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                 ) : null}
                 {props.vm.skills.length === 0 ? (
                   <div className="rounded-md border-2 bg-background p-3 text-xs text-muted-foreground">
-                    暂无已安装的技能。可以点“安装技能”导入。
+                    {props.vm.isCheckingSkills ? '技能检测中…' : '暂无已安装的技能。可以点“安装技能”导入。'}
                   </div>
                 ) : (
                   <div className="space-y-2">

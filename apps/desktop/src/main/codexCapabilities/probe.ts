@@ -16,6 +16,14 @@ type ProbeResult =
     }
   | { ok: false; error: string };
 
+export type McpProbeResult =
+  | { ok: true; checkedAt: string; mcpServers: CodexMcpServerVM[] }
+  | { ok: false; checkedAt: string; error: string };
+
+export type SkillsProbeResult =
+  | { ok: true; checkedAt: string; skills: CodexSkillVM[] }
+  | { ok: false; checkedAt: string; error: string };
+
 async function connectMcpServerViaSdk(args: {
   name: string;
   transport: any;
@@ -79,22 +87,22 @@ function withHealth(server: CodexMcpServerVM, health: { state: HealthState; mess
   return { ...server, health };
 }
 
-export async function probeCodexCapabilities(args: { includeConnectivityProbe: boolean; projectRoot: string | null }): Promise<ProbeResult> {
+export async function probeSkills(args: { projectRoot: string | null }): Promise<SkillsProbeResult> {
   const checkedAt = new Date().toISOString();
+  const skillsRes = await scanSkills({ projectRoot: args.projectRoot });
+  if (!skillsRes.ok) return { ok: false, checkedAt, error: skillsRes.error };
+  return { ok: true, checkedAt, skills: skillsRes.skills };
+}
 
-  const [mcpRes, skillsRes] = await Promise.all([listMcpServers(), scanSkills({ projectRoot: args.projectRoot })]);
+export async function probeMcpServers(args: { includeConnectivityProbe: boolean; projectRoot: string | null }): Promise<McpProbeResult> {
+  const checkedAt = new Date().toISOString();
+  const mcpRes = await listMcpServers();
+  if (!mcpRes.ok) return { ok: false, checkedAt, error: mcpRes.error };
 
-  if (!mcpRes.ok && !skillsRes.ok) {
-    return { ok: false, error: [mcpRes.ok ? null : mcpRes.error, skillsRes.ok ? null : skillsRes.error].filter(Boolean).join('\n') };
-  }
-
-  const mcpServers = mcpRes.ok ? mcpRes.servers : [];
-  const skills = skillsRes.ok ? skillsRes.skills : [];
-  const mcpError = mcpRes.ok ? null : mcpRes.error;
-  const skillsError = skillsRes.ok ? null : skillsRes.error;
+  const mcpServers = mcpRes.servers;
 
   if (!args.includeConnectivityProbe || mcpServers.length === 0) {
-    return { ok: true, checkedAt, mcpServers, skills, mcpError, skillsError };
+    return { ok: true, checkedAt, mcpServers };
   }
 
   const probed: CodexMcpServerVM[] = [];
@@ -126,5 +134,23 @@ export async function probeCodexCapabilities(args: { includeConnectivityProbe: b
     else probed.push(withHealth(s2, { state: 'error', message: conn.error }));
   }
 
-  return { ok: true, checkedAt, mcpServers: probed, skills, mcpError, skillsError };
+  return { ok: true, checkedAt, mcpServers: probed };
+}
+
+export async function probeCodexCapabilities(args: { includeConnectivityProbe: boolean; projectRoot: string | null }): Promise<ProbeResult> {
+  const checkedAt = new Date().toISOString();
+  const [mcpRes, skillsRes] = await Promise.all([probeMcpServers(args), probeSkills({ projectRoot: args.projectRoot })]);
+
+  if (!mcpRes.ok && !skillsRes.ok) {
+    return { ok: false, error: [mcpRes.error, skillsRes.error].filter(Boolean).join('\n') };
+  }
+
+  return {
+    ok: true,
+    checkedAt,
+    mcpServers: mcpRes.ok ? mcpRes.mcpServers : [],
+    skills: skillsRes.ok ? skillsRes.skills : [],
+    mcpError: mcpRes.ok ? null : mcpRes.error,
+    skillsError: skillsRes.ok ? null : skillsRes.error
+  };
 }

@@ -89,6 +89,14 @@ export type CodexCapabilitiesProbeResult =
     }
   | { ok: false; error: string };
 
+export type CodexMcpProbeResult =
+  | { ok: true; checkedAt: string; mcpServers: CodexMcpServerVM[] }
+  | { ok: false; checkedAt: string; error: string };
+
+export type CodexSkillsProbeResult =
+  | { ok: true; checkedAt: string; skills: CodexSkillVM[] }
+  | { ok: false; checkedAt: string; error: string };
+
 export type CodexMcpInstallFromJsonResult =
   | { ok: true; message?: string }
   | { ok: false; error: string; code?: 'invalid-input' | 'already-exists' | 'unsupported' | 'failed' };
@@ -134,6 +142,10 @@ contextBridge.exposeInMainWorld('specwave', {
 
   codexCapabilitiesProbe: (args: { includeConnectivityProbe: boolean; projectRoot: string | null }) =>
     ipcRenderer.invoke('specwave:codex:probe', args) as Promise<CodexCapabilitiesProbeResult>,
+  codexMcpProbe: (args: { includeConnectivityProbe: boolean; projectRoot: string | null }) =>
+    ipcRenderer.invoke('specwave:codex:mcpProbe', args) as Promise<CodexMcpProbeResult>,
+  codexSkillsProbe: (args: { projectRoot: string | null }) =>
+    ipcRenderer.invoke('specwave:codex:skillsProbe', args) as Promise<CodexSkillsProbeResult>,
   codexMcpInstallFromJson: (args: { rawJson: string; overwrite: boolean }) =>
     ipcRenderer.invoke('specwave:codex:mcpInstallFromJson', args) as Promise<CodexMcpInstallFromJsonResult>,
   codexSkillInstall: (args: {
@@ -247,6 +259,8 @@ declare global {
       showMessageBox: (options: MessageBoxOptions) => Promise<MessageBoxResult>;
 
       codexCapabilitiesProbe: (args: { includeConnectivityProbe: boolean; projectRoot: string | null }) => Promise<CodexCapabilitiesProbeResult>;
+      codexMcpProbe: (args: { includeConnectivityProbe: boolean; projectRoot: string | null }) => Promise<CodexMcpProbeResult>;
+      codexSkillsProbe: (args: { projectRoot: string | null }) => Promise<CodexSkillsProbeResult>;
       codexMcpInstallFromJson: (args: { rawJson: string; overwrite: boolean }) => Promise<CodexMcpInstallFromJsonResult>;
       codexSkillInstall: (args: {
         source: { kind: 'zip' | 'md' | 'dir'; path: string };

@@ -180,10 +180,14 @@ const initialVm: AppViewModel = {
   codexCapabilities: {
     includeConnectivityProbe: true,
     lastCheckedAt: null,
+    lastCheckedAtMcp: null,
+    lastCheckedAtSkills: null,
     error: null,
     mcpError: null,
     skillsError: null,
     isChecking: false,
+    isCheckingMcp: false,
+    isCheckingSkills: false,
     mcpServers: [],
     skills: [],
     install: { isInstallingMcp: false, isInstallingSkill: false, lastError: null, lastMessage: null }

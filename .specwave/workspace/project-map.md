@@ -79,12 +79,12 @@
 | `apps/desktop/src/renderer/postcss.config.cjs` | renderer 的 PostCSS/Tailwind 配置 | `@tailwindcss/postcss` | Vite renderer | Tailwind v4：通过 `base` 指到仓库根，确保能扫到 `packages/ui-next` 里的 class；Tailwind 配置由 `styles.css` 的 `@config` 指定 |
 | `components.json` | shadcn CLI 配置（未来可继续 add 组件） | 无 | 人/工具 | 输出路径指向 `primitives/shadcn`，避免散落 |
 | `apps/desktop/src/main` | Electron 主进程：窗口、IPC、GPU 策略、pty（含目录监听与二进制读取） | Electron/Node | Electron entry | 系统能力集中在这里 |
-| `apps/desktop/src/main/ipc.ts` | 主进程 `IPC`：进程间通信 注册；初始化入口与事件推送；剪贴板读写；新增 `specwave:selectFile` 与 `specwave:codex:*`：能力探测/安装相关通道 | Electron/Node | preload | `codex` 能力探测/安装只在主进程执行并统一脱敏 |
+| `apps/desktop/src/main/ipc.ts` | 主进程 `IPC`：进程间通信 注册；初始化入口与事件推送；剪贴板读写；新增 `specwave:selectFile` 与 `specwave:codex:*`：能力探测/安装相关通道（`mcpProbe` 与 `skillsProbe` 分开） | Electron/Node | preload | `codex` 能力探测/安装只在主进程执行并统一脱敏 |
 | `apps/desktop/src/main/codexCapabilities` | `codex`：工具名 能力实现：调用官方 `codex mcp`：命令行界面 获取配置，使用官方 `@modelcontextprotocol/sdk`：软件开发包 做握手探测，并实现 `MCP`/技能安装与回滚清理 | Node | `main/ipc.ts` | 不把敏感值回传 renderer；失败需可理解且脱敏 |
 | `apps/desktop/src/main/terminal/ipc.ts` | 终端 `IPC`：进程间通信 注册终端写入/尺寸/图片粘贴通道 | Electron/Node | preload | 只做 `IPC` 转发 |
 | `apps/desktop/src/main/terminal/pasteImage.ts` | 终端图片粘贴助手：剪贴板读图、落盘 `.terminal-paste`、必要时写入 `.gitignore` | Electron/Node | `main/terminal/ipc.ts` | 仅主进程使用 |
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |
-| `apps/desktop/src/preload/index.ts` | preload 桥接实现：初始化引导事件、终端能力、剪贴板能力；新增 `selectFile` 与 `codexCapabilitiesProbe/codexMcpInstallFromJson/codexSkillInstall`：能力探测与安装桥接 | Electron | renderer store | 只做桥接与参数校验，不放业务编排 |
+| `apps/desktop/src/preload/index.ts` | preload 桥接实现：初始化引导事件、终端能力、剪贴板能力；新增 `selectFile` 与 `codexMcpProbe/codexSkillsProbe/codexMcpInstallFromJson/codexSkillInstall`：能力探测与安装桥接 | Electron | renderer store | 只做桥接与参数校验，不放业务编排 |
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
 | `apps/desktop/src/renderer/src/store/shared/terminalDock.ts` | 终端分区纯函数：分区归一化、拖拽落点（移动/交换/合并/分区）、分隔条比例更新 | contracts | `store/handlers/panel.ts`、`store/handlers/terminal.ts`、`store/handlers/task.ts` | 不触发副作用；保证“最多 4 区且不留空区” |
 | `apps/desktop/src/renderer/src/store/handlers/codexCapabilities.ts` | `codex`：工具名 能力意图处理：切换左区 tab、刷新探测、安装 `MCP`/技能（含覆盖确认） | preload API | `store.ts` | 只编排状态；不在 renderer 执行命令与文件写入 |

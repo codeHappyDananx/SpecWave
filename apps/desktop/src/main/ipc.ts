@@ -4,7 +4,7 @@ import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getRecentProjects, removeRecentProject, touchRecentProject } from './recentProjects';
-import { codexCapabilitiesProbe, codexMcpInstallFromJson, codexSkillInstall } from './codexCapabilities';
+import { codexCapabilitiesProbe, codexMcpInstallFromJson, codexMcpProbe, codexSkillInstall, codexSkillsProbe } from './codexCapabilities';
 
 type DirEntryDTO = {
   name: string;
@@ -468,6 +468,20 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
       });
     }
   );
+
+  ipcMain.handle(
+    'specwave:codex:mcpProbe',
+    async (_evt, args: { includeConnectivityProbe: boolean; projectRoot: string | null }) => {
+      return await codexMcpProbe({
+        includeConnectivityProbe: Boolean(args?.includeConnectivityProbe),
+        projectRoot: args?.projectRoot ?? null
+      });
+    }
+  );
+
+  ipcMain.handle('specwave:codex:skillsProbe', async (_evt, args: { projectRoot: string | null }) => {
+    return await codexSkillsProbe({ projectRoot: args?.projectRoot ?? null });
+  });
 
   ipcMain.handle('specwave:codex:mcpInstallFromJson', async (_evt, args: { rawJson: string; overwrite: boolean }) => {
     return await codexMcpInstallFromJson({ rawJson: args?.rawJson ?? '', overwrite: Boolean(args?.overwrite) });

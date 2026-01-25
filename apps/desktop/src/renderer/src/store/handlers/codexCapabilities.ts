@@ -38,7 +38,13 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
   switch (intent.type) {
     case 'LEFT_PANEL_TAB_SET': {
       const nextVm = { ...vm, leftTab: intent.tab };
-      if (intent.tab === 'codexCapabilities' && !vm.codexCapabilities.lastCheckedAt && !vm.codexCapabilities.isChecking) {
+      if (
+        intent.tab === 'codexCapabilities' &&
+        !vm.codexCapabilities.lastCheckedAtMcp &&
+        !vm.codexCapabilities.lastCheckedAtSkills &&
+        !vm.codexCapabilities.isCheckingMcp &&
+        !vm.codexCapabilities.isCheckingSkills
+      ) {
         queueMicrotask(() => ctx.dispatch({ type: 'CODEX_CAPABILITIES_REFRESH' }));
       }
       return { vm: nextVm };
@@ -50,10 +56,12 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
         codexCapabilities: {
           ...vm.codexCapabilities,
           includeConnectivityProbe,
-          isChecking: true,
           error: null,
           mcpError: null,
           skillsError: null,
+          isChecking: true,
+          isCheckingMcp: true,
+          isCheckingSkills: true,
           install: { ...vm.codexCapabilities.install, lastError: null, lastMessage: null },
           mcpServers: vm.codexCapabilities.mcpServers.map((s) => ({
             ...s,
@@ -68,61 +76,45 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
 
       void (async () => {
         const api = window.specwave;
-        if (!api || !api.codexCapabilitiesProbe) {
-          ctx.set((st) => ({
-            vm: {
-              ...st.vm,
-              codexCapabilities: {
-                ...st.vm.codexCapabilities,
-                isChecking: false,
-                error: '当前桌面端版本不支持能力探测。'
-              }
-            }
-          }));
-          return;
-        }
+        if (!api) return;
 
-        const res = await api.codexCapabilitiesProbe({
-          includeConnectivityProbe,
-          projectRoot: vm.explorer.projectRoot
-        });
+        const projectRoot = vm.explorer.projectRoot;
 
-        ctx.set((st) => {
-          if (st.vm.codexCapabilities.includeConnectivityProbe !== includeConnectivityProbe && intent.includeConnectivityProbe == null) {
-            // 用户在探测期间改了开关，避免回写覆盖。
-          }
-          if (!res.ok) {
-            return {
-              vm: {
-                ...st.vm,
-                codexCapabilities: {
-                  ...st.vm.codexCapabilities,
-                  isChecking: false,
-                  lastCheckedAt: new Date().toISOString(),
-                  error: res.error,
-                  mcpError: null,
-                  skillsError: null,
-                  install: { ...st.vm.codexCapabilities.install }
-                }
-              }
+        void (async () => {
+          const res = await api.codexMcpProbe({ includeConnectivityProbe, projectRoot });
+          ctx.set((st) => {
+            const next = {
+              ...st.vm.codexCapabilities,
+              includeConnectivityProbe:
+                st.vm.codexCapabilities.includeConnectivityProbe !== includeConnectivityProbe && intent.includeConnectivityProbe == null
+                  ? st.vm.codexCapabilities.includeConnectivityProbe
+                  : includeConnectivityProbe,
+              isCheckingMcp: false,
+              lastCheckedAtMcp: res.checkedAt,
+              mcpError: res.ok ? null : res.error,
+              mcpServers: res.ok ? res.mcpServers : []
             };
-          }
-          return {
-            vm: {
-              ...st.vm,
-              codexCapabilities: {
-                ...st.vm.codexCapabilities,
-                isChecking: false,
-                lastCheckedAt: res.checkedAt,
-                error: null,
-                mcpError: res.mcpError ?? null,
-                skillsError: res.skillsError ?? null,
-                mcpServers: res.mcpServers,
-                skills: res.skills
-              }
-            }
-          };
-        });
+            const isChecking = next.isCheckingSkills || next.isCheckingMcp;
+            const lastCheckedAt = isChecking ? st.vm.codexCapabilities.lastCheckedAt : new Date().toISOString();
+            return { vm: { ...st.vm, codexCapabilities: { ...next, isChecking, lastCheckedAt, error: null } } };
+          });
+        })();
+
+        void (async () => {
+          const res = await api.codexSkillsProbe({ projectRoot });
+          ctx.set((st) => {
+            const next = {
+              ...st.vm.codexCapabilities,
+              isCheckingSkills: false,
+              lastCheckedAtSkills: res.checkedAt,
+              skillsError: res.ok ? null : res.error,
+              skills: res.ok ? res.skills : []
+            };
+            const isChecking = next.isCheckingSkills || next.isCheckingMcp;
+            const lastCheckedAt = isChecking ? st.vm.codexCapabilities.lastCheckedAt : new Date().toISOString();
+            return { vm: { ...st.vm, codexCapabilities: { ...next, isChecking, lastCheckedAt, error: null } } };
+          });
+        })();
       })();
 
       return { vm: nextVm };
