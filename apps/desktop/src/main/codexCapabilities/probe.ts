@@ -6,7 +6,14 @@ import { scanSkills } from './skills';
 import { safeEnvKeysFromCodexTransport, sanitizeCodexStderrForUi, toErrorMessage } from './sanitize';
 
 type ProbeResult =
-  | { ok: true; checkedAt: string; mcpServers: CodexMcpServerVM[]; skills: CodexSkillVM[] }
+  | {
+      ok: true;
+      checkedAt: string;
+      mcpServers: CodexMcpServerVM[];
+      skills: CodexSkillVM[];
+      mcpError: string | null;
+      skillsError: string | null;
+    }
   | { ok: false; error: string };
 
 async function connectMcpServerViaSdk(args: {
@@ -75,7 +82,7 @@ function withHealth(server: CodexMcpServerVM, health: { state: HealthState; mess
 export async function probeCodexCapabilities(args: { includeConnectivityProbe: boolean; projectRoot: string | null }): Promise<ProbeResult> {
   const checkedAt = new Date().toISOString();
 
-  const [mcpRes, skillsRes] = await Promise.all([listMcpServers({ cwd: args.projectRoot }), scanSkills({ projectRoot: args.projectRoot })]);
+  const [mcpRes, skillsRes] = await Promise.all([listMcpServers(), scanSkills({ projectRoot: args.projectRoot })]);
 
   if (!mcpRes.ok && !skillsRes.ok) {
     return { ok: false, error: [mcpRes.ok ? null : mcpRes.error, skillsRes.ok ? null : skillsRes.error].filter(Boolean).join('\n') };
@@ -83,9 +90,11 @@ export async function probeCodexCapabilities(args: { includeConnectivityProbe: b
 
   const mcpServers = mcpRes.ok ? mcpRes.servers : [];
   const skills = skillsRes.ok ? skillsRes.skills : [];
+  const mcpError = mcpRes.ok ? null : mcpRes.error;
+  const skillsError = skillsRes.ok ? null : skillsRes.error;
 
   if (!args.includeConnectivityProbe || mcpServers.length === 0) {
-    return { ok: true, checkedAt, mcpServers, skills };
+    return { ok: true, checkedAt, mcpServers, skills, mcpError, skillsError };
   }
 
   const probed: CodexMcpServerVM[] = [];
@@ -117,5 +126,5 @@ export async function probeCodexCapabilities(args: { includeConnectivityProbe: b
     else probed.push(withHealth(s2, { state: 'error', message: conn.error }));
   }
 
-  return { ok: true, checkedAt, mcpServers: probed, skills };
+  return { ok: true, checkedAt, mcpServers: probed, skills, mcpError, skillsError };
 }

@@ -100,6 +100,8 @@ export type CodexCapabilitiesVM = {
   includeConnectivityProbe: boolean;
   lastCheckedAt: string | null;
   error: string | null;
+  mcpError: string | null;
+  skillsError: string | null;
   isChecking: boolean;
   mcpServers: CodexMcpServerVM[];
   skills: CodexSkillVM[];

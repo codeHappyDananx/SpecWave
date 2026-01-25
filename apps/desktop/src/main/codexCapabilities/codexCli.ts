@@ -1,9 +1,20 @@
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 
 export type CodexRunResult = { ok: true; stdout: string; stderr: string } | { ok: false; error: string; code?: string };
 
 export async function runCodex(args: string[], options?: { cwd?: string | null; timeoutMs?: number }): Promise<CodexRunResult> {
   const timeoutMs = options?.timeoutMs ?? 20_000;
+  const resolvedCwd = (() => {
+    const cwd = options?.cwd;
+    if (typeof cwd !== 'string') return undefined;
+    const trimmed = cwd.trim();
+    if (!trimmed) return undefined;
+    try {
+      if (statSync(trimmed).isDirectory()) return trimmed;
+    } catch {}
+    return undefined;
+  })();
 
   return await new Promise<CodexRunResult>((resolve) => {
     let stdout = '';
@@ -12,7 +23,7 @@ export async function runCodex(args: string[], options?: { cwd?: string | null; 
     let timedOut = false;
 
     const child = spawn('codex', args, {
-      cwd: options?.cwd ?? undefined,
+      cwd: resolvedCwd,
       windowsHide: true,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe']
@@ -58,4 +69,3 @@ export async function runCodex(args: string[], options?: { cwd?: string | null; 
     });
   });
 }
-

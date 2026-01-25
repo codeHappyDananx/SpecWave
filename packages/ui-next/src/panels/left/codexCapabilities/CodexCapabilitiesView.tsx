@@ -132,6 +132,16 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                 <div className="text-[11px] text-muted-foreground">来源：官方 `codex mcp list/get/add/remove`。</div>
               </CardHeader>
               <CardContent className="px-3 pb-3 pt-0">
+                {props.vm.mcpError ? (
+                  <div className="mb-2">
+                    <Alert variant="destructive">
+                      <AlertTitle>MCP 读取失败</AlertTitle>
+                      <AlertDescription>
+                        <div className="whitespace-pre-wrap text-xs leading-relaxed">{props.vm.mcpError}</div>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : null}
                 {props.vm.mcpServers.length === 0 ? (
                   <div className="rounded-md border-2 bg-background p-3 text-xs text-muted-foreground">
                     暂无已配置的 MCP。可以点“安装 MCP”导入。
@@ -203,6 +213,16 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                 <div className="text-[11px] text-muted-foreground">来源：官方 `~/.codex/skills` 与 `$CWD/.codex/skills`。</div>
               </CardHeader>
               <CardContent className="px-3 pb-3 pt-0">
+                {props.vm.skillsError ? (
+                  <div className="mb-2">
+                    <Alert variant="destructive">
+                      <AlertTitle>技能扫描失败</AlertTitle>
+                      <AlertDescription>
+                        <div className="whitespace-pre-wrap text-xs leading-relaxed">{props.vm.skillsError}</div>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                ) : null}
                 {props.vm.skills.length === 0 ? (
                   <div className="rounded-md border-2 bg-background p-3 text-xs text-muted-foreground">
                     暂无已安装的技能。可以点“安装技能”导入。

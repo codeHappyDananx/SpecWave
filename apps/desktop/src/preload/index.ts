@@ -79,7 +79,14 @@ export type SpecWaveInitEventDTO =
     };
 
 export type CodexCapabilitiesProbeResult =
-  | { ok: true; checkedAt: string; mcpServers: CodexMcpServerVM[]; skills: CodexSkillVM[] }
+  | {
+      ok: true;
+      checkedAt: string;
+      mcpServers: CodexMcpServerVM[];
+      skills: CodexSkillVM[];
+      mcpError: string | null;
+      skillsError: string | null;
+    }
   | { ok: false; error: string };
 
 export type CodexMcpInstallFromJsonResult =

@@ -181,6 +181,8 @@ const initialVm: AppViewModel = {
     includeConnectivityProbe: true,
     lastCheckedAt: null,
     error: null,
+    mcpError: null,
+    skillsError: null,
     isChecking: false,
     mcpServers: [],
     skills: [],

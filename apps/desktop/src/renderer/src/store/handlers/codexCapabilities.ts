@@ -52,6 +52,8 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
           includeConnectivityProbe,
           isChecking: true,
           error: null,
+          mcpError: null,
+          skillsError: null,
           install: { ...vm.codexCapabilities.install, lastError: null, lastMessage: null },
           mcpServers: vm.codexCapabilities.mcpServers.map((s) => ({
             ...s,
@@ -98,6 +100,8 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
                   isChecking: false,
                   lastCheckedAt: new Date().toISOString(),
                   error: res.error,
+                  mcpError: null,
+                  skillsError: null,
                   install: { ...st.vm.codexCapabilities.install }
                 }
               }
@@ -111,6 +115,8 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
                 isChecking: false,
                 lastCheckedAt: res.checkedAt,
                 error: null,
+                mcpError: res.mcpError ?? null,
+                skillsError: res.skillsError ?? null,
                 mcpServers: res.mcpServers,
                 skills: res.skills
               }
