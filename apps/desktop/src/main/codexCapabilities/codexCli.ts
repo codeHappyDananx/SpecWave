@@ -67,72 +67,57 @@ export async function runCodex(args: string[], options?: { cwd?: string | null; 
       resolve(res);
     };
 
-    child.on('error', (err) => {
-      const msg = err && typeof err === 'object' && 'message' in err ? String((err as any).message) : String(err);
-      const code = err && typeof err === 'object' && 'code' in err ? String((err as any).code) : undefined;
-      if (process.platform === 'win32' && code === 'ENOENT') {
-        void (async () => {
-          const ps1 = await resolveWindowsCodexPs1Path();
-          if (!ps1) {
-            finish({ ok: false, error: '未找到 codex 命令。当前环境仅能在 PowerShell 里运行 codex，但找不到 codex.ps1。', code });
-            return;
-          }
-          // 用 PowerShell 的 codex.ps1 作为入口（Windows 常见），避免 Node 直接 spawn .ps1 的 ENOENT。
-          child = spawn(
-            'powershell.exe',
-            ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, ...args],
-            { cwd: resolvedCwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] }
-          );
-          child.stdout?.on('data', (buf) => {
-            stdout += buf.toString('utf8');
-          });
-          child.stderr?.on('data', (buf) => {
-            stderr += buf.toString('utf8');
-          });
-          child.on('error', (err2) => {
-            const msg2 =
-              err2 && typeof err2 === 'object' && 'message' in err2 ? String((err2 as any).message) : String(err2);
-            const code2 = err2 && typeof err2 === 'object' && 'code' in err2 ? String((err2 as any).code) : undefined;
-            finish({ ok: false, error: msg2, code: code2 });
-          });
-          child.on('close', (code2) => {
-            if (timedOut) {
-              finish({ ok: false, error: `codex 命令执行超时（${timeoutMs}ms）。`, code: 'timeout' });
+    const bind = (proc: ReturnType<typeof spawn>) => {
+      proc.stdout?.on('data', (buf) => {
+        stdout += buf.toString('utf8');
+      });
+      proc.stderr?.on('data', (buf) => {
+        stderr += buf.toString('utf8');
+      });
+
+      proc.on('error', (err) => {
+        // 只允许“当前进程”结算，避免旧进程的 close 抢先 finish（Windows 下 ENOENT 常见）。
+        if (proc !== child) return;
+
+        const msg = err && typeof err === 'object' && 'message' in err ? String((err as any).message) : String(err);
+        const code = err && typeof err === 'object' && 'code' in err ? String((err as any).code) : undefined;
+
+        if (process.platform === 'win32' && code === 'ENOENT') {
+          void (async () => {
+            const ps1 = await resolveWindowsCodexPs1Path();
+            if (!ps1) {
+              finish({ ok: false, error: '未找到 codex 命令。当前环境仅能在 PowerShell 里运行 codex，但找不到 codex.ps1。', code });
               return;
             }
-            if (code2 === 0) {
-              finish({ ok: true, stdout, stderr });
-              return;
-            }
-            finish({
-              ok: false,
-              error: stderr.trim() || stdout.trim() || `codex 命令执行失败（exit=${code2 ?? 'unknown'}）。`,
-              code: 'nonzero-exit'
-            });
-          });
-        })();
-        return;
-      }
-      finish({ ok: false, error: code === 'ENOENT' ? '未找到 codex 命令。请确认已安装 Codex CLI 并在 PATH 中可用。' : msg, code });
-    });
+            // 用 PowerShell 的 codex.ps1 作为入口（Windows 常见），避免 Node 直接 spawn .ps1 的 ENOENT。
+            child = spawn(
+              'powershell.exe',
+              ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, ...args],
+              { cwd: resolvedCwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] }
+            );
+            bind(child);
+          })();
+          return;
+        }
 
-    child.stdout?.on('data', (buf) => {
-      stdout += buf.toString('utf8');
-    });
-    child.stderr?.on('data', (buf) => {
-      stderr += buf.toString('utf8');
-    });
+        finish({ ok: false, error: code === 'ENOENT' ? '未找到 codex 命令。请确认已安装 Codex CLI 并在 PATH 中可用。' : msg, code });
+      });
 
-    child.on('close', (code) => {
-      if (timedOut) {
-        finish({ ok: false, error: `codex 命令执行超时（${timeoutMs}ms）。`, code: 'timeout' });
-        return;
-      }
-      if (code === 0) {
-        finish({ ok: true, stdout, stderr });
-        return;
-      }
-      finish({ ok: false, error: stderr.trim() || stdout.trim() || `codex 命令执行失败（exit=${code ?? 'unknown'}）。`, code: 'nonzero-exit' });
-    });
+      proc.on('close', (code) => {
+        if (proc !== child) return;
+
+        if (timedOut) {
+          finish({ ok: false, error: `codex 命令执行超时（${timeoutMs}ms）。`, code: 'timeout' });
+          return;
+        }
+        if (code === 0) {
+          finish({ ok: true, stdout, stderr });
+          return;
+        }
+        finish({ ok: false, error: stderr.trim() || stdout.trim() || `codex 命令执行失败（exit=${code ?? 'unknown'}）。`, code: 'nonzero-exit' });
+      });
+    };
+
+    bind(child);
   });
 }
