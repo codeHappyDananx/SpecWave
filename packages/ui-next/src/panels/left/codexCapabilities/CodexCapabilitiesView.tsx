@@ -1,6 +1,6 @@
 import React from 'react';
 import type { CodexCapabilitiesVM, UIIntent } from '@specwave/contracts';
-import { Boxes, ChevronDown, Download, FolderOpen, RefreshCw, Wrench } from 'lucide-react';
+import { Boxes, ChevronDown, Download, FileText, Folder, FolderOpen, RefreshCw, Wrench } from 'lucide-react';
 
 import { Badge } from '../../../primitives/Badge';
 import { Alert, AlertDescription, AlertTitle } from '../../../primitives/shadcn/ui/alert';
@@ -15,6 +15,9 @@ type CodexIntent = Extract<
   | { type: 'CODEX_CAPABILITIES_REFRESH' }
   | { type: 'CODEX_MCP_INSTALL_FROM_JSON' }
   | { type: 'CODEX_SKILL_INSTALL_OPEN' }
+  | { type: 'CODEX_SKILL_BROWSE_TOGGLE' }
+  | { type: 'CODEX_SKILL_DIR_TOGGLE' }
+  | { type: 'EXPLORER_OPEN_FILE' }
 >;
 
 function labelForHealth(state: CodexCapabilitiesVM['mcpServers'][number]['health']['state']) {
@@ -47,6 +50,11 @@ function safeJsonPreview(rawJson: string): { ok: true; preview: string } | { ok:
   } catch (err) {
     return { ok: false, error: 'JSON 解析失败。' };
   }
+}
+
+function isSafeEntryName(name: string) {
+  // UI 展示用：避免空字符串导致交互异常
+  return Boolean(name && name.trim());
 }
 
 export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch: (intent: CodexIntent) => void }) {
@@ -298,48 +306,117 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                   visibleSkills.map((s) => {
                     const status = labelForHealth(s.health.state);
                     const title = s.name || s.id;
-                    const shouldOpen = s.health.state !== 'ok' && Boolean(s.health.message);
                     const meta = s.location === 'user' ? '用户' : '项目';
-                    return (
-                      <Collapsible
-                        key={`${s.location}:${s.id}`}
-                        defaultOpen={shouldOpen}
-                        className="rounded-md bg-background"
-                      >
-                        <CollapsibleTrigger asChild>
-                          <button
-                            type="button"
-                            className="group flex w-full items-start justify-between gap-3 rounded-md bg-background px-3 py-2 text-left transition-colors hover:bg-muted/25"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate font-mono text-[12px] font-semibold">{title}</span>
-                                <span className="text-[11px] text-muted-foreground">{meta}</span>
-                              </div>
-                              {s.health.state !== 'ok' && s.health.message ? (
-                                <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.health.message}</div>
+                    const skillKey = `${s.location}:${s.id}`;
+                    const browser = props.vm.skillBrowser;
+                    const isActive = browser.activeSkillKey === skillKey;
+                    const rootEntries = isActive ? browser.entries : [];
+
+                    const renderEntries = (entries: typeof rootEntries, depth: number): React.ReactNode => {
+                      if (!entries || entries.length === 0) return null;
+                      return entries.map((e) => {
+                        const isDir = e.kind === 'dir';
+                        const isExpanded = isDir && browser.expandedDirPaths.includes(e.path);
+                        const isLoading = isDir && browser.loadingDirPaths.includes(e.path);
+                        const dirError = isDir ? (browser.dirErrorsByPath[e.path] || '') : '';
+                        const child = isDir ? browser.childEntriesByDirPath[e.path] || [] : [];
+                        const icon = isDir ? <Folder className="h-4 w-4 text-muted-foreground" aria-hidden={true} /> : <FileText className="h-4 w-4 text-muted-foreground" aria-hidden={true} />;
+
+                        return (
+                          <div key={e.path} className="space-y-1">
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-[11px] text-muted-foreground transition-colors hover:bg-muted/25"
+                              style={{ paddingLeft: 8 + depth * 12 }}
+                              onClick={() => {
+                                if (isDir) props.dispatch({ type: 'CODEX_SKILL_DIR_TOGGLE', dirPath: e.path });
+                                else props.dispatch({ type: 'EXPLORER_OPEN_FILE', path: e.path });
+                              }}
+                              disabled={!isSafeEntryName(e.name)}
+                              title={e.path}
+                            >
+                              <span className="flex min-w-0 flex-1 items-center gap-2">
+                                {icon}
+                                <span className="min-w-0 truncate font-mono">{e.name}</span>
+                              </span>
+                              {isDir ? (
+                                <ChevronDown
+                                  className={[
+                                    'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                                    isExpanded ? 'rotate-180' : ''
+                                  ].join(' ')}
+                                  aria-hidden={true}
+                                />
                               ) : null}
+                            </button>
+                            {dirError ? (
+                              <div className="rounded-md bg-muted/20 px-2 py-1 text-[11px] text-destructive" style={{ marginLeft: 8 + (depth + 1) * 12 }}>
+                                {dirError}
+                              </div>
+                            ) : null}
+                            {isExpanded ? (
+                              isLoading ? (
+                                <div className="px-2 py-1 text-[11px] text-muted-foreground" style={{ marginLeft: 8 + (depth + 1) * 12 }}>
+                                  读取中…
+                                </div>
+                              ) : (
+                                <div className="space-y-1">{renderEntries(child, depth + 1)}</div>
+                              )
+                            ) : null}
+                          </div>
+                        );
+                      });
+                    };
+
+                    return (
+                      <div key={skillKey} className="rounded-md bg-background">
+                        <div className="flex items-start justify-between gap-3 rounded-md bg-background px-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate font-mono text-[12px] font-semibold">{title}</span>
+                              <span className="text-[11px] text-muted-foreground">{meta}</span>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <Badge tone={status.tone} className="shrink-0">
-                                {status.text}
-                              </Badge>
-                              <ChevronDown
-                                className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
-                                aria-hidden={true}
-                              />
-                            </div>
-                          </button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
+                            {s.description ? (
+                              <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.description}</div>
+                            ) : null}
+                            {s.health.state !== 'ok' && s.health.message ? (
+                              <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.health.message}</div>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant={isActive ? 'default' : 'secondary'}
+                              className="h-8 px-2 text-[12px] shadow-none"
+                              onClick={() => props.dispatch({ type: 'CODEX_SKILL_BROWSE_TOGGLE', skillKey })}
+                              disabled={installingMcp || installingSkill}
+                              title={isActive ? '收起目录' : '查看目录'}
+                            >
+                              <FolderOpen className="mr-1 h-4 w-4" aria-hidden={true} />
+                              目录
+                            </Button>
+                            <Badge tone={status.tone} className="shrink-0">
+                              {status.text}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {isActive ? (
                           <div className="px-3 pb-3">
-                            <div className="mt-1 rounded-md bg-muted/20 p-2 text-[11px] text-muted-foreground">
-                              {s.description ? <div className="whitespace-pre-wrap">{s.description}</div> : null}
-                              {s.health.message ? <div className={s.description ? 'mt-1 whitespace-pre-wrap' : 'whitespace-pre-wrap'}>{s.health.message}</div> : null}
+                            <div className="rounded-md bg-muted/20 p-2">
+                              {browser.isLoading ? (
+                                <div className="text-[11px] text-muted-foreground">读取目录中…</div>
+                              ) : browser.error ? (
+                                <div className="whitespace-pre-wrap text-[11px] text-destructive">{browser.error}</div>
+                              ) : rootEntries.length === 0 ? (
+                                <div className="text-[11px] text-muted-foreground">目录为空。</div>
+                              ) : (
+                                <div className="space-y-1">{renderEntries(rootEntries, 0)}</div>
+                              )}
                             </div>
                           </div>
-                        </CollapsibleContent>
-                      </Collapsible>
+                        ) : null}
+                      </div>
                     );
                   })
                 )}

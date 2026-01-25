@@ -56,6 +56,8 @@ type LeftIntent = Extract<
   | { type: 'CODEX_CAPABILITIES_REFRESH' }
   | { type: 'CODEX_MCP_INSTALL_FROM_JSON' }
   | { type: 'CODEX_SKILL_INSTALL_OPEN' }
+  | { type: 'CODEX_SKILL_BROWSE_TOGGLE' }
+  | { type: 'CODEX_SKILL_DIR_TOGGLE' }
 >;
 
 export type LeftPanelProps = {

@@ -92,8 +92,27 @@ export type CodexSkillVM = {
   name: string;
   description: string;
   location: 'repo' | 'user';
+  rootPath: string;
   health: { state: HealthState; message?: string };
   safeMeta: { hasSkillMd: boolean; hasValidFrontMatter: boolean };
+};
+
+export type CodexSkillEntryVM = {
+  name: string;
+  path: string;
+  kind: 'dir' | 'file';
+};
+
+export type CodexSkillBrowserVM = {
+  activeSkillKey: string | null;
+  activeSkillRootPath: string | null;
+  isLoading: boolean;
+  error: string | null;
+  entries: CodexSkillEntryVM[];
+  expandedDirPaths: string[];
+  childEntriesByDirPath: Record<string, CodexSkillEntryVM[]>;
+  loadingDirPaths: string[];
+  dirErrorsByPath: Record<string, string>;
 };
 
 export type CodexCapabilitiesVM = {
@@ -109,6 +128,7 @@ export type CodexCapabilitiesVM = {
   isCheckingSkills: boolean;
   mcpServers: CodexMcpServerVM[];
   skills: CodexSkillVM[];
+  skillBrowser: CodexSkillBrowserVM;
   install: {
     isInstallingMcp: boolean;
     isInstallingSkill: boolean;
@@ -308,6 +328,8 @@ export type UIIntent =
   | { type: "CODEX_CAPABILITIES_REFRESH"; includeConnectivityProbe?: boolean }
   | { type: "CODEX_MCP_INSTALL_FROM_JSON"; rawJson: string; overwrite?: boolean }
   | { type: "CODEX_SKILL_INSTALL_OPEN"; sourceKind: "zip" | "md" | "dir"; targetScope: "user" | "project" }
+  | { type: "CODEX_SKILL_BROWSE_TOGGLE"; skillKey: string }
+  | { type: "CODEX_SKILL_DIR_TOGGLE"; dirPath: string }
   | { type: "STORY_BOARD_LOAD" }
   | { type: "STORY_BOARD_REFRESH" }
   | { type: "STORY_CARD_CLICK"; storyId: string }

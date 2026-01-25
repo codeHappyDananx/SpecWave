@@ -89,6 +89,7 @@ export async function scanSkills(args: {
           name,
           description,
           location: root.location,
+          rootPath: skillDir,
           health,
           safeMeta: { hasSkillMd, hasValidFrontMatter }
         });

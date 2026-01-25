@@ -1,4 +1,4 @@
-import type { UIIntent } from '@specwave/contracts';
+import type { CodexSkillEntryVM, UIIntent } from '@specwave/contracts';
 
 import type { AppState, StoreCtx } from '../types';
 
@@ -52,6 +52,23 @@ function sortSkills(skills: Skill[]) {
   });
 }
 
+function sortEntries(entries: CodexSkillEntryVM[]) {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  return [...entries].sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
+    const aIsSkillMd = a.kind === 'file' && a.name.toLowerCase() === 'skill.md';
+    const bIsSkillMd = b.kind === 'file' && b.name.toLowerCase() === 'skill.md';
+    if (aIsSkillMd !== bIsSkillMd) return aIsSkillMd ? -1 : 1;
+    return collator.compare(a.name, b.name);
+  });
+}
+
+function toSkillEntries(entries: Array<{ name: string; path: string; kind: 'dir' | 'file' }>): CodexSkillEntryVM[] {
+  return entries
+    .filter((e) => e && typeof e.name === 'string' && typeof e.path === 'string' && (e.kind === 'dir' || e.kind === 'file'))
+    .map((e) => ({ name: e.name, path: e.path, kind: e.kind }));
+}
+
 export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppState> | null {
   const { ctx, state, intent } = args;
   const vm = state.vm;
@@ -91,7 +108,9 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
           skills: vm.codexCapabilities.skills.map((s) => ({
             ...s,
             health: { state: 'checking' as const, message: s.health.message }
-          }))
+          })),
+          // 探测刷新不清理 skillBrowser，避免用户正在浏览时被打断。
+          skillBrowser: vm.codexCapabilities.skillBrowser
         }
       };
 
@@ -140,6 +159,178 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
 
       return { vm: nextVm };
     }
+
+    case 'CODEX_SKILL_BROWSE_TOGGLE': {
+      const api = window.specwave;
+      if (!api?.readDirectory) return { vm };
+
+      const key = intent.skillKey;
+      const current = vm.codexCapabilities.skillBrowser;
+      const isSame = current.activeSkillKey === key;
+      if (isSame) {
+        return {
+          vm: {
+            ...vm,
+            codexCapabilities: {
+              ...vm.codexCapabilities,
+              skillBrowser: {
+                activeSkillKey: null,
+                activeSkillRootPath: null,
+                isLoading: false,
+                error: null,
+                entries: [],
+                expandedDirPaths: [],
+                childEntriesByDirPath: {},
+                loadingDirPaths: [],
+                dirErrorsByPath: {}
+              }
+            }
+          }
+        };
+      }
+
+      const skill = vm.codexCapabilities.skills.find((s) => `${s.location}:${s.id}` === key);
+      if (!skill) return { vm };
+
+      const nextVm = {
+        ...vm,
+        codexCapabilities: {
+          ...vm.codexCapabilities,
+          skillBrowser: {
+            activeSkillKey: key,
+            activeSkillRootPath: skill.rootPath,
+            isLoading: true,
+            error: null,
+            entries: [],
+            expandedDirPaths: [],
+            childEntriesByDirPath: {},
+            loadingDirPaths: [],
+            dirErrorsByPath: {}
+          }
+        }
+      };
+
+      void (async () => {
+        const res = await api.readDirectory(skill.rootPath);
+        ctx.set((st) => {
+          const browser = st.vm.codexCapabilities.skillBrowser;
+          if (browser.activeSkillKey !== key) return { vm: st.vm };
+          if (!res.ok) {
+            return {
+              vm: {
+                ...st.vm,
+                codexCapabilities: {
+                  ...st.vm.codexCapabilities,
+                  skillBrowser: { ...browser, isLoading: false, error: res.error || '读取目录失败。' }
+                }
+              }
+            };
+          }
+          const entries = sortEntries(toSkillEntries(res.entries));
+          return {
+            vm: {
+              ...st.vm,
+              codexCapabilities: {
+                ...st.vm.codexCapabilities,
+                skillBrowser: { ...browser, isLoading: false, error: null, entries }
+              }
+            }
+          };
+        });
+      })();
+
+      return { vm: nextVm };
+    }
+
+    case 'CODEX_SKILL_DIR_TOGGLE': {
+      const api = window.specwave;
+      if (!api?.readDirectory) return { vm };
+
+      const browser = vm.codexCapabilities.skillBrowser;
+      if (!browser.activeSkillKey) return { vm };
+
+      const dirPath = intent.dirPath;
+      const isExpanded = browser.expandedDirPaths.includes(dirPath);
+
+      if (isExpanded) {
+        return {
+          vm: {
+            ...vm,
+            codexCapabilities: {
+              ...vm.codexCapabilities,
+              skillBrowser: { ...browser, expandedDirPaths: browser.expandedDirPaths.filter((p) => p !== dirPath) }
+            }
+          }
+        };
+      }
+
+      // 已有缓存：直接展开
+      if (browser.childEntriesByDirPath[dirPath]) {
+        return {
+          vm: {
+            ...vm,
+            codexCapabilities: {
+              ...vm.codexCapabilities,
+              skillBrowser: { ...browser, expandedDirPaths: [...browser.expandedDirPaths, dirPath] }
+            }
+          }
+        };
+      }
+
+      const nextVm = {
+        ...vm,
+        codexCapabilities: {
+          ...vm.codexCapabilities,
+          skillBrowser: {
+            ...browser,
+            expandedDirPaths: [...browser.expandedDirPaths, dirPath],
+            loadingDirPaths: [...browser.loadingDirPaths, dirPath],
+            dirErrorsByPath: { ...browser.dirErrorsByPath, [dirPath]: '' }
+          }
+        }
+      };
+
+      void (async () => {
+        const res = await api.readDirectory(dirPath);
+        ctx.set((st) => {
+          const b = st.vm.codexCapabilities.skillBrowser;
+          if (!b.activeSkillKey) return { vm: st.vm };
+          const loadingDirPaths = b.loadingDirPaths.filter((p) => p !== dirPath);
+          if (!res.ok) {
+            return {
+              vm: {
+                ...st.vm,
+                codexCapabilities: {
+                  ...st.vm.codexCapabilities,
+                  skillBrowser: {
+                    ...b,
+                    loadingDirPaths,
+                    dirErrorsByPath: { ...b.dirErrorsByPath, [dirPath]: res.error || '读取目录失败。' }
+                  }
+                }
+              }
+            };
+          }
+          const child = sortEntries(toSkillEntries(res.entries));
+          return {
+            vm: {
+              ...st.vm,
+              codexCapabilities: {
+                ...st.vm.codexCapabilities,
+                skillBrowser: {
+                  ...b,
+                  loadingDirPaths,
+                  childEntriesByDirPath: { ...b.childEntriesByDirPath, [dirPath]: child }
+                }
+              }
+            }
+          };
+        });
+      })();
+
+      return { vm: nextVm };
+    }
+
     case 'CODEX_MCP_INSTALL_FROM_JSON': {
       const api = window.specwave;
       if (!api || !api.codexMcpInstallFromJson) return { vm };

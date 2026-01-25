@@ -10,7 +10,20 @@ import { scanSkills } from './skills';
 describe('probeCodexCapabilities', () => {
   it('MCP 失败但 skills 成功时，返回 ok=true 且保留 mcpError', async () => {
     (listMcpServers as any).mockResolvedValue({ ok: false, error: '未找到 codex 命令。' });
-    (scanSkills as any).mockResolvedValue({ ok: true, skills: [{ id: 'a', name: 'a', description: '', location: 'user', health: { state: 'ok' }, safeMeta: { hasSkillMd: true, hasValidFrontMatter: true } }] });
+    (scanSkills as any).mockResolvedValue({
+      ok: true,
+      skills: [
+        {
+          id: 'a',
+          name: 'a',
+          description: '',
+          location: 'user',
+          rootPath: 'C:\\\\skill-a',
+          health: { state: 'ok' },
+          safeMeta: { hasSkillMd: true, hasValidFrontMatter: true }
+        }
+      ]
+    });
 
     const res = await probeCodexCapabilities({ includeConnectivityProbe: false, projectRoot: null });
     expect(res.ok).toBe(true);
@@ -41,4 +54,3 @@ describe('probeCodexCapabilities', () => {
     expect(res.ok).toBe(false);
   });
 });
-

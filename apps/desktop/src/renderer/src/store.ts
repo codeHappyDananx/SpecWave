@@ -190,6 +190,17 @@ const initialVm: AppViewModel = {
     isCheckingSkills: false,
     mcpServers: [],
     skills: [],
+    skillBrowser: {
+      activeSkillKey: null,
+      activeSkillRootPath: null,
+      isLoading: false,
+      error: null,
+      entries: [],
+      expandedDirPaths: [],
+      childEntriesByDirPath: {},
+      loadingDirPaths: [],
+      dirErrorsByPath: {}
+    },
     install: { isInstallingMcp: false, isInstallingSkill: false, lastError: null, lastMessage: null }
   },
   terminal: {
