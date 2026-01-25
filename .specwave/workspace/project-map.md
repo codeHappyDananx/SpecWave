@@ -11,6 +11,7 @@
 - 启动（开发）：`pnpm dev`（等价于 `pnpm -C apps/desktop dev`）；Windows 可用 `start.bat`。
 - 构建：`pnpm build`（等价于 `pnpm -C apps/desktop build`）。
 - 打包（Windows）：`pnpm -C apps/desktop dist:win`（输出到 `apps/desktop/release/`）。
+- 一键打包（Windows）：`.\pack-win.cmd`（默认会跑 `typecheck` 与 `apps/desktop` 单测；可用 `-SkipChecks` 跳过）。
 - 类型检查：`pnpm typecheck`（`tsc -b`）。
 - 运行环境：Windows（当前主要）。
 
@@ -91,6 +92,8 @@
 | `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
+| `pack-win.cmd` | Windows 一键打包入口：调用 `pack-win.ps1` 并绕过执行策略限制 | PowerShell | 人 | 用于生成 exe；产物输出到 `apps/desktop/release/`（已在 `.gitignore` 忽略） |
+| `pack-win.ps1` | Windows 一键打包脚本：必要时 `pnpm install`，可选跑检查，然后执行 `pnpm -C apps/desktop dist:win` | pnpm + electron-builder | `pack-win.cmd` | 支持参数：`-SkipInstall`、`-SkipChecks` |
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
 | `.codex/skills/specwave-router/session_guard.py` | 会话自愈脚本：把 `.specwave/settings.json` 的会话投影对齐到“当前 Codex 会话”，避免多会话串阶段 | Python | `AGENTS.md`、`specwave-router` | 并发会话会要求显式 `--session-id`；建议每次对话先 `sync` |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |
