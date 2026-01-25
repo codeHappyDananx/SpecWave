@@ -1235,8 +1235,54 @@ void (async () => {
   };
   let scheduled = false;
   let flushing = false;
+  const enrichSeqByDir = new Map<string, number>();
+  let lastStoriesRefreshAt = 0;
 
   const applyDirectoryRefresh = (tree: 'workspace' | 'project', dirPath: string, res: { ok: true; entries: { name: string; path: string; kind: 'dir' | 'file' }[] } | { ok: false; error: string }) => {
+    const maybeEnrichStories = (nodes: ExplorerNodeVM[]) => {
+      const api2 = window.specwave;
+      if (!api2) return;
+
+      // 检测是否是 stories 目录或 archive 目录（与 EXPLORER_TOGGLE_DIR 保持一致）
+      const dirName = basename(dirPath);
+      const parentDir = dirname(dirPath);
+      const parentDirName = basename(parentDir);
+      const grandParentDir = dirname(parentDir);
+      const grandParentDirName = basename(grandParentDir);
+
+      const isStoriesDir = dirName === 'stories';
+      const isArchiveDir = dirName === 'archive' && (parentDirName === 'stories' || parentDirName === 'workspace');
+      const isDateArchiveDir = parentDirName === 'archive' && grandParentDirName === 'stories';
+      const isWorkspaceArchiveDir = dirName === 'archive' && parentDirName === 'workspace';
+
+      const shouldEnrichStories = isStoriesDir || isArchiveDir || isDateArchiveDir || isWorkspaceArchiveDir;
+      if (!shouldEnrichStories) return;
+
+      const isArchiveContext = isArchiveDir || isDateArchiveDir || isWorkspaceArchiveDir;
+      const seq = (enrichSeqByDir.get(dirPath) ?? 0) + 1;
+      enrichSeqByDir.set(dirPath, seq);
+
+      void (async () => {
+        const enriched = await enrichStoryNodes(nodes, dirPath, isArchiveContext);
+        if ((enrichSeqByDir.get(dirPath) ?? 0) !== seq) return;
+
+        useAppStore.setState((state) => {
+          const vm = state.vm;
+          const treeNodes = tree === 'workspace' ? vm.explorer.workspace : vm.explorer.project;
+          const hit = findNodeById(treeNodes, dirPath);
+          if (!hit || hit.kind !== 'dir') return { vm };
+
+          const merged = mergeExplorerChildren(hit.children, enriched);
+          const nextTree = updateNodeById(treeNodes, dirPath, (n) => ({
+            ...n,
+            children: merged,
+            error: undefined
+          }));
+          return { vm: { ...vm, explorer: { ...vm.explorer, [tree]: nextTree } } };
+        });
+      })();
+    };
+
     useAppStore.setState((state) => {
       const vm = state.vm;
       const root = tree === 'workspace' ? vm.explorer.workspaceRoot : vm.explorer.projectRoot;
@@ -1268,6 +1314,11 @@ void (async () => {
       }));
       return { vm: { ...vm, explorer: { ...vm.explorer, [tree]: nextTree } } };
     });
+
+    if (res.ok) {
+      const nextNodesRaw = toExplorerNodes(res.entries);
+      maybeEnrichStories(nextNodesRaw);
+    }
   };
 
   const flush = async () => {
@@ -1458,10 +1509,23 @@ void (async () => {
       void reloadOpenFile(currentFilePath, 'auto');
     }
 
-    if (evt.event !== 'rename') return;
-
     const workspaceRoot = vm.explorer.workspaceRoot;
     const projectRoot = vm.explorer.projectRoot;
+
+    // SpecWave 工作区：stories 下的 Story 进度/新建需要动态刷新（文件保存通常是 change，不一定有 rename）。
+    if (workspaceRoot) {
+      const storiesDir = joinPath(workspaceRoot, 'stories');
+      if (isWithinRoot(path0, storiesDir)) {
+        // 粗节流：避免编辑器频繁保存导致 readDirectory 过密。
+        if (now - lastStoriesRefreshAt > 900) {
+          lastStoriesRefreshAt = now;
+          const resolved = resolveExpandedDirId('workspace', storiesDir);
+          if (resolved) enqueueRefresh('workspace', resolved);
+        }
+      }
+    }
+
+    if (evt.event !== 'rename') return;
 
     if (workspaceRoot && isWithinRoot(path0, workspaceRoot)) {
       const dirCandidate = dirname(path0);
