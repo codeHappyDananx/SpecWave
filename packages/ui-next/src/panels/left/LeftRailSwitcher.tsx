@@ -3,7 +3,7 @@ import type { LeftPanelTab, UIIntent } from '@specwave/contracts';
 import { FolderTree, Wrench } from 'lucide-react';
 
 import { Button } from '../../primitives/shadcn/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../../primitives/shadcn/tooltip';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../../primitives/shadcn/hover-card';
 
 type LeftRailIntent = Extract<UIIntent, { type: 'LEFT_PANEL_TAB_SET' }>;
 
@@ -19,8 +19,8 @@ export function LeftRailSwitcher(props: { tab: LeftPanelTab; dispatch: (intent: 
 
   return (
     <div className="flex h-full w-[44px] flex-col items-center gap-2 border-r border-border bg-background px-1 py-2">
-      <Tooltip>
-        <TooltipTrigger asChild>
+      <HoverCard openDelay={120} closeDelay={120}>
+        <HoverCardTrigger asChild>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -31,12 +31,17 @@ export function LeftRailSwitcher(props: { tab: LeftPanelTab; dispatch: (intent: 
           >
             <FolderTree className="h-4 w-4" aria-hidden={true} />
           </Button>
-        </TooltipTrigger>
-        <TooltipContent>工作区</TooltipContent>
-      </Tooltip>
+        </HoverCardTrigger>
+        <HoverCardContent side="right" className="w-64">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-medium">工作区</div>
+            <div className="text-xs text-muted-foreground">浏览与打开文件，日常开发入口。</div>
+          </div>
+        </HoverCardContent>
+      </HoverCard>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
+      <HoverCard openDelay={120} closeDelay={120}>
+        <HoverCardTrigger asChild>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -47,10 +52,14 @@ export function LeftRailSwitcher(props: { tab: LeftPanelTab; dispatch: (intent: 
           >
             <Wrench className="h-4 w-4" aria-hidden={true} />
           </Button>
-        </TooltipTrigger>
-        <TooltipContent>能力（MCP 与技能）</TooltipContent>
-      </Tooltip>
+        </HoverCardTrigger>
+        <HoverCardContent side="right" className="w-64">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-medium">能力</div>
+            <div className="text-xs text-muted-foreground">探测并管理 MCP（模型上下文协议）与技能，支持安装与刷新。</div>
+          </div>
+        </HoverCardContent>
+      </HoverCard>
     </div>
   );
 }
-

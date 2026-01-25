@@ -44,11 +44,11 @@
 | 路径 | 职责（简述） | 依赖谁 | 被谁依赖 | 边界/备注 |
 | --- | --- | --- | --- | --- |
 | `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
-| `packages/contracts/src/index.ts` | 交互契约实现文件：新增终端分区 `TerminalDockVM` 与 `TERMINAL_DOCK_*`，以及左区“工作区/能力”切换与 `codexCapabilities`：能力视图（`MCP` + 技能）相关意图与 VM | 无 | `apps/desktop`、`packages/ui-next` | 仅类型与注释，禁止放实现 |
+| `packages/contracts/src/index.ts` | 交互契约实现文件：新增终端分区 `TerminalDockVM` 与 `TERMINAL_DOCK_*`，以及左区“工作区/能力”切换与 `codexCapabilities`：能力视图（`MCP` + 技能 + 技能目录浏览）相关意图与 VM | 无 | `apps/desktop`、`packages/ui-next` | 仅类型与注释，禁止放实现 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果/Story 看板等展示（含右键菜单：复制路径/名称、打开所在文件夹）；新增常驻切换条以切换“工作区/能力” | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
-| `packages/ui-next/src/panels/left/LeftRailSwitcher.tsx` | 左区常驻切换条：图标 + `Tooltip`：提示气泡，切换左区主体内容 | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只派发 `LEFT_PANEL_TAB_SET` |
-| `packages/ui-next/src/panels/left/codexCapabilities/CodexCapabilitiesView.tsx` | `codex`：工具名 能力视图：展示 `MCP` 与技能列表、状态、刷新与安装入口（遵从 Flat，使用 `shadcn/ui`：组件库 组合并通过 `className` 去阴影） | `primitives`、contracts | `panels/left/LeftPanel` | 只渲染 VM、只派发意图 |
+| `packages/ui-next/src/panels/left/LeftRailSwitcher.tsx` | 左区常驻切换条：图标 + `HoverCard`：悬浮详情（右侧展开），切换左区主体内容 | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只派发 `LEFT_PANEL_TAB_SET` |
+| `packages/ui-next/src/panels/left/codexCapabilities/CodexCapabilitiesView.tsx` | `codex`：工具名 能力视图：展示 `MCP` 与技能列表、状态、刷新与安装入口；技能支持“目录浏览”并可联动中区打开文件（遵从 Flat，使用 `shadcn/ui`：组件库 组合并通过 `className` 去阴影） | `primitives`、contracts | `panels/left/LeftPanel` | 只渲染 VM、只派发意图 |
 | `packages/ui-next/src/panels/left/SpecWaveInitGuide.tsx` | 左栏 SpecWave 未初始化态引导卡片 + 初始化弹出框（步骤/进度/日志/失败可复制） | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只渲染 `explorer.specwaveInit`，按钮只派发 `SPECWAVE_INIT_*` |
 | `packages/ui-next/src/panels/left/StoryBoardView.tsx` | Story 看板视图：列表展示 Story 卡片（按编号倒序），支持高亮当前活跃 Story | `primitives/StoryCard`、contracts | `panels/left/LeftPanel` | 只渲染 StoryBoardVM，dispatch STORY_CARD_CLICK |
 | `packages/ui-next/src/panels/left/StoryCardInExplorer.tsx` | 文件浏览器内嵌 Story 卡片：在 stories 目录下展示 Story 信息，支持归档状态和活动高亮 | contracts | `panels/left/LeftPanel` | 点击 dispatch STORY_CARD_SELECT |
@@ -88,7 +88,7 @@
 | `apps/desktop/src/preload/index.ts` | preload 桥接实现：初始化引导事件、终端能力、剪贴板能力；新增 `selectFile` 与 `codexMcpProbe/codexSkillsProbe/codexMcpInstallFromJson/codexSkillInstall`：能力探测与安装桥接 | Electron | renderer store | 只做桥接与参数校验，不放业务编排 |
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
 | `apps/desktop/src/renderer/src/store/shared/terminalDock.ts` | 终端分区纯函数：分区归一化、拖拽落点（移动/交换/合并/分区）、分隔条比例更新 | contracts | `store/handlers/panel.ts`、`store/handlers/terminal.ts`、`store/handlers/task.ts` | 不触发副作用；保证“最多 4 区且不留空区” |
-| `apps/desktop/src/renderer/src/store/handlers/codexCapabilities.ts` | `codex`：工具名 能力意图处理：切换左区 tab、刷新探测、安装 `MCP`/技能（含覆盖确认） | preload API | `store.ts` | 只编排状态；不在 renderer 执行命令与文件写入 |
+| `apps/desktop/src/renderer/src/store/handlers/codexCapabilities.ts` | `codex`：工具名 能力意图处理：切换左区 tab、刷新探测、安装 `MCP`/技能（含覆盖确认）；技能目录浏览（读取目录、展开子目录、打开文件） | preload API | `store.ts` | 只编排状态；不在 renderer 执行命令与文件写入 |
 | `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
