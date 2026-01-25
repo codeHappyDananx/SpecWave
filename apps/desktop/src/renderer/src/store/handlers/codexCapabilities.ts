@@ -3,6 +3,7 @@ import type { UIIntent } from '@specwave/contracts';
 import type { AppState, StoreCtx } from '../types';
 
 type IntentArgs = { ctx: StoreCtx; state: AppState; intent: UIIntent };
+type Skill = AppState['vm']['codexCapabilities']['skills'][number];
 
 type InstallResult =
   | { ok: true; message?: string }
@@ -29,6 +30,26 @@ async function confirmOverwriteIfNeeded(args: {
     cancelId: 0
   });
   return msg.ok && msg.response === 1;
+}
+
+function skillHealthRank(state: Skill['health']['state']) {
+  if (state === 'ok') return 0;
+  if (state === 'checking') return 1;
+  if (state === 'unknown') return 2;
+  return 3;
+}
+
+function sortSkills(skills: Skill[]) {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  return [...skills].sort((a, b) => {
+    const byHealth = skillHealthRank(a.health.state) - skillHealthRank(b.health.state);
+    if (byHealth !== 0) return byHealth;
+    const aName = (a.name || a.id || '').trim();
+    const bName = (b.name || b.id || '').trim();
+    const byName = collator.compare(aName, bName);
+    if (byName !== 0) return byName;
+    return collator.compare(a.location, b.location);
+  });
 }
 
 export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppState> | null {
@@ -108,7 +129,7 @@ export function handleCodexCapabilitiesIntent(args: IntentArgs): Partial<AppStat
               isCheckingSkills: false,
               lastCheckedAtSkills: res.checkedAt,
               skillsError: res.ok ? null : res.error,
-              skills: res.ok ? res.skills : []
+              skills: res.ok ? sortSkills(res.skills) : []
             };
             const isChecking = next.isCheckingSkills || next.isCheckingMcp;
             const lastCheckedAt = isChecking ? st.vm.codexCapabilities.lastCheckedAt : new Date().toISOString();
