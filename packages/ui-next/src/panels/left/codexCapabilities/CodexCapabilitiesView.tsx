@@ -1,11 +1,11 @@
 import React from 'react';
 import type { CodexCapabilitiesVM, UIIntent } from '@specwave/contracts';
-import { Boxes, Download, FolderOpen, RefreshCw, Wrench } from 'lucide-react';
+import { Boxes, ChevronDown, Download, FolderOpen, RefreshCw, Wrench } from 'lucide-react';
 
 import { Badge } from '../../../primitives/Badge';
 import { Alert, AlertDescription, AlertTitle } from '../../../primitives/shadcn/ui/alert';
 import { Button } from '../../../primitives/shadcn/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../primitives/shadcn/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../../primitives/shadcn/collapsible';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../../primitives/shadcn/ui/dialog';
 import { ScrollArea } from '../../../primitives/shadcn/ui/scroll-area';
 import { Textarea } from '../../../primitives/shadcn/textarea';
@@ -53,12 +53,17 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
   const [mcpInstallOpen, setMcpInstallOpen] = React.useState(false);
   const [skillInstallOpen, setSkillInstallOpen] = React.useState(false);
   const [mcpInstallJson, setMcpInstallJson] = React.useState('');
+  const [skillsOnlyOk, setSkillsOnlyOk] = React.useState(false);
 
   const installingMcp = props.vm.install.isInstallingMcp;
   const installingSkill = props.vm.install.isInstallingSkill;
   const isCheckingAny = props.vm.isCheckingMcp || props.vm.isCheckingSkills;
 
   const parsedPreview = React.useMemo(() => safeJsonPreview(mcpInstallJson), [mcpInstallJson]);
+  const visibleSkills = React.useMemo(() => {
+    if (!skillsOnlyOk) return props.vm.skills;
+    return props.vm.skills.filter((s) => s.health.state === 'ok');
+  }, [props.vm.skills, skillsOnlyOk]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -119,106 +124,147 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
       ) : null}
 
       <div className="min-h-0 flex-1 px-3 py-3">
-        <ScrollArea className="h-full rounded-md border-2 bg-muted/10">
-          <div className="space-y-3 p-3">
-            <Card className="shadow-none">
-              <CardHeader className="px-3 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="flex items-center gap-2 text-sm">
+        <ScrollArea className="h-full">
+          <div className="space-y-4 p-3">
+            <div className="rounded-lg bg-muted/15 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
                     <Boxes className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
-                    MCP
-                  </CardTitle>
-                  {props.vm.isCheckingMcp ? (
-                    <Badge tone="secondary" className="shrink-0">
-                      检测中
-                    </Badge>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-8 px-2 text-[12px] shadow-none"
-                    onClick={() => setMcpInstallOpen(true)}
-                    disabled={installingMcp || installingSkill}
-                  >
-                    <Download className="mr-1 h-4 w-4" aria-hidden={true} />
-                    安装 MCP
-                  </Button>
-                </div>
-                <div className="text-[11px] text-muted-foreground">来源：官方 `codex mcp list/get/add/remove`。</div>
-              </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                {props.vm.mcpError ? (
-                  <div className="mb-2">
-                    <Alert variant="destructive">
-                      <AlertTitle>MCP 读取失败</AlertTitle>
-                      <AlertDescription>
-                        <div className="whitespace-pre-wrap text-xs leading-relaxed">{props.vm.mcpError}</div>
-                      </AlertDescription>
-                    </Alert>
+                    <div className="text-[12px] font-semibold">MCP</div>
+                    <div className="text-[11px] text-muted-foreground">共 {props.vm.mcpServers.length} 项</div>
+                    {props.vm.isCheckingMcp ? (
+                      <Badge tone="secondary" className="shrink-0">
+                        检测中
+                      </Badge>
+                    ) : null}
                   </div>
-                ) : null}
+                  <div className="mt-1 text-[11px] text-muted-foreground">来源：官方 `codex mcp list/get/add/remove`。</div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 px-2 text-[12px] shadow-none"
+                  onClick={() => setMcpInstallOpen(true)}
+                  disabled={installingMcp || installingSkill}
+                >
+                  <Download className="mr-1 h-4 w-4" aria-hidden={true} />
+                  安装 MCP
+                </Button>
+              </div>
+
+              {props.vm.mcpError ? (
+                <div className="mt-3">
+                  <Alert variant="destructive">
+                    <AlertTitle>MCP 读取失败</AlertTitle>
+                    <AlertDescription>
+                      <div className="whitespace-pre-wrap text-xs leading-relaxed">{props.vm.mcpError}</div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              ) : null}
+
+              <div className="mt-3 space-y-2">
                 {props.vm.mcpServers.length === 0 ? (
-                  <div className="rounded-md border-2 bg-background p-3 text-xs text-muted-foreground">
+                  <div className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
                     {props.vm.isCheckingMcp ? 'MCP 检测中…' : '暂无已配置的 MCP。可以点“安装 MCP”导入。'}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {props.vm.mcpServers.map((s) => {
-                      const status = labelForHealth(s.health.state);
-                      return (
-                        <div key={s.name} className="rounded-md border-2 bg-background p-2">
-                          <div className="flex items-start justify-between gap-2">
+                  props.vm.mcpServers.map((s) => {
+                    const status = labelForHealth(s.health.state);
+                    const summary =
+                      s.safeConfig.url ??
+                      (s.safeConfig.command ? `${s.safeConfig.command}${s.safeConfig.args?.length ? ` ${s.safeConfig.args.join(' ')}` : ''}` : null);
+                    return (
+                      <Collapsible key={s.name} defaultOpen={s.health.state === 'error'} className="rounded-md bg-background">
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            className="group flex w-full items-start justify-between gap-3 rounded-md bg-background px-3 py-2 text-left transition-colors hover:bg-muted/25"
+                          >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="truncate font-mono text-[12px]">{s.name}</span>
+                                <span className="truncate font-mono text-[12px] font-semibold">{s.name}</span>
                                 <span className="text-[11px] text-muted-foreground">{s.transportType}</span>
                                 {!s.enabled ? <span className="text-[11px] text-muted-foreground">已禁用</span> : null}
                               </div>
-                              {s.health.message ? (
-                                <div className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.health.message}</div>
+                              {s.health.state === 'error' && s.health.message ? (
+                                <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.health.message}</div>
                               ) : null}
-                              <div className="mt-1 text-[11px] text-muted-foreground">
-                                {s.safeConfig.url ? (
-                                  <span className="font-mono">{s.safeConfig.url}</span>
-                                ) : s.safeConfig.command ? (
-                                  <span className="font-mono">{s.safeConfig.command}</span>
-                                ) : (
-                                  <span className="font-mono">（无配置）</span>
-                                )}
-                                {s.safeConfig.args && s.safeConfig.args.length > 0 ? (
-                                  <span className="ml-2 font-mono opacity-80">{s.safeConfig.args.join(' ')}</span>
-                                ) : null}
-                              </div>
-                              {s.safeConfig.envKeys && s.safeConfig.envKeys.length > 0 ? (
-                                <div className="mt-1 text-[11px] text-muted-foreground">
+                              {summary ? (
+                                <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{summary}</div>
+                              ) : null}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Badge tone={status.tone} className="shrink-0">
+                                {status.text}
+                              </Badge>
+                              <ChevronDown
+                                className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+                                aria-hidden={true}
+                              />
+                            </div>
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="px-3 pb-3">
+                            <div className="mt-1 rounded-md bg-muted/20 p-2 text-[11px] text-muted-foreground">
+                              {s.safeConfig.url ? (
+                                <div>
+                                  url：<span className="font-mono">{s.safeConfig.url}</span>
+                                </div>
+                              ) : null}
+                              {s.safeConfig.command ? (
+                                <div>
+                                  命令：<span className="font-mono">{s.safeConfig.command}</span>
+                                  {s.safeConfig.args?.length ? (
+                                    <span className="ml-2 font-mono opacity-80">{s.safeConfig.args.join(' ')}</span>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              {s.safeConfig.envKeys?.length ? (
+                                <div>
                                   env：<span className="font-mono">{s.safeConfig.envKeys.join(', ')}</span>
                                 </div>
                               ) : null}
+                              {s.health.message ? <div className="mt-1 whitespace-pre-wrap">{s.health.message}</div> : null}
                             </div>
-                            <Badge tone={status.tone} className="shrink-0">
-                              {status.text}
-                            </Badge>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  })
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            <Card className="shadow-none">
-              <CardHeader className="px-3 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <CardTitle className="flex items-center gap-2 text-sm">
+            <div className="rounded-lg bg-muted/15 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
                     <Boxes className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
-                    技能
-                  </CardTitle>
-                  {props.vm.isCheckingSkills ? (
-                    <Badge tone="secondary" className="shrink-0">
-                      检测中
-                    </Badge>
-                  ) : null}
+                    <div className="text-[12px] font-semibold">技能</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      共 {visibleSkills.length} 项{skillsOnlyOk ? `（从 ${props.vm.skills.length} 项过滤）` : ''}
+                    </div>
+                    {props.vm.isCheckingSkills ? (
+                      <Badge tone="secondary" className="shrink-0">
+                        检测中
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">来源：官方 `~/.codex/skills` 与 `$CWD/.codex/skills`。</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={skillsOnlyOk ? 'default' : 'secondary'}
+                    className="h-8 px-2 text-[12px] shadow-none"
+                    onClick={() => setSkillsOnlyOk((v) => !v)}
+                    disabled={installingMcp || installingSkill}
+                  >
+                    只看可用
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -230,53 +276,75 @@ export function CodexCapabilitiesView(props: { vm: CodexCapabilitiesVM; dispatch
                     安装技能
                   </Button>
                 </div>
-                <div className="text-[11px] text-muted-foreground">来源：官方 `~/.codex/skills` 与 `$CWD/.codex/skills`。</div>
-              </CardHeader>
-              <CardContent className="px-3 pb-3 pt-0">
-                {props.vm.skillsError ? (
-                  <div className="mb-2">
-                    <Alert variant="destructive">
-                      <AlertTitle>技能扫描失败</AlertTitle>
-                      <AlertDescription>
-                        <div className="whitespace-pre-wrap text-xs leading-relaxed">{props.vm.skillsError}</div>
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                ) : null}
-                {props.vm.skills.length === 0 ? (
-                  <div className="rounded-md border-2 bg-background p-3 text-xs text-muted-foreground">
-                    {props.vm.isCheckingSkills ? '技能检测中…' : '暂无已安装的技能。可以点“安装技能”导入。'}
+              </div>
+
+              {props.vm.skillsError ? (
+                <div className="mt-3">
+                  <Alert variant="destructive">
+                    <AlertTitle>技能扫描失败</AlertTitle>
+                    <AlertDescription>
+                      <div className="whitespace-pre-wrap text-xs leading-relaxed">{props.vm.skillsError}</div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              ) : null}
+
+              <div className="mt-3 space-y-2">
+                {visibleSkills.length === 0 ? (
+                  <div className="rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+                    {props.vm.isCheckingSkills ? '技能检测中…' : skillsOnlyOk ? '暂无可用技能。' : '暂无已安装的技能。可以点“安装技能”导入。'}
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {props.vm.skills.map((s) => {
-                      const status = labelForHealth(s.health.state);
-                      return (
-                        <div key={`${s.location}:${s.id}`} className="rounded-md border-2 bg-background p-2">
-                          <div className="flex items-start justify-between gap-2">
+                  visibleSkills.map((s) => {
+                    const status = labelForHealth(s.health.state);
+                    const title = s.name || s.id;
+                    const shouldOpen = s.health.state !== 'ok' && Boolean(s.health.message);
+                    const meta = s.location === 'user' ? '用户' : '项目';
+                    return (
+                      <Collapsible
+                        key={`${s.location}:${s.id}`}
+                        defaultOpen={shouldOpen}
+                        className="rounded-md bg-background"
+                      >
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            className="group flex w-full items-start justify-between gap-3 rounded-md bg-background px-3 py-2 text-left transition-colors hover:bg-muted/25"
+                          >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="truncate font-mono text-[12px]">{s.name || s.id}</span>
-                                <span className="text-[11px] text-muted-foreground">{s.location === 'user' ? '用户' : '项目'}</span>
+                                <span className="truncate font-mono text-[12px] font-semibold">{title}</span>
+                                <span className="text-[11px] text-muted-foreground">{meta}</span>
                               </div>
-                              {s.description ? (
-                                <div className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.description}</div>
-                              ) : null}
-                              {s.health.message ? (
-                                <div className="mt-1 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.health.message}</div>
+                              {s.health.state !== 'ok' && s.health.message ? (
+                                <div className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{s.health.message}</div>
                               ) : null}
                             </div>
-                            <Badge tone={status.tone} className="shrink-0">
-                              {status.text}
-                            </Badge>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Badge tone={status.tone} className="shrink-0">
+                                {status.text}
+                              </Badge>
+                              <ChevronDown
+                                className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+                                aria-hidden={true}
+                              />
+                            </div>
+                          </button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="px-3 pb-3">
+                            <div className="mt-1 rounded-md bg-muted/20 p-2 text-[11px] text-muted-foreground">
+                              {s.description ? <div className="whitespace-pre-wrap">{s.description}</div> : null}
+                              {s.health.message ? <div className={s.description ? 'mt-1 whitespace-pre-wrap' : 'whitespace-pre-wrap'}>{s.health.message}</div> : null}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  })
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </ScrollArea>
       </div>
