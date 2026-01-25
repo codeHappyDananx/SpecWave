@@ -3,11 +3,16 @@ import { statSync } from 'node:fs';
 
 export type CodexRunResult = { ok: true; stdout: string; stderr: string } | { ok: false; error: string; code?: string };
 
-let cachedWindowsCodexPs1Path: string | null | undefined;
+type WindowsCodexLaunch =
+  | { kind: 'ps1'; path: string }
+  | { kind: 'exe'; path: string }
+  | null;
 
-async function resolveWindowsCodexPs1Path(): Promise<string | null> {
-  if (cachedWindowsCodexPs1Path !== undefined) return cachedWindowsCodexPs1Path;
-  cachedWindowsCodexPs1Path = await new Promise<string | null>((resolve) => {
+let cachedWindowsCodexLaunch: WindowsCodexLaunch | undefined;
+
+async function resolveWindowsCodexLaunch(): Promise<WindowsCodexLaunch> {
+  if (cachedWindowsCodexLaunch !== undefined) return cachedWindowsCodexLaunch;
+  cachedWindowsCodexLaunch = await new Promise<WindowsCodexLaunch>((resolve) => {
     const child = spawn(
       'powershell.exe',
       [
@@ -15,7 +20,7 @@ async function resolveWindowsCodexPs1Path(): Promise<string | null> {
         '-ExecutionPolicy',
         'Bypass',
         '-Command',
-        '(Get-Command codex -ErrorAction SilentlyContinue).Definition'
+        '(Get-Command codex -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object { \"$($_.CommandType)|$($_.Definition)\" })'
       ],
       { windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] }
     );
@@ -25,11 +30,52 @@ async function resolveWindowsCodexPs1Path(): Promise<string | null> {
     });
     child.on('error', () => resolve(null));
     child.on('close', () => {
-      const p = stdout.trim();
-      resolve(p && p.toLowerCase().endsWith('.ps1') ? p : null);
+      const raw = stdout.trim();
+      if (!raw) {
+        resolve(null);
+        return;
+      }
+      const [commandType, definition] = raw.split('|', 2);
+      const def = (definition ?? '').trim();
+      const ct = (commandType ?? '').trim().toLowerCase();
+      if (!def) {
+        resolve(null);
+        return;
+      }
+      const lower = def.toLowerCase();
+      if (lower.endsWith('.ps1')) {
+        resolve({ kind: 'ps1', path: def });
+        return;
+      }
+      if (lower.endsWith('.exe') || ct === 'application') {
+        resolve({ kind: 'exe', path: def });
+        return;
+      }
+      resolve(null);
     });
   });
-  return cachedWindowsCodexPs1Path;
+  return cachedWindowsCodexLaunch;
+}
+
+async function spawnCodexProcess(args: string[], opts: { cwd?: string }) {
+  if (process.platform !== 'win32') {
+    return spawn('codex', args, { cwd: opts.cwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  }
+
+  const launch = await resolveWindowsCodexLaunch();
+  if (launch?.kind === 'exe') {
+    return spawn(launch.path, args, { cwd: opts.cwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  }
+  if (launch?.kind === 'ps1') {
+    return spawn(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', launch.path, ...args],
+      { cwd: opts.cwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+  }
+
+  // 兜底：尝试直接执行（某些环境可能是 exe/cmd，但未被 Get-Command 命中）
+  return spawn('codex', args, { cwd: opts.cwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 export async function runCodex(args: string[], options?: { cwd?: string | null; timeoutMs?: number }): Promise<CodexRunResult> {
@@ -51,12 +97,12 @@ export async function runCodex(args: string[], options?: { cwd?: string | null; 
     let settled = false;
     let timedOut = false;
 
-    let child = spawn('codex', args, { cwd: resolvedCwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let child: ReturnType<typeof spawn> | null = null;
 
     const timer = setTimeout(() => {
       timedOut = true;
       try {
-        child.kill();
+        child?.kill();
       } catch {}
     }, timeoutMs);
 
@@ -81,25 +127,6 @@ export async function runCodex(args: string[], options?: { cwd?: string | null; 
 
         const msg = err && typeof err === 'object' && 'message' in err ? String((err as any).message) : String(err);
         const code = err && typeof err === 'object' && 'code' in err ? String((err as any).code) : undefined;
-
-        if (process.platform === 'win32' && code === 'ENOENT') {
-          void (async () => {
-            const ps1 = await resolveWindowsCodexPs1Path();
-            if (!ps1) {
-              finish({ ok: false, error: '未找到 codex 命令。当前环境仅能在 PowerShell 里运行 codex，但找不到 codex.ps1。', code });
-              return;
-            }
-            // 用 PowerShell 的 codex.ps1 作为入口（Windows 常见），避免 Node 直接 spawn .ps1 的 ENOENT。
-            child = spawn(
-              'powershell.exe',
-              ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1, ...args],
-              { cwd: resolvedCwd, windowsHide: true, env: process.env, stdio: ['ignore', 'pipe', 'pipe'] }
-            );
-            bind(child);
-          })();
-          return;
-        }
-
         finish({ ok: false, error: code === 'ENOENT' ? '未找到 codex 命令。请确认已安装 Codex CLI 并在 PATH 中可用。' : msg, code });
       });
 
@@ -118,6 +145,13 @@ export async function runCodex(args: string[], options?: { cwd?: string | null; 
       });
     };
 
-    bind(child);
+    void (async () => {
+      try {
+        child = await spawnCodexProcess(args, { cwd: resolvedCwd });
+        bind(child);
+      } catch (err) {
+        finish({ ok: false, error: String(err) });
+      }
+    })();
   });
 }
