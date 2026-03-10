@@ -3,6 +3,7 @@ import type { AppViewModel, UIIntent } from '@specwave/contracts';
 import { CenterPanel } from '../panels/center/CenterPanel';
 import { LeftPanel } from '../panels/left/LeftPanel';
 import { RightPanel } from '../panels/right/RightPanel';
+import { AssistantOnboardingDialog } from './AssistantOnboardingDialog';
 import { LayoutGrid } from './LayoutGrid';
 import { StatusBar } from './StatusBar';
 import { TopBar } from './TopBar';
@@ -61,6 +62,10 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
     ? `${styles.themeMask} ${styles.themeMaskDark}`
     : `${styles.themeMask} ${styles.themeMaskLight}`;
 
+  const onboardingDialog = vm.assistant.onboarding.isOpen ? (
+    <AssistantOnboardingDialog assistant={vm.assistant} chat={vm.chat} dispatch={wrappedDispatch} />
+  ) : null;
+
   if (vm.app.mode === 'welcome') {
     return (
       <div className={rootClassName} data-skin={vm.ui.skin} data-theme={vm.ui.theme}>
@@ -73,6 +78,7 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           error={vm.explorer.error}
           dispatch={wrappedDispatch}
         />
+        {onboardingDialog}
       </div>
     );
   }
@@ -134,6 +140,8 @@ export function SpecWaveApp(props: SpecWaveAppProps) {
           theme={vm.ui.theme}
         />
       </div>
+      {onboardingDialog}
     </div>
   );
 }
+

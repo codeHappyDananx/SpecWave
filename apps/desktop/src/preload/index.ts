@@ -1,5 +1,14 @@
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
-import type { CodexMcpServerVM, CodexSkillVM } from '@specwave/contracts';
+import type {
+  AssistantChatOutput,
+  AssistantOnboardingOutput,
+  AssistantSessionApprovalOutput,
+  CapabilityPackManifest,
+  CodexMcpServerVM,
+  CodexSkillVM,
+  ExecutionEvidence,
+  UserProfile
+} from '@specwave/contracts';
 
 export type DirEntryDTO = {
   name: string;
@@ -105,6 +114,10 @@ export type CodexSkillInstallResult =
   | { ok: true; message?: string }
   | { ok: false; error: string; code?: 'invalid-input' | 'already-exists' | 'unsupported' | 'failed' };
 
+export type AssistantResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; code?: string };
+
 contextBridge.exposeInMainWorld('specwave', {
   ping: () => 'pong',
   openMainWindow: (projectPath?: string | null) =>
@@ -154,6 +167,24 @@ contextBridge.exposeInMainWorld('specwave', {
     projectRoot: string | null;
     overwrite: boolean;
   }) => ipcRenderer.invoke('specwave:codex:skillInstall', args) as Promise<CodexSkillInstallResult>,
+
+  assistantGetProfile: () => ipcRenderer.invoke('specwave:assistant:getProfile') as Promise<AssistantResult<UserProfile | null>>,
+  assistantUpdateProfile: (patch: Partial<UserProfile>) =>
+    ipcRenderer.invoke('specwave:assistant:updateProfile', { patch }) as Promise<AssistantResult<UserProfile>>,
+  assistantListCapabilityPacks: () =>
+    ipcRenderer.invoke('specwave:assistant:listCapabilityPacks') as Promise<AssistantResult<CapabilityPackManifest[]>>,
+  assistantOnboardingStart: () =>
+    ipcRenderer.invoke('specwave:assistant:onboardingStart') as Promise<AssistantResult<AssistantOnboardingOutput>>,
+  assistantOnboardingContinue: (message: string) =>
+    ipcRenderer.invoke('specwave:assistant:onboardingContinue', { message }) as Promise<AssistantResult<AssistantOnboardingOutput>>,
+  assistantOnboardingFinish: (args: { confirmed: boolean; note?: string }) =>
+    ipcRenderer.invoke('specwave:assistant:onboardingFinish', args) as Promise<AssistantResult<AssistantOnboardingOutput>>,
+  assistantChat: (args: { sessionId?: string; message: string; channel?: string; tenantId?: string; projectId?: string }) =>
+    ipcRenderer.invoke('specwave:assistant:chat', args) as Promise<AssistantResult<AssistantChatOutput>>,
+  assistantApprove: (args: { sessionId: string; action: 'approve' | 'reject'; comment?: string }) =>
+    ipcRenderer.invoke('specwave:assistant:approve', args) as Promise<AssistantResult<AssistantSessionApprovalOutput>>,
+  assistantGetEvidence: (sessionId: string) =>
+    ipcRenderer.invoke('specwave:assistant:getEvidence', { sessionId }) as Promise<AssistantResult<ExecutionEvidence[]>>,
 
   fsWatchStart: (args: { workspaceRoot?: string | null; projectRoot?: string | null }) =>
     ipcRenderer.invoke('specwave:fsWatchStart', args) as Promise<FsWatchStartResult>,
@@ -268,6 +299,26 @@ declare global {
         projectRoot: string | null;
         overwrite: boolean;
       }) => Promise<CodexSkillInstallResult>;
+
+      assistantGetProfile: () => Promise<AssistantResult<UserProfile | null>>;
+      assistantUpdateProfile: (patch: Partial<UserProfile>) => Promise<AssistantResult<UserProfile>>;
+      assistantListCapabilityPacks: () => Promise<AssistantResult<CapabilityPackManifest[]>>;
+      assistantOnboardingStart: () => Promise<AssistantResult<AssistantOnboardingOutput>>;
+      assistantOnboardingContinue: (message: string) => Promise<AssistantResult<AssistantOnboardingOutput>>;
+      assistantOnboardingFinish: (args: { confirmed: boolean; note?: string }) => Promise<AssistantResult<AssistantOnboardingOutput>>;
+      assistantChat: (args: {
+        sessionId?: string;
+        message: string;
+        channel?: string;
+        tenantId?: string;
+        projectId?: string;
+      }) => Promise<AssistantResult<AssistantChatOutput>>;
+      assistantApprove: (args: {
+        sessionId: string;
+        action: 'approve' | 'reject';
+        comment?: string;
+      }) => Promise<AssistantResult<AssistantSessionApprovalOutput>>;
+      assistantGetEvidence: (sessionId: string) => Promise<AssistantResult<ExecutionEvidence[]>>;
 
       fsWatchStart: (args: { workspaceRoot?: string | null; projectRoot?: string | null }) => Promise<FsWatchStartResult>;
       onFsEvent: (cb: (evt: FsEventDTO) => void) => () => void;

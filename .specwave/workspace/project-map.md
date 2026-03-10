@@ -19,12 +19,14 @@
 ```text
 .
 ├─ apps/
-│  └─ desktop/
+│  ├─ desktop/
 │     ├─ src/
 │     │  ├─ main/
 │     │  ├─ preload/
 │     │  └─ renderer/
 │     └─ electron.vite.config.ts
+│  └─ orchestrator/
+│     └─ src/
 ├─ packages/
 │  ├─ contracts/
 │  │  └─ src/
@@ -91,6 +93,16 @@
 | `apps/desktop/src/renderer/src/store/handlers/codexCapabilities.ts` | `codex`：工具名 能力意图处理：切换左区 tab、刷新探测、安装 `MCP`/技能（含覆盖确认）；技能目录浏览（读取目录、展开子目录、打开文件） | preload API | `store.ts` | 只编排状态；不在 renderer 执行命令与文件写入 |
 | `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
 | `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
+| `apps/orchestrator` | 结果导向自动交付编排服务（HTTP API + 状态机 + 调度） | `@specwave/contracts` + Node `http` | 私有化部署进程 / 运维 | 默认监听 `127.0.0.1:8787`，状态文件 `.specwave/orchestrator-state.json` |
+| `apps/orchestrator/src/orchestratorService.ts` | 编排核心：请求状态机、审批闸门、验收超时提醒升级、暂停恢复、结果包与通知队列生成 | contracts 类型 | `httpServer.ts`、测试 | 单进程内聚实现，先保证流程闭环，再扩展外部队列 |
+| `apps/orchestrator/src/httpServer.ts` | 北向接口：`/api/v1/requests`、`/approvals`、`/runs/:id/resume`、`/channels/:channel/webhook`、通知与指标接口 | `orchestratorService.ts` | 外部渠道适配层 / 客户端 | 统一 JSON 返回与错误码；支持手动 `tick` 调度 |
+| `apps/orchestrator/src/desktopAutomation.ts` + `desktopAutomation.ps1` | 本机桌面执行层：识别“打开应用 / 打开链接 / 邮件撰写 / 当前窗口输入 / 常用 IM 发消息”等诉求，调用 PowerShell 执行并返回校验结果；内置 `notepad` 自测链路 | Node `child_process` + Windows PowerShell | `index.ts`、`dingtalkAppbot.ts`、测试 | 当前对 IM 场景只做弱校验；可抓取聊天窗口当前可见列表截图，给上层做候选确认，避免误发 |
+| `apps/orchestrator/src/desktopChatOcr.ts` | 聊天候选 OCR：下载/缓存本地 OCR 语言包，识别微信等聊天窗口截图，并把原始识别文本提炼为联系人候选列表 | Node `fetch` + `tesseract.js` | `desktopAutomation.ts`、测试 | 只负责 OCR 与候选提炼，不直接执行发送 |
+| `apps/orchestrator/src/dingtalkAppbot.ts` | 钉钉应用机器人入口：解析入站消息、转发 Agent、接入本机桌面执行器；对模糊联系人诉求维护短期会话状态，支持“候选列表 + 是/序号/名字”确认回合 | `orchestratorService.ts` + `desktopAutomation.ts` | `httpServer.ts`、测试 | 群聊遵守 @ 规则；桌面模糊指令优先走确认态，避免直接误发 |
+| `apps/orchestrator/src/channelAdapters.ts` | 渠道归一化层：`webchat` / `dingtalk` / `wecom` / `telegram` 入参统一为标准 webhook payload | contracts 类型 | `httpServer.ts` | 只做协议转换与字段校验，不做业务状态变更 |
+| `apps/orchestrator/src/static/webchat.html` | 手机端 H5 对话页：提交诉求、轮询请求状态、展示结果卡与事件流 | 浏览器 + orchestrator API | `httpServer.ts`（`/webchat`） | 作为 MVP 手机入口，优先验证“甲方只看结果”闭环 |
+| `apps/orchestrator/src/stateStore.ts` | 编排状态持久化（JSON 文件原子写入） | Node 文件系统 | `orchestratorService.ts` | MVP 持久化实现，后续可替换 DB / 事件存储 |
+| `apps/orchestrator/Dockerfile` + `docker-compose.yml` | 私有化打包部署入口 | Docker | 运维/交付 | 容器默认暴露 `8787`，状态文件映射到宿主卷 |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `pack-win.cmd` | Windows 一键打包入口：调用 `pack-win.ps1` 并绕过执行策略限制 | PowerShell | 人 | 用于生成 exe；产物输出到 `apps/desktop/release/`（已在 `.gitignore` 忽略） |
 | `pack-win.ps1` | Windows 一键打包脚本：必要时 `pnpm install`，可选跑检查，然后执行 `pnpm -C apps/desktop dist:win` | pnpm + electron-builder | `pack-win.cmd` | 支持参数：`-SkipInstall`、`-SkipChecks` |

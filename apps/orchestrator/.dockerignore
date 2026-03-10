@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-electron
+out
+release
+.git
+.gitignore
+.specwave/workspace
+.tmp-specwave-userdata
+*.log

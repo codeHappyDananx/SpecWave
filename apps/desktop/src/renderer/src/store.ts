@@ -212,18 +212,35 @@ const initialVm: AppViewModel = {
     }
   },
   chat: {
-    sessionIds: ['chat-1', 'chat-2'],
-    activeSessionId: 'chat-1',
+    sessionIds: ['assistant-main'],
+    activeSessionId: 'assistant-main',
     messagesBySession: {
-      'chat-1': [
-        msg('你', '我右区想随时切终端 / 对话，不想上下挤。'),
-        msg('AI', '收到：右区改为模式切换；终端/对话都支持多面板，互不共存。')
-      ],
-      'chat-2': [msg('AI', '这是第二个会话（示意），用于保留不同讨论上下文。')]
+      'assistant-main': []
     },
     draftBySession: {
-      'chat-1': '',
-      'chat-2': ''
+      'assistant-main': ''
+    }
+  },
+  assistant: {
+    profile: null,
+    capabilityPacks: [],
+    onboarding: {
+      isOpen: false,
+      status: 'checking',
+      sessionId: null,
+      title: '初始化本地助理',
+      subtitle: '先让我了解你的工作方式，这样后面我才能更像你的本地助理。',
+      summary: null,
+      error: null,
+      recommendedCapabilityPackIds: []
+    },
+    sessionMetaById: {
+      'assistant-main': {
+        isBusy: false,
+        pendingApprovalId: null,
+        pendingApprovalReason: null,
+        lastRiskLevel: null
+      }
     }
   },
   ui: { theme: loadTheme(), skin: loadSkin() },
@@ -1222,6 +1239,121 @@ void (async () => {
   }));
 })();
 
+void (async () => {
+  const api = window.specwave;
+  if (!api?.assistantListCapabilityPacks || !api?.assistantGetProfile || !api?.assistantOnboardingStart) return;
+
+  const sessionId = 'assistant-main';
+  useAppStore.setState((state) => ({
+    vm: {
+      ...state.vm,
+      assistant: {
+        ...state.vm.assistant,
+        onboarding: { ...state.vm.assistant.onboarding, status: 'checking', error: null }
+      }
+    }
+  }));
+
+  const [packsRes, profileRes] = await Promise.all([api.assistantListCapabilityPacks(), api.assistantGetProfile()]);
+  if (!packsRes.ok || !profileRes.ok) {
+    const message = !packsRes.ok ? packsRes.error : profileRes.ok ? '未知错误' : profileRes.error;
+    useAppStore.setState((state) => ({
+      vm: {
+        ...state.vm,
+        rightMode: 'chat',
+        chat: {
+          ...state.vm.chat,
+          sessionIds: state.vm.chat.sessionIds.includes(sessionId) ? state.vm.chat.sessionIds : [...state.vm.chat.sessionIds, sessionId],
+          activeSessionId: sessionId,
+          messagesBySession: {
+            ...state.vm.chat.messagesBySession,
+            [sessionId]: [...(state.vm.chat.messagesBySession[sessionId] ?? []), msg('AI', '本地助理启动失败：' + message)]
+          },
+          draftBySession: { ...state.vm.chat.draftBySession, [sessionId]: state.vm.chat.draftBySession[sessionId] ?? '' }
+        },
+        assistant: {
+          ...state.vm.assistant,
+          onboarding: { ...state.vm.assistant.onboarding, status: 'error', error: message }
+        }
+      }
+    }));
+    return;
+  }
+
+  if (profileRes.data) {
+    useAppStore.setState((state) => ({
+      vm: {
+        ...state.vm,
+        chat: {
+          ...state.vm.chat,
+          sessionIds: state.vm.chat.sessionIds.includes(sessionId) ? state.vm.chat.sessionIds : [...state.vm.chat.sessionIds, sessionId],
+          activeSessionId: sessionId,
+          messagesBySession: {
+            ...state.vm.chat.messagesBySession,
+            [sessionId]: state.vm.chat.messagesBySession[sessionId]?.length
+              ? state.vm.chat.messagesBySession[sessionId]!
+              : [msg('AI', '我已经按你的工作画像准备好了，直接把事情交给我就行。')]
+          },
+          draftBySession: { ...state.vm.chat.draftBySession, [sessionId]: state.vm.chat.draftBySession[sessionId] ?? '' }
+        },
+        assistant: {
+          ...state.vm.assistant,
+          profile: profileRes.data,
+          capabilityPacks: packsRes.data,
+          onboarding: { ...state.vm.assistant.onboarding, isOpen: false, status: 'completed', error: null }
+        }
+      }
+    }));
+    return;
+  }
+
+  const startRes = await api.assistantOnboardingStart();
+  if (!startRes.ok) {
+    useAppStore.setState((state) => ({
+      vm: {
+        ...state.vm,
+        rightMode: 'chat',
+        assistant: {
+          ...state.vm.assistant,
+          capabilityPacks: packsRes.data,
+          onboarding: { ...state.vm.assistant.onboarding, isOpen: true, status: 'error', error: startRes.error }
+        }
+      }
+    }));
+    return;
+  }
+
+  useAppStore.setState((state) => ({
+    vm: {
+      ...state.vm,
+      rightMode: 'chat',
+      chat: {
+        ...state.vm.chat,
+        sessionIds: state.vm.chat.sessionIds.includes(sessionId) ? state.vm.chat.sessionIds : [...state.vm.chat.sessionIds, sessionId],
+        activeSessionId: sessionId,
+        messagesBySession: {
+          ...state.vm.chat.messagesBySession,
+          [sessionId]: [msg('AI', startRes.data.reply)]
+        },
+        draftBySession: { ...state.vm.chat.draftBySession, [sessionId]: state.vm.chat.draftBySession[sessionId] ?? '' }
+      },
+      assistant: {
+        ...state.vm.assistant,
+        capabilityPacks: packsRes.data,
+        onboarding: {
+          ...state.vm.assistant.onboarding,
+          isOpen: true,
+          status: startRes.data.session.status,
+          sessionId: startRes.data.session.id,
+          summary: startRes.data.session.summary || null,
+          error: null,
+          recommendedCapabilityPackIds: startRes.data.session.recommendedCapabilityPackIds
+        }
+      }
+    }
+  }));
+})();
+
 let fsBridgeSubscribed = false;
 void (async () => {
   const api = window.specwave;
@@ -1681,3 +1813,6 @@ if (specwaveWindowKind === 'main') {
     }, 150);
   }
 }
+
+
+

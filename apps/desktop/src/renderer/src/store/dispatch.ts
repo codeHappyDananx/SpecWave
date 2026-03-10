@@ -1,6 +1,7 @@
 import type { UIIntent } from '@specwave/contracts';
 
 import type { AppState, StoreCtx } from './types';
+import { handleAssistantChatIntent } from './handlers/assistantChat';
 import { handlePanelIntent } from './handlers/panel';
 import { handleLayoutIntent } from './handlers/layout';
 import { handleThemeIntent } from './handlers/theme';
@@ -14,6 +15,7 @@ import { handleCodexCapabilitiesIntent } from './handlers/codexCapabilities';
 
 export function dispatchByHandlers(args: { ctx: StoreCtx; state: AppState; intent: UIIntent }): Partial<AppState> | null {
   return (
+    handleAssistantChatIntent(args) ??
     handlePanelIntent(args) ??
     handleLayoutIntent(args) ??
     handleThemeIntent(args) ??

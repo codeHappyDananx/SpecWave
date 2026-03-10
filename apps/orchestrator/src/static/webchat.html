@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpecWave WebChat</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .title {
+      margin: 0 0 8px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    input, textarea, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    textarea { min-height: 92px; resize: vertical; }
+    button {
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: var(--primary-hover); }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    .mono { font-family: Consolas, monospace; font-size: 12px; }
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: 1fr; }
+      .wrap { padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1 class="title">SpecWave 手机对话入口</h1>
+      <div class="grid">
+        <input id="tenantId" placeholder="tenantId" value="tenant-mobile" />
+        <input id="projectId" placeholder="projectId" value="proj-mobile" />
+        <input id="userId" placeholder="userId" value="user-mobile-1" />
+        <input id="userName" placeholder="userName" value="甲方用户" />
+      </div>
+      <div style="margin-top:8px;">
+        <textarea id="message" placeholder="请输入诉求，例如：我要一个自动交付系统，甲方只看结果。"></textarea>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button id="submitBtn">提交诉求</button>
+        <button id="refreshBtn" type="button">刷新状态</button>
+      </div>
+      <p class="muted">说明：提交后系统会自动执行到“结果待验收”，你只需关注最终结果。</p>
+    </div>
+
+    <div class="card">
+      <h2 class="title">当前请求</h2>
+      <div id="requestMeta" class="mono muted">尚未创建请求。</div>
+    </div>
+
+    <div class="card">
+      <h2 class="title">结果卡</h2>
+      <div id="resultCard" class="muted">暂无结果。</div>
+    </div>
+
+    <div class="card">
+      <h2 class="title">事件流</h2>
+      <div id="events" class="mono muted">暂无事件。</div>
+    </div>
+  </div>
+
+  <script>
+    let currentRequestId = null;
+    let pollingTimer = null;
+
+    const tenantIdEl = document.getElementById('tenantId');
+    const projectIdEl = document.getElementById('projectId');
+    const userIdEl = document.getElementById('userId');
+    const userNameEl = document.getElementById('userName');
+    const messageEl = document.getElementById('message');
+    const requestMetaEl = document.getElementById('requestMeta');
+    const resultCardEl = document.getElementById('resultCard');
+    const eventsEl = document.getElementById('events');
+
+    function setText(el, text) { el.textContent = text; }
+
+    async function submitRequest() {
+      const text = messageEl.value.trim();
+      if (!text) {
+        setText(requestMetaEl, '请先输入诉求。');
+        return;
+      }
+      const payload = {
+        chatId: `webchat-${Date.now()}`,
+        user: { id: userIdEl.value.trim(), name: userNameEl.value.trim() || undefined },
+        text,
+        tenantId: tenantIdEl.value.trim(),
+        projectId: projectIdEl.value.trim(),
+        idempotencyKey: `webchat-idem-${Date.now()}`
+      };
+      const res = await fetch('/api/v1/channels/webchat/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setText(requestMetaEl, `提交失败：${json?.error?.message || res.statusText}`);
+        return;
+      }
+      currentRequestId = json.data.requestId;
+      setText(requestMetaEl, `requestId=${currentRequestId} state=${json.data.state}`);
+      startPolling();
+      await refreshRequest();
+    }
+
+    async function refreshRequest() {
+      if (!currentRequestId) return;
+      const res = await fetch(`/api/v1/requests/${encodeURIComponent(currentRequestId)}`);
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setText(requestMetaEl, `读取失败：${json?.error?.message || res.statusText}`);
+        return;
+      }
+      const data = json.data;
+      setText(
+        requestMetaEl,
+        `requestId=${data.request.id}\nstate=${data.request.state}\nupdatedAt=${data.request.updatedAt}`
+      );
+      if (data.delivery) {
+        const checks = data.delivery.resultCard.businessChecks
+          .map((x) => `- ${x.name}: ${x.status} (${x.detail})`)
+          .join('\n');
+        setText(
+          resultCardEl,
+          `标题: ${data.delivery.resultCard.title}\n摘要: ${data.delivery.resultCard.summary}\n演示: ${data.delivery.demoLink}\n` + checks
+        );
+      }
+      if (Array.isArray(data.events)) {
+        const lines = data.events
+          .slice(-20)
+          .map((evt) => `[${evt.at}] ${evt.type} - ${evt.summary}`);
+        setText(eventsEl, lines.join('\n') || '暂无事件。');
+      }
+    }
+
+    function startPolling() {
+      if (pollingTimer) clearInterval(pollingTimer);
+      pollingTimer = setInterval(() => {
+        refreshRequest().catch((err) => {
+          setText(requestMetaEl, `轮询失败：${String(err)}`);
+        });
+      }, 5000);
+    }
+
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      submitRequest().catch((err) => setText(requestMetaEl, `提交异常：${String(err)}`));
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      refreshRequest().catch((err) => setText(requestMetaEl, `刷新异常：${String(err)}`));
+    });
+  </script>
+</body>
+</html>

@@ -13,7 +13,14 @@
 
 - 安装依赖：`pnpm install`
 - 启动开发：`pnpm dev`（Windows 推荐直接双击/运行 `start.bat`，它会自动 `cd` 到仓库根目录，并默认清理残留进程）
+- 启动编排服务：`pnpm start:orchestrator`（结果导向自动交付 API）
 - 类型检查：`pnpm typecheck`
+
+### 编排服务（MVP）
+
+- 目录：`apps/orchestrator`
+- 目标：甲方提诉求后，自动完成澄清 → 计划 → 开发 → 测试 → 结果包交付
+- 关键能力：审批闸门、超时提醒（24h/48h/72h）、升级后暂停、恢复运行、通知队列、渠道 webhook 归一化
 
 ## 打包（Windows）
 

@@ -1,0 +1,23 @@
+{
+  "name": "@specwave/orchestrator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@specwave/contracts": "workspace:*",
+    "dingtalk-stream": "^2.1.4",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,3 +1,35 @@
+import type {
+  CapabilityPackId,
+  CapabilityPackManifest,
+  OrchestratorRiskLevel,
+  UserProfile
+} from './orchestrator';
+
+export type {
+  ApprovalCheckpoint,
+  AssistantApprovalPolicy,
+  AssistantChatInput,
+  AssistantChatOutput,
+  AssistantOnboardingContinueInput,
+  AssistantOnboardingFinishInput,
+  AssistantOnboardingOutput,
+  AssistantOnboardingSession,
+  AssistantOnboardingStartInput,
+  AssistantOnboardingStatus,
+  AssistantOnboardingStepKey,
+  AssistantOnboardingTranscriptTurn,
+  AssistantSessionApprovalInput,
+  AssistantSessionApprovalOutput,
+  CapabilityPackId,
+  CapabilityPackManifest,
+  ConversationIntentKind,
+  ConversationSession,
+  ExecutionEvidence,
+  ExecutionEvidenceKind,
+  ExecutionIntent,
+  UserProfile
+} from './orchestrator';
+
 export type RightMode = "terminal" | "chat";
 
 // Story 阶段枚举
@@ -394,6 +426,8 @@ export type UIIntent =
   | { type: "TERMINAL_RESIZE"; id: string; cols: number; rows: number }
   | { type: "CHAT_DRAFT_SET"; id: string; text: string }
   | { type: "CHAT_MESSAGE_SUBMIT"; id: string; text: string }
+  | { type: "ASSISTANT_ONBOARDING_OPEN" }
+  | { type: "ASSISTANT_ONBOARDING_CLOSE" }
   | { type: "LAYOUT_CONTAINER_SET"; widthPx: number }
   | { type: "LAYOUT_DRAG_START"; handle: "L" | "R" }
   | { type: "LAYOUT_DRAG_MOVE"; deltaX: number }
@@ -404,6 +438,29 @@ export type UIIntent =
 export type ChatMessageVM = {
   who: "你" | "AI";
   text: string;
+};
+
+export type AssistantSessionMetaVM = {
+  isBusy: boolean;
+  pendingApprovalId: string | null;
+  pendingApprovalReason: string | null;
+  lastRiskLevel: OrchestratorRiskLevel | null;
+};
+
+export type AssistantVM = {
+  profile: UserProfile | null;
+  capabilityPacks: CapabilityPackManifest[];
+  onboarding: {
+    isOpen: boolean;
+    status: 'checking' | 'idle' | 'active' | 'awaiting_confirmation' | 'completed' | 'error';
+    sessionId: string | null;
+    title: string;
+    subtitle: string;
+    summary: string | null;
+    error: string | null;
+    recommendedCapabilityPackIds: CapabilityPackId[];
+  };
+  sessionMetaById: Record<string, AssistantSessionMetaVM>;
 };
 
 export type AppViewModel = {
@@ -444,6 +501,8 @@ export type AppViewModel = {
     draftBySession: Record<string, string>;
   };
 
+  assistant: AssistantVM;
+
   ui: { theme: "light" | "dark"; skin: "blue" | "purple" | "green" | "amber" };
 
   panelMinW: {
@@ -458,3 +517,5 @@ export type AppViewModel = {
   phaseIndicator: PhaseIndicatorVM;
   storyStepper: StoryStepperVM;
 };
+
+export * from './orchestrator';

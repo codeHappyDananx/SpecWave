@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/contracts" },
     { "path": "./packages/ui-next" },
-    { "path": "./apps/desktop" }
+    { "path": "./apps/desktop" },
+    { "path": "./apps/orchestrator" }
   ]
 }

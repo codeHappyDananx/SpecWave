@@ -30,6 +30,8 @@ apps/**/src/**/*.d.ts.map
 
 # SpecWave 会话/工作区状态（机器相关，不进版本库）
 /.specwave/settings.json
+/.specwave/orchestrator-state.json
+/.specwave/orchestrator-connectors.local.json
 
 
 # SpecWave 过程产物（AI 生成的中间稿/命令草稿，不属于需求资料）

@@ -3,6 +3,17 @@ import { createHash } from 'node:crypto';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  assistantApprove,
+  assistantChat,
+  assistantGetEvidence,
+  assistantGetProfile,
+  assistantListCapabilityPacks,
+  assistantOnboardingContinue,
+  assistantOnboardingFinish,
+  assistantOnboardingStart,
+  assistantUpdateProfile
+} from './assistantApi';
 import { getRecentProjects, removeRecentProject, touchRecentProject } from './recentProjects';
 import { codexCapabilitiesProbe, codexMcpInstallFromJson, codexMcpProbe, codexSkillInstall, codexSkillsProbe } from './codexCapabilities';
 
@@ -506,6 +517,60 @@ export function registerIpcHandlers(appShell: AppShellBridge) {
       });
     }
   );
+
+  ipcMain.handle('specwave:assistant:getProfile', async () => {
+    return await assistantGetProfile();
+  });
+
+  ipcMain.handle('specwave:assistant:updateProfile', async (_evt, args: { patch: Record<string, unknown> }) => {
+    return await assistantUpdateProfile((args?.patch ?? {}) as never);
+  });
+
+  ipcMain.handle('specwave:assistant:listCapabilityPacks', async () => {
+    return await assistantListCapabilityPacks();
+  });
+
+  ipcMain.handle('specwave:assistant:onboardingStart', async () => {
+    return await assistantOnboardingStart();
+  });
+
+  ipcMain.handle('specwave:assistant:onboardingContinue', async (_evt, args: { message: string }) => {
+    return await assistantOnboardingContinue(args?.message ?? '');
+  });
+
+  ipcMain.handle('specwave:assistant:onboardingFinish', async (_evt, args: { confirmed: boolean; note?: string }) => {
+    return await assistantOnboardingFinish({
+      confirmed: Boolean(args?.confirmed),
+      note: args?.note
+    });
+  });
+
+  ipcMain.handle(
+    'specwave:assistant:chat',
+    async (_evt, args: { sessionId?: string; message: string; channel?: string; tenantId?: string; projectId?: string }) => {
+      return await assistantChat({
+        sessionId: args?.sessionId,
+        message: args?.message ?? '',
+        channel: args?.channel,
+        tenantId: args?.tenantId,
+        projectId: args?.projectId
+      });
+    }
+  );
+
+  ipcMain.handle(
+    'specwave:assistant:approve',
+    async (_evt, args: { sessionId: string; action: 'approve' | 'reject'; comment?: string }) => {
+      return await assistantApprove(args?.sessionId ?? '', {
+        action: args?.action ?? 'approve',
+        comment: args?.comment
+      });
+    }
+  );
+
+  ipcMain.handle('specwave:assistant:getEvidence', async (_evt, args: { sessionId: string }) => {
+    return await assistantGetEvidence(args?.sessionId ?? '');
+  });
 
   /**
    * SpecWave 初始化引导（左栏）
