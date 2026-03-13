@@ -40,3 +40,7 @@ apps/**/src/**/*.d.ts.map
 
 # 本地工具脚本（不入库）
 tools/
+
+# Playwright 产物
+apps/desktop/playwright-report/
+apps/desktop/test-results/

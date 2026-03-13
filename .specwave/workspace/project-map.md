@@ -12,6 +12,9 @@
 - 构建：`pnpm build`（等价于 `pnpm -C apps/desktop build`）。
 - 打包（Windows）：`pnpm -C apps/desktop dist:win`（输出到 `apps/desktop/release/`）。
 - 一键打包（Windows）：`.\pack-win.cmd`（默认会跑 `typecheck` 与 `apps/desktop` 单测；可用 `-SkipChecks` 跳过）。
+- 测试（单元 + 交互）：`pnpm test:unit`。
+- Electron E2E：`pnpm test:e2e`。
+- 全量校验：`pnpm verify`（`typecheck + test:unit + test:e2e`）。
 - 类型检查：`pnpm typecheck`（`tsc -b`）。
 - 运行环境：Windows（当前主要）。
 
@@ -48,6 +51,8 @@
 | `packages/contracts` | 唯一交互契约：`UIIntent` + `AppViewModel`（含 `ContentKind`：text/markdown/task/image） | 无 | `apps/desktop`、`packages/ui-next` | 只放类型定义 |
 | `packages/contracts/src/index.ts` | 交互契约实现文件：新增终端分区 `TerminalDockVM` 与 `TERMINAL_DOCK_*`，以及左区“工作区/能力”切换与 `codexCapabilities`：能力视图（`MCP` + 技能 + 技能目录浏览）相关意图与 VM | 无 | `apps/desktop`、`packages/ui-next` | 仅类型与注释，禁止放实现 |
 | `packages/ui-next` | 纯 UI：只渲染 `ViewModel`、只派发 `UIIntent` | `@specwave/contracts` | `apps/desktop` renderer | 禁止接触 Node/Electron/文件系统 |
+| `packages/ui-next/vitest.config.ts` | UI 组件交互测试配置：`jsdom` + `Testing Library` | `vitest` | `packages/ui-next` tests | 只服务组件/交互测试，不承载业务逻辑 |
+| `packages/ui-next/src/test` | UI 测试公共初始化：补 `matchMedia`、`ResizeObserver`、动画与 canvas mock | `vitest` | `packages/ui-next` tests | 保持测试环境稳定，避免组件各自重复 mock |
 | `packages/ui-next/src/panels/left` | 左栏：文件树/搜索结果/Story 看板等展示（含右键菜单：复制路径/名称、打开所在文件夹）；新增常驻切换条以切换“工作区/能力” | `primitives`、contracts | `shell` | 禁止 import 其他 panels |
 | `packages/ui-next/src/panels/left/LeftRailSwitcher.tsx` | 左区常驻切换条：图标 + `HoverCard`：悬浮详情（右侧展开），切换左区主体内容 | `primitives/shadcn`、contracts | `panels/left/LeftPanel` | 只派发 `LEFT_PANEL_TAB_SET` |
 | `packages/ui-next/src/panels/left/codexCapabilities/CodexCapabilitiesView.tsx` | `codex`：工具名 能力视图：展示 `MCP` 与技能列表、状态、刷新与安装入口；技能支持“目录浏览”并可联动中区打开文件（遵从 Flat，使用 `shadcn/ui`：组件库 组合并通过 `className` 去阴影） | `primitives`、contracts | `panels/left/LeftPanel` | 只渲染 VM、只派发意图 |
@@ -89,10 +94,12 @@
 | `apps/desktop/src/preload` | `contextBridge` 暴露能力：文件系统/终端/窗口控制（含目录变更事件与原生弹窗、在资源管理器定位/打开路径） | Electron | renderer | UI 不直连 Node 能力 |
 | `apps/desktop/src/preload/index.ts` | preload 桥接实现：初始化引导事件、终端能力、剪贴板能力；新增 `selectFile` 与 `codexMcpProbe/codexSkillsProbe/codexMcpInstallFromJson/codexSkillInstall`：能力探测与安装桥接 | Electron | renderer store | 只做桥接与参数校验，不放业务编排 |
 | `apps/desktop/src/renderer/src/store.ts` | store：唯一 `dispatch(intent)` 入口，编排业务状态（图片预览与文件外部变更处理等）；终端输出不写入 VM，由 UI 侧 xterm 直接消费事件流 | contracts + preload API | UI | 业务逻辑集中在 store，不进 UI |
+| `apps/desktop/playwright.config.ts` | Electron E2E 配置：固定单 worker、失败保留 trace/screenshot/video | `@playwright/test` | `apps/desktop/e2e` | 稳定优先，不走 dev server |
+| `apps/desktop/e2e` | 桌面端端到端测试：启动 Electron 产物、隔离 userData、验证欢迎页到主界面流程 | Playwright + Electron | 人/CI | 禁止依赖原生文件选择框与外部 orchestrator 服务 |
 | `apps/desktop/src/renderer/src/store/shared/terminalDock.ts` | 终端分区纯函数：分区归一化、拖拽落点（移动/交换/合并/分区）、分隔条比例更新 | contracts | `store/handlers/panel.ts`、`store/handlers/terminal.ts`、`store/handlers/task.ts` | 不触发副作用；保证“最多 4 区且不留空区” |
 | `apps/desktop/src/renderer/src/store/handlers/codexCapabilities.ts` | `codex`：工具名 能力意图处理：切换左区 tab、刷新探测、安装 `MCP`/技能（含覆盖确认）；技能目录浏览（读取目录、展开子目录、打开文件） | preload API | `store.ts` | 只编排状态；不在 renderer 执行命令与文件写入 |
 | `apps/desktop/src/renderer/src/store/handlers/specwaveInit.ts` | 初始化引导状态机：消费 `SPECWAVE_INIT_*` 意图，订阅运行时进度事件并映射为 `explorer.specwaveInit` | contracts + preload API | `store.ts` | 只编排状态与刷新工作区树，不触达 UI 组件 |
-| `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
+| `apps/desktop/package.json` | 桌面端依赖与 scripts（dev/build/test/e2e/dist），并内置 `electron-builder` 打包配置 | pnpm + electron-vite + electron-builder + Playwright | 人/CI | `dist:win` 会生成 `release/`；签名走 `CSC_LINK`/`CSC_KEY_PASSWORD` |
 | `apps/orchestrator` | 结果导向自动交付编排服务（HTTP API + 状态机 + 调度） | `@specwave/contracts` + Node `http` | 私有化部署进程 / 运维 | 默认监听 `127.0.0.1:8787`，状态文件 `.specwave/orchestrator-state.json` |
 | `apps/orchestrator/src/orchestratorService.ts` | 编排核心：请求状态机、审批闸门、验收超时提醒升级、暂停恢复、结果包与通知队列生成 | contracts 类型 | `httpServer.ts`、测试 | 单进程内聚实现，先保证流程闭环，再扩展外部队列 |
 | `apps/orchestrator/src/httpServer.ts` | 北向接口：`/api/v1/requests`、`/approvals`、`/runs/:id/resume`、`/channels/:channel/webhook`、通知与指标接口 | `orchestratorService.ts` | 外部渠道适配层 / 客户端 | 统一 JSON 返回与错误码；支持手动 `tick` 调度 |
@@ -106,6 +113,7 @@
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `pack-win.cmd` | Windows 一键打包入口：调用 `pack-win.ps1` 并绕过执行策略限制 | PowerShell | 人 | 用于生成 exe；产物输出到 `apps/desktop/release/`（已在 `.gitignore` 忽略） |
 | `pack-win.ps1` | Windows 一键打包脚本：必要时 `pnpm install`，可选跑检查，然后执行 `pnpm -C apps/desktop dist:win` | pnpm + electron-builder | `pack-win.cmd` | 支持参数：`-SkipInstall`、`-SkipChecks` |
+| `docs/testing` | 测试规范与案例台账：约定分层、命名、执行口径和已覆盖/待覆盖清单 | Markdown | 人/AI | 改测试策略或新增重要用例时必须同步维护 |
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
 | `.codex/skills/specwave-router/session_guard.py` | 会话自愈脚本：把 `.specwave/settings.json` 的会话投影对齐到“当前 Codex 会话”，避免多会话串阶段 | Python | `AGENTS.md`、`specwave-router` | 并发会话会要求显式 `--session-id`；建议每次对话先 `sync` |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |

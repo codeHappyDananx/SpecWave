@@ -68,6 +68,7 @@ export function StoryBoardView({ storyBoard, activeStoryId, dispatch }: StoryBoa
           type="button"
           onClick={() => dispatch({ type: 'STORY_BOARD_REFRESH' })}
           className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+          aria-label="刷新 Story 列表"
           title="刷新"
         >
           <RefreshCw className="h-3 w-3" />

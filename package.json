@@ -11,7 +11,13 @@
     "dev:orchestrator": "pnpm -C apps/orchestrator dev",
     "build": "pnpm -C apps/desktop build",
     "start:orchestrator": "pnpm -C apps/orchestrator start",
+    "test": "pnpm test:unit",
+    "test:desktop": "pnpm -C apps/desktop test",
+    "test:ui": "pnpm -C packages/ui-next test",
     "test:orchestrator": "pnpm -C apps/orchestrator test",
+    "test:unit": "pnpm test:desktop && pnpm test:ui && pnpm test:orchestrator",
+    "test:e2e": "pnpm -C apps/desktop test:e2e",
+    "verify": "pnpm typecheck && pnpm test:unit && pnpm test:e2e",
     "typecheck": "tsc -b"
   },
   "devDependencies": {

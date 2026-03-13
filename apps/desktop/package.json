@@ -10,13 +10,16 @@
     "build": "electron-vite build",
     "dist:win": "pnpm run build && electron-builder --win --x64",
     "preview": "electron-vite preview",
-    "test": "vitest run",
+    "test": "pnpm run test:unit",
+    "test:unit": "vitest run",
+    "test:e2e": "pnpm run build && playwright test",
+    "test:e2e:headed": "pnpm run build && playwright test --headed",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.2",
     "@specwave/contracts": "workspace:*",
     "@specwave/ui-next": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.11.2",
     "adm-zip": "^0.5.12",
     "node-pty": "^1.1.0",
     "react": "^18.3.1",
@@ -24,9 +27,10 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
-    "@types/node": "^22.10.2",
     "@types/adm-zip": "^0.5.7",
+    "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
