@@ -21,6 +21,7 @@
 ## 2. 路径树（只展开到 2~3 层，忽略依赖目录）
 ```text
 .
+├─ .github/
 ├─ apps/
 │  ├─ desktop/
 │     ├─ src/
@@ -42,6 +43,10 @@
 ├─ .codex/               (Codex 项目内资源，可选)
 ├─ .specwave/            (协作工作区)
 ├─ specwave-skills/      (技能包与 CLI)
+├─ LICENSE
+├─ TRADEMARKS.md
+├─ CONTRIBUTING.md
+├─ SECURITY.md
 └─ start.bat
 ```
 
@@ -110,6 +115,11 @@
 | `apps/orchestrator/src/static/webchat.html` | 手机端 H5 对话页：提交诉求、轮询请求状态、展示结果卡与事件流 | 浏览器 + orchestrator API | `httpServer.ts`（`/webchat`） | 作为 MVP 手机入口，优先验证“甲方只看结果”闭环 |
 | `apps/orchestrator/src/stateStore.ts` | 编排状态持久化（JSON 文件原子写入） | Node 文件系统 | `orchestratorService.ts` | MVP 持久化实现，后续可替换 DB / 事件存储 |
 | `apps/orchestrator/Dockerfile` + `docker-compose.yml` | 私有化打包部署入口 | Docker | 运维/交付 | 容器默认暴露 `8787`，状态文件映射到宿主卷 |
+| `.github/CODEOWNERS` | 仓库评审归属规则：要求受保护分支按代码所有者审阅 | GitHub | 人/平台 | 与分支保护配合使用，当前默认归属仓库所有者 |
+| `LICENSE` | 项目根许可证：采用 `AGPL-3.0-or-later`，保护网络服务场景下的源码回流 | GNU `AGPL` 文本 | 所有代码使用者 | 不覆盖第三方依赖的独立许可证 |
+| `TRADEMARKS.md` | 品牌保护规则：保留 `SpecWave` 名称、Logo、图标等商标使用权 | 无 | 代码使用者、发行者 | 代码开源不等于品牌开放 |
+| `CONTRIBUTING.md` | 开源协作规则：贡献流程、`DCO` 签名、测试与许可证要求 | 无 | 外部贡献者、维护者 | 外部贡献默认按项目许可证分发 |
+| `SECURITY.md` | 漏洞披露策略：要求私密上报，约定响应窗口 | 无 | 安全研究者、维护者 | 禁止公开披露未修复漏洞细节 |
 | `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
 | `pack-win.cmd` | Windows 一键打包入口：调用 `pack-win.ps1` 并绕过执行策略限制 | PowerShell | 人 | 用于生成 exe；产物输出到 `apps/desktop/release/`（已在 `.gitignore` 忽略） |
 | `pack-win.ps1` | Windows 一键打包脚本：必要时 `pnpm install`，可选跑检查，然后执行 `pnpm -C apps/desktop dist:win` | pnpm + electron-builder | `pack-win.cmd` | 支持参数：`-SkipInstall`、`-SkipChecks` |
