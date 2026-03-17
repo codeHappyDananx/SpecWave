@@ -64,3 +64,15 @@
 
 - `apps`：可运行的应用（先做桌面端）
 - `packages`：可复用的模块（contracts / ui-next 等）
+
+## 许可证与开源保护
+
+- 本项目代码采用 `AGPL-3.0-or-later` 开源，见 [LICENSE](./LICENSE)
+- 如果你修改本项目并通过网络向用户提供服务，需要按许可证要求提供对应源码
+- `SpecWave` 名称、Logo、应用图标与其他品牌标识不随代码许可证一并授权，见 [TRADEMARKS.md](./TRADEMARKS.md)
+
+## 贡献与安全
+
+- 提交贡献前请阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)
+- 本项目要求提交带 `DCO` 签名：`git commit -s`
+- 安全漏洞请不要公开披露，流程见 [SECURITY.md](./SECURITY.md)
