@@ -16,6 +16,8 @@
     "packages/*"
   ],
   "scripts": {
+    "bootstrap:win": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\windows\\bootstrap-win.ps1",
+    "doctor:win": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\windows\\doctor-win.ps1",
     "dev": "pnpm -C apps/desktop dev",
     "dev:orchestrator": "pnpm -C apps/orchestrator dev",
     "build": "pnpm -C apps/desktop build",

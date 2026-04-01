@@ -11,18 +11,44 @@ if not exist "package.json" (
   exit /b 1
 )
 
+where node >nul 2>nul
+if errorlevel 1 (
+  echo [SpecWave] Node.js not found.
+  echo [SpecWave] Recommended: winget install -e --id OpenJS.NodeJS.LTS
+  echo [SpecWave] Or run bootstrap-win.cmd -InstallNode
+  pause
+  exit /b 1
+)
+
 set "PNPM=pnpm"
+set "PNPM_LABEL=pnpm"
 where pnpm >nul 2>nul
 if errorlevel 1 (
-  where corepack >nul 2>nul
+  where npm >nul 2>nul
   if errorlevel 1 (
-    echo [SpecWave] pnpm not found.
-    echo [SpecWave] Install pnpm or enable corepack first.
-    echo [SpecWave] Tip: corepack enable
+    where corepack >nul 2>nul
+    if errorlevel 1 (
+      echo [SpecWave] npm/corepack not found.
+      echo [SpecWave] Install Node.js first, then rerun bootstrap-win.cmd.
+      pause
+      exit /b 1
+    )
+    set "PNPM=corepack pnpm"
+    set "PNPM_LABEL=corepack pnpm"
+  ) else (
+    set "PNPM=npm exec --yes pnpm@9.15.4 --"
+    set "PNPM_LABEL=npm exec --yes pnpm@9.15.4 --"
+  )
+)
+
+if not exist "node_modules" (
+  echo [SpecWave] node_modules not found. Running bootstrap-win.cmd first...
+  call "%~dp0bootstrap-win.cmd" -SkipTypecheck
+  if errorlevel 1 (
+    echo [SpecWave] bootstrap failed.
     pause
     exit /b 1
   )
-  set "PNPM=corepack pnpm"
 )
 
 set "SW_MODE="
@@ -49,6 +75,10 @@ echo SpecWave dev launcher (Windows)
 echo.
 echo Usage:
 echo   start.bat [mode] [--no-clean] [--devtools]
+echo.
+echo first run:
+echo   start.bat will auto-run bootstrap-win.cmd if node_modules is missing.
+echo   global pnpm is optional. Fallback order: pnpm ^> npm exec pnpm@9.15.4 ^> corepack pnpm
 echo.
 echo modes:
 echo   d3d11       - ANGLE d3d11, default, hardware + WebGL2
@@ -85,6 +115,7 @@ if /i "%SW_MODE%"=="nogpu" set "SPECWAVE_DISABLE_GPU=1"
 
 if "%SW_CLEAN%"=="1" call :clean_processes
 
+if "%SW_VERBOSE%"=="1" echo [SpecWave] package manager: %PNPM_LABEL%
 if "%SW_VERBOSE%"=="1" echo [SpecWave] Launch: ANGLE=%SPECWAVE_ANGLE% USE_GL=%SPECWAVE_USE_GL% DISABLE_GPU=%SPECWAVE_DISABLE_GPU%
 if "%SW_VERBOSE%"=="1" echo [SpecWave] userData: %SPECWAVE_USER_DATA_DIR%
 call %PNPM% dev

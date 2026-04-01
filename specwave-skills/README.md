@@ -59,6 +59,7 @@ specwave-skills/
 
 - `specwave create`：初始化/刷新（交互式小向导）
 - `specwave catalog`：输出资源概览
+- `specwave codex install`：安装/更新 Codex 全局资源（`specwave-router` + slash prompts）
 
 ## 三分钟上手
 
@@ -112,6 +113,23 @@ SpecWave 会安装 Codex 全局资源（`specwave-router` + 斜杠命令）：
 specwave codex install --yes
 ```
 
+安装完成后，默认会在 `CODEX_HOME` 下看到这些文件：
+
+```text
+skills/specwave-router/SKILL.md
+skills/specwave-router/session_guard.py
+prompts/specwave-开始执行.md
+prompts/specwave-归档需求.md
+prompts/specwave-新建需求.md
+```
+
+建议先预览计划再执行：
+
+```bash
+specwave codex install --plan
+specwave codex install --yes
+```
+
 ## 命令参数
 
 ### specwave create
@@ -122,3 +140,8 @@ specwave codex install --yes
 ### specwave catalog
 - `--format <text|machine>`：输出格式
 - `--only <packs|roles|prompts>`：按类输出
+
+### specwave codex install
+- `--plan`：只输出安装计划，不落盘
+- `--yes`：确认执行并落盘
+- `--skipIfExists`：如果目标文件已存在，则整体跳过，避免覆盖

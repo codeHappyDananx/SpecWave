@@ -1,37 +1,61 @@
 param(
   [switch]$SkipInstall,
-  [switch]$SkipChecks
+  [switch]$SkipChecks,
+  [string]$ElectronMirror,
+  [switch]$NoMirrorFallback
 )
 
 $ErrorActionPreference = 'Stop'
 
 Set-Location $PSScriptRoot
 
-function Require-Command([string]$Name) {
-  $cmd = Get-Command $Name -ErrorAction SilentlyContinue
-  if (-not $cmd) {
-    throw "未找到命令：$Name。请先安装并配置到 PATH。"
-  }
+. (Join-Path $PSScriptRoot 'scripts\windows\common.ps1')
+
+function Invoke-PackCommand([string[]]$Arguments) {
+  return Invoke-SpecWavePnpm -RepoRoot $PSScriptRoot -Arguments $Arguments -ElectronMirror $ElectronMirror
 }
 
-Require-Command 'pnpm'
+$pnpmCommand = Get-SpecWavePnpmCommand -RepoRoot $PSScriptRoot
+if ($null -eq $pnpmCommand) {
+  throw '未找到 pnpm/corepack/npm。请先安装 Node.js。'
+}
+
+Write-Host "[pack] package manager: $($pnpmCommand.DisplayName)"
 
 if (-not $SkipInstall) {
   if (-not (Test-Path (Join-Path $PSScriptRoot 'node_modules'))) {
-    Write-Host '[pack] 未发现 node_modules，先执行 pnpm install ...'
-    pnpm install
+    Write-Host '[pack] 未发现 node_modules，先执行 install ...'
+    $installExitCode = Invoke-PackCommand @('install')
+    if ($installExitCode -ne 0 -and -not $ElectronMirror -and -not $NoMirrorFallback) {
+      $fallbackMirror = 'https://npmmirror.com/mirrors/electron/'
+      Write-Warning "[pack] install 失败。正在用 Electron 镜像重试：$fallbackMirror"
+      $ElectronMirror = $fallbackMirror
+      $installExitCode = Invoke-PackCommand @('install')
+    }
+    if ($installExitCode -ne 0) {
+      throw "install 失败（exit=$installExitCode）。"
+    }
   }
 }
 
 if (-not $SkipChecks) {
   Write-Host '[pack] 运行 typecheck ...'
-  pnpm -s typecheck
+  $typecheckExitCode = Invoke-PackCommand @('-s', 'typecheck')
+  if ($typecheckExitCode -ne 0) {
+    throw "typecheck 失败（exit=$typecheckExitCode）。"
+  }
   Write-Host '[pack] 运行 apps/desktop 单测 ...'
-  pnpm -s -C apps/desktop test
+  $testExitCode = Invoke-PackCommand @('-s', '-C', 'apps/desktop', 'test')
+  if ($testExitCode -ne 0) {
+    throw "apps/desktop test 失败（exit=$testExitCode）。"
+  }
 }
 
 Write-Host '[pack] 开始打包 Windows exe ...'
-pnpm -C apps/desktop dist:win
+$distExitCode = Invoke-PackCommand @('-C', 'apps/desktop', 'dist:win')
+if ($distExitCode -ne 0) {
+  throw "dist:win 失败（exit=$distExitCode）。"
+}
 
 $outDir = Join-Path $PSScriptRoot 'apps\desktop\release'
 Write-Host "`n[pack] 输出目录：$outDir"

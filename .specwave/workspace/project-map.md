@@ -9,6 +9,8 @@
 ## 1. 入口与运行方式
 - 入口：桌面应用（Electron）+ 三栏 UI（`ui-next`）。
 - 启动（开发）：`pnpm dev`（等价于 `pnpm -C apps/desktop dev`）；Windows 可用 `start.bat`。
+- Windows 新机器引导：`.\bootstrap-win.cmd`（安装依赖、可选自动装 Node.js、默认跑 `typecheck`）。
+- Windows 环境诊断：`npm run doctor:win`。
 - 构建：`pnpm build`（等价于 `pnpm -C apps/desktop build`）。
 - 打包（Windows）：`pnpm -C apps/desktop dist:win`（输出到 `apps/desktop/release/`）。
 - 一键打包（Windows）：`.\pack-win.cmd`（默认会跑 `typecheck` 与 `apps/desktop` 单测；可用 `-SkipChecks` 跳过）。
@@ -22,6 +24,8 @@
 ```text
 .
 ├─ .github/
+├─ scripts/
+│  └─ windows/
 ├─ apps/
 │  ├─ desktop/
 │     ├─ src/
@@ -47,6 +51,7 @@
 ├─ TRADEMARKS.md
 ├─ CONTRIBUTING.md
 ├─ SECURITY.md
+├─ bootstrap-win.cmd
 └─ start.bat
 ```
 
@@ -120,9 +125,13 @@
 | `TRADEMARKS.md` | 品牌保护规则：保留 `SpecWave` 名称、Logo、图标等商标使用权 | 无 | 代码使用者、发行者 | 代码开源不等于品牌开放 |
 | `CONTRIBUTING.md` | 开源协作规则：贡献流程、`DCO` 签名、测试与许可证要求 | 无 | 外部贡献者、维护者 | 外部贡献默认按项目许可证分发 |
 | `SECURITY.md` | 漏洞披露策略：要求私密上报，约定响应窗口 | 无 | 安全研究者、维护者 | 禁止公开披露未修复漏洞细节 |
-| `start.bat` | Windows 启动与排障开关（ANGLE/GPU） | pnpm | 人 | 开发时默认静默启动 |
+| `scripts/windows/common.ps1` | Windows 脚本公共能力：解析仓库根目录、解析 `packageManager`、统一选择 `pnpm/npm exec pnpm/corepack pnpm` | PowerShell | `bootstrap-win.ps1`、`doctor-win.ps1`、`pack-win.ps1` | 把“无全局 pnpm”场景收敛到一处处理 |
+| `scripts/windows/bootstrap-win.ps1` | Windows 新机器引导：检查 `Node.js`、安装依赖、失败时自动回退 Electron 镜像、默认跑 `typecheck` | PowerShell + npm/pnpm | `bootstrap-win.cmd`、人 | `-InstallNode` 可调用 `winget` 装 Node.js LTS |
+| `scripts/windows/doctor-win.ps1` | Windows 环境诊断：列出 `git/node/npm/pnpm/corepack/winget` 状态和推荐下一步 | PowerShell | `npm run doctor:win`、人 | 用于新机器排障与 issue 自检 |
+| `bootstrap-win.cmd` | Windows 新机器入口：绕过执行策略调用 `bootstrap-win.ps1` | PowerShell | 人 | 适合双击或终端直接执行 |
+| `start.bat` | Windows 启动与排障开关（ANGLE/GPU）；缺少依赖时会先调用 `bootstrap-win.cmd`，且不要求全局 `pnpm` | pnpm/corepack/npm | 人 | 开发时默认静默启动 |
 | `pack-win.cmd` | Windows 一键打包入口：调用 `pack-win.ps1` 并绕过执行策略限制 | PowerShell | 人 | 用于生成 exe；产物输出到 `apps/desktop/release/`（已在 `.gitignore` 忽略） |
-| `pack-win.ps1` | Windows 一键打包脚本：必要时 `pnpm install`，可选跑检查，然后执行 `pnpm -C apps/desktop dist:win` | pnpm + electron-builder | `pack-win.cmd` | 支持参数：`-SkipInstall`、`-SkipChecks` |
+| `pack-win.ps1` | Windows 一键打包脚本：必要时自动 install，可选跑检查，然后执行 `pnpm -C apps/desktop dist:win` | npm/pnpm + electron-builder | `pack-win.cmd` | 支持参数：`-SkipInstall`、`-SkipChecks`、`-ElectronMirror`、`-NoMirrorFallback` |
 | `docs/testing` | 测试规范与案例台账：约定分层、命名、执行口径和已覆盖/待覆盖清单 | Markdown | 人/AI | 改测试策略或新增重要用例时必须同步维护 |
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
 | `.codex/skills/specwave-router/session_guard.py` | 会话自愈脚本：把 `.specwave/settings.json` 的会话投影对齐到“当前 Codex 会话”，避免多会话串阶段 | Python | `AGENTS.md`、`specwave-router` | 并发会话会要求显式 `--session-id`；建议每次对话先 `sync` |

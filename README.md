@@ -9,12 +9,29 @@
 - 视觉口径固定：Light Mode + Flat（无阴影、无模糊）
 - 字体离线内置：Outfit + JetBrains Mono
 
+## Windows 快速开始（新机器）
+
+- 最少前置：`Git` + `Node.js`（已在 `Node v24.11.1` 验证）
+- 推荐安装命令：
+  - `winget install -e --id Git.Git`
+  - `winget install -e --id OpenJS.NodeJS.LTS`
+- 克隆后先执行：`.\bootstrap-win.cmd`
+- 启动开发：`.\start.bat`
+- 环境诊断：`npm run doctor:win`
+
+说明：
+- 不要求全局安装 `pnpm`。仓库脚本会按 `pnpm` → `npm exec --yes pnpm@9.15.4 --` → `corepack pnpm` 的顺序自动回退。
+- 首次安装如果卡在 `electron` 下载，`bootstrap-win.cmd` 和 `pack-win.ps1` 会自动用 `https://npmmirror.com/mirrors/electron/` 重试。
+- 正常的 x64 Windows 开发/构建流程下，不需要额外装 Python 或 Visual Studio Build Tools；当前 `node-pty` 会走预编译产物。
+
 ## 开发
 
+- 新机器初始化：`.\bootstrap-win.cmd`
 - 安装依赖：`pnpm install`
-- 启动开发：`pnpm dev`（Windows 推荐直接双击/运行 `start.bat`，它会自动 `cd` 到仓库根目录，并默认清理残留进程）
+- 启动开发：`pnpm dev`（Windows 推荐直接双击/运行 `start.bat`，它会自动 `cd` 到仓库根目录；如果还没装依赖，会先调用 `bootstrap-win.cmd`）
 - 启动编排服务：`pnpm start:orchestrator`（结果导向自动交付 API）
 - 类型检查：`pnpm typecheck`
+- 环境诊断：`npm run doctor:win`
 
 ### 编排服务（MVP）
 
@@ -26,7 +43,12 @@
 
 - 生成构建产物（`dist-electron`）：`pnpm build`
 - 生成安装包（NSIS Setup.exe）+ 免安装版（portable.exe）：`pnpm -C apps/desktop dist:win`
+- Windows 一键打包：`.\pack-win.cmd`
 - 打包输出目录：`apps/desktop/release/`
+
+说明：
+- `pack-win.ps1` / `pack-win.cmd` 同样不要求全局 `pnpm`。
+- 如需显式指定 Electron 镜像：`.\pack-win.cmd -ElectronMirror https://npmmirror.com/mirrors/electron/`
 
 ### 代码签名（Windows）
 

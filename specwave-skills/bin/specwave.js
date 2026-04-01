@@ -2661,21 +2661,21 @@ function printCodexInstallPlan(plan) {
   process.stdout.write(PALETTE.accent('Codex 安装计划') + '\n');
   process.stdout.write(PALETTE.dim(`CODEX_HOME：${plan.codexHome}`) + '\n\n');
   for (const op of plan.operations) {
+    const relativeTarget = path.relative(plan.codexHome, op.targetPath).split(path.sep).join('/');
     if (op.isDirectory) {
       if (op.kind === 'codex-prompt') {
-        process.stdout.write(`- CONFLICT(是目录) prompts/specwave-${op.promptId}.md\n`);
+        process.stdout.write(`- CONFLICT(是目录) ${relativeTarget}\n`);
       } else {
-        process.stdout.write('- CONFLICT(是目录) skills/specwave-router/SKILL.md\n');
+        process.stdout.write(`- CONFLICT(是目录) ${relativeTarget}\n`);
       }
       continue;
     }
     if (op.kind === 'codex-prompt') {
-      const basename = path.basename(op.targetPath);
       const label = op.action === 'delete' ? 'DELETE' : (op.exists ? 'UPDATE' : 'WRITE');
-      process.stdout.write(`- ${label} prompts/${basename}\n`);
+      process.stdout.write(`- ${label} ${relativeTarget}\n`);
     } else {
       const label = op.action === 'delete' ? 'DELETE' : (op.exists ? 'UPDATE' : 'WRITE');
-      process.stdout.write(`- ${label} skills/specwave-router/SKILL.md\n`);
+      process.stdout.write(`- ${label} ${relativeTarget}\n`);
     }
   }
   process.stdout.write('\n');
@@ -2688,7 +2688,7 @@ function runCodex(positionals, options) {
     process.stdout.write(
       [
         '用法：',
-        '  specwave codex install [--plan] [--yes] [--pack core] [--profile light]',
+        '  specwave codex install [--plan] [--yes] [--skipIfExists] [--pack core] [--profile light]',
         '',
         '说明：',
         '  install  安装/更新 Codex 全局资源（specwave-router + SpecWave 斜杠命令）'
@@ -2838,7 +2838,7 @@ async function main() {
     return;
   }
 
-  exitWithError(`未知命令：${command}（可用 create/catalog）`);
+  exitWithError(`未知命令：${command}（可用 create/catalog/codex）`);
 }
 
 main().catch((error) => {
