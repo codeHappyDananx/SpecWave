@@ -1,13 +1,16 @@
 {
   "specwave": {
-    "version": "0.3.0"
+    "version": "0.4.0",
+    "architecture": "tool-driven"
   },
   "executionGate": {
     "requiresExplicitApproval": true,
     "requiresRequirementConfirmation": true
   },
   "requirementsTemplate": {
-    "templateId": "minimal-zh"
+    "templateId": "structured-json",
+    "renderMode": "tool-driven",
+    "toolName": "writeDoc"
   },
   "projectProbe": {
     "ignoreDirs": [
@@ -22,5 +25,6 @@
       ".cache",
       ".tmp-specwave-userdata"
     ]
-  }
+  },
+  "currentSession": null
 }

@@ -18,7 +18,7 @@ export const BUILTIN_CAPABILITY_PACKS: CapabilityPackManifest[] = [
     description: '覆盖代码阅读、需求实现、测试验证、变更说明等开发任务。',
     defaultTools: ['终端', '代码搜索', '测试命令', '浏览器调试'],
     exampleRequests: ['帮我熟悉这个仓库', '实现一个新功能', '跑测试并总结失败原因'],
-    defaultPrompt: '遵循现有代码风格，优先给出证据、改动摘要和测试结果。',
+    defaultPrompt: '遵循现有代码风格，优先给出证据、改动摘要和测试结果。写入文档时必须使用 writeDoc 工具（输出 ```writeDoc JSON 代码块），禁止直接写 markdown。',
     outputTemplate: '目标 + 影响范围 + 实施/验证结果',
     acceptanceTemplate: '功能可用、测试通过、风险说明充分',
     riskHints: ['生产发布前确认', '破坏性命令必须审批']
@@ -40,7 +40,7 @@ export const BUILTIN_CAPABILITY_PACKS: CapabilityPackManifest[] = [
     description: '覆盖诉求澄清、需求文档、验收标准、流程梳理。',
     defaultTools: ['模板库', '文档输出', '流程图', '审批节点'],
     exampleRequests: ['把这段诉求整理成 PRD', '拆成验收标准', '画出流程和边界'],
-    defaultPrompt: '先澄清再固化，输出要覆盖目标、边界、流程和验收口径。',
+    defaultPrompt: '先澄清再固化，输出要覆盖目标、边界、流程和验收口径。写入文档时必须使用 writeDoc 工具（输出 ```writeDoc JSON 代码块），禁止直接写 markdown。',
     outputTemplate: '背景 + 目标 + 范围 + 规则 + 验收',
     acceptanceTemplate: '需求边界明确、无关键歧义、验收可执行',
     riskHints: ['涉及跨团队承诺前先确认范围']

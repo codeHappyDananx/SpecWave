@@ -40,6 +40,8 @@ apps/**/src/**/*.d.ts.map
 
 # 本地工具脚本（不入库）
 tools/
+!specwave-skills/resources/packs/core/light/.specwave/tools/
+!specwave-skills/resources/packs/core/light/.specwave/tools/**
 
 # Playwright 产物
 apps/desktop/playwright-report/

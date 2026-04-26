@@ -136,7 +136,10 @@
 | `.codex` | 项目内 Codex 资源：skills + prompts（用于“只影响本项目”的 AI 行为） | `specwave create`（设置 `CODEX_HOME`） | Codex CLI | 默认写到全局 `CODEX_HOME`；需要可复现时指到项目根 `.codex` |
 | `.codex/skills/specwave-router/session_guard.py` | 会话自愈脚本：把 `.specwave/settings.json` 的会话投影对齐到“当前 Codex 会话”，避免多会话串阶段 | Python | `AGENTS.md`、`specwave-router` | 并发会话会要求显式 `--session-id`；建议每次对话先 `sync` |
 | `.specwave/workspace` | 需求/验收/追溯工作区 | 无 | 人+AI | 资料只落这里 |
-| `specwave-skills` | skills/`CLI`：命令行 资源（可公开复用） | Node | `specwave` 命令、桌面端初始化引导 | pack 资源路径：`specwave-skills/resources/packs/core/light` |
+| `specwave-skills` | skills/`CLI`：命令行资源（可公开复用），内置 core/light 资源包 | Node | `specwave` 命令、桌面端初始化引导、orchestrator 能力包 | pack 资源路径：`specwave-skills/resources/packs/core/light` |
+| `specwave-skills/resources/packs/core/light/.specwave/schemas` | Tool-Driven 文档注入的数据契约：定义需求/设计/任务结构化 JSON 的字段与类型 | TypeScript | `tools/writeDoc.ts`、角色提示词 | 只放结构契约，不负责 Markdown 格式 |
+| `specwave-skills/resources/packs/core/light/.specwave/templates` | 代码模板渲染层：把通过 Schema 校验的数据渲染为固定 Markdown 文档 | `schemas` | `tools/writeDoc.ts` | 取代旧 `01-需求.md` / `02-设计.md` / `03-任务.md` 自由模板 |
+| `specwave-skills/resources/packs/core/light/.specwave/tools/writeDoc.ts` | 文档写入工具：接收结构化 JSON、校验 Schema、调用模板渲染并落盘 Story 文档 | `schemas`、`templates`、Node `fs/path` | 角色提示词、orchestrator 文档写入指令 | AI 写需求/设计/任务文档的唯一工具入口 |
 
 ## 4. 边界与约束（影响面）
 - 三栏互不 import：`left/center/right` 互相隔离，只能被 `shell` 组合。
